@@ -1,0 +1,322 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border-strong) 80%, var(--muted));
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: var(--theme-noise-opacity);
+  mix-blend-mode: color-dodge;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23eaeaea' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--theme-glow-opacity);
+  mix-blend-mode: lighten;
+  background: var(--theme-glow);
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--heading-size);
+  font-weight: var(--heading-weight);
+  line-height: var(--heading-line-height);
+  letter-spacing: var(--heading-tracking);
+  text-wrap: balance;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transform: translateY(-120%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  color: var(--ink);
+}
+
+input,
+select,
+textarea {
+  background: var(--surface-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  min-height: var(--control-height);
+  padding: 7px 11px;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--border-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring) 30%, transparent);
+  outline-offset: 3px;
+}
+
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  min-height: var(--control-height);
+  padding: 0 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: var(--button-tracking);
+  text-transform: var(--button-transform);
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: var(--button-shadow);
+  transition:
+    background-color var(--duration-fast) ease-out,
+    color var(--duration-fast) ease-out,
+    border-color var(--duration-fast) ease-out,
+    box-shadow var(--duration-fast) ease-out,
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+button:not(:disabled):hover,
+.button:not([aria-disabled="true"]):hover {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled),
+.button:active:not([aria-disabled="true"]) {
+  transform: translateY(0);
+}
+
+button:disabled,
+button[aria-disabled="true"],
+.button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:not(.secondary):not(.ghost):not(.danger):not([role="tab"]):hover:not(:disabled),
+.button:not(.secondary):not(.ghost):not(.danger):hover {
+  background: var(--accent-hover);
+}
+
+button.secondary,
+.button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+button.secondary:hover:not(:disabled),
+button.ghost:hover:not(:disabled),
+.button.secondary:hover,
+.button.ghost:hover {
+  background: var(--accent-subtle);
+}
+
+button.ghost,
+.button.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+button.danger,
+.button.danger {
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface-card));
+  box-shadow: none;
+}
+
+button.danger.ghost,
+.button.danger.ghost {
+  border-color: transparent;
+}
+
+button.danger[data-solid="true"],
+.button.danger[data-solid="true"] {
+  color: var(--danger-foreground);
+  background: var(--danger);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: 10px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+}
+
+.field-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--label-tracking);
+  text-transform: var(--label-transform);
+  color: var(--text-strong);
+}
+
+.field-hint,
+.field-error {
+  margin: 0;
+  font-size: 12px;
+}
+
+.field-hint {
+  color: var(--muted);
+}
+
+.field-error {
+  color: var(--danger);
+}
+
+.banner:not(:empty) {
+  margin-top: var(--space-4);
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-banner);
+  border-radius: var(--radius-control);
+  box-shadow: var(--surface-shadow);
+}
+
+.banner.error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-banner));
+}
+
+.banner.success {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
+  background: color-mix(in srgb, var(--ok) 8%, var(--surface-banner));
+}
+
+.empty-state {
+  margin-top: var(--space-4);
+  padding: clamp(40px, 8vh, 72px) var(--space-6);
+  border: 1px solid var(--border);
+  background: var(--surface-card);
+  text-align: center;
+  border-radius: var(--radius-surface);
+  box-shadow: var(--surface-shadow);
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 46em;
+  margin-inline: auto;
+  color: var(--muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 768px) {
+  button,
+  input,
+  select,
+  textarea,
+  .button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

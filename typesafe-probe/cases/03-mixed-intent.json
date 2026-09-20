@@ -1,0 +1,31 @@
+{
+  "state": "The iOS app crashes every time I open settings. Separately, can someone from sales send enterprise pricing? Also I think I was billed twice last month, but please do not rush the billing part.",
+  "model": "jev-latest",
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "If you must pick one team to own this message, which one?",
+      "criteria": {
+        "billing": "Payment or subscription issues",
+        "technical": "Bugs or integration problems",
+        "sales": "Pricing or account questions"
+      }
+    },
+    "mentions_crash": {
+      "type": "noul",
+      "instructions": "The message mentions an app crash or technical failure."
+    },
+    "mentions_pricing": {
+      "type": "noul",
+      "instructions": "The message asks about pricing or a sales quote."
+    },
+    "mentions_billing": {
+      "type": "noul",
+      "instructions": "The message mentions a billing or charge problem."
+    },
+    "is_urgent": {
+      "type": "noul",
+      "instructions": "The message as a whole conveys urgency or time-sensitivity"
+    }
+  }
+}

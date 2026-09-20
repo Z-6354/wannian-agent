@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>万年对话</title>
+  <link rel="stylesheet" href="/ui/tokens.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/themes/paper.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/components.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/layouts/app-shell.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/layouts/chat.css?v=20260920p">
+</head>
+<body>
+  <a class="skip-link" href="#transcript">跳到对话</a>
+  <header class="mobile-head">
+    <button type="button" class="mobile-nav-toggle ghost" id="mobile-nav-toggle" aria-label="打开导航" aria-controls="app-sidebar" aria-expanded="false">☰</button>
+    <strong>万年</strong>
+  </header>
+  <button type="button" class="mobile-nav-backdrop" id="mobile-nav-backdrop" aria-label="关闭导航" hidden></button>
+  <div class="shell">
+    <aside class="sidebar" id="app-sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">万</div>
+        <div class="brand-copy">
+          <div class="brand-name">万年</div>
+          <div class="brand-sub">本地数据工作台</div>
+        </div>
+      </div>
+      <nav id="app-nav" aria-label="主导航"></nav>
+    </aside>
+    <div class="workspace chat-workspace">
+      <header class="page-head content-frame">
+        <div class="page-head-text">
+          <h1>对话</h1>
+          <p id="chat-status" class="page-status"></p>
+        </div>
+        <div class="page-actions">
+          <button type="button" class="secondary" id="new-conversation">新会话</button>
+        </div>
+      </header>
+      <p id="chat-notice" class="banner chat-notice content-frame" role="status" aria-live="polite"></p>
+      <main id="transcript" class="content-frame" tabindex="-1" aria-label="本次打开后的消息"></main>
+      <form id="composer" class="composer content-frame">
+        <label class="field" for="draft">
+          <span class="field-label">消息</span>
+          <textarea id="draft" name="text" rows="3" autocomplete="off" placeholder="写下一句…"></textarea>
+          <span class="field-hint">Enter 发送，Shift+Enter 换行。空白不会提交。</span>
+        </label>
+        <button type="submit" id="send">发送</button>
+      </form>
+    </div>
+  </div>
+  <script type="module" src="/chat/app.js?v=20260920p"></script>
+</body>
+</html>

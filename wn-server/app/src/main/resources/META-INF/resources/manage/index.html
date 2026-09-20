@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>万年管理</title>
+  <link rel="stylesheet" href="/ui/tokens.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/themes/paper.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/components.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/layouts/app-shell.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/layouts/console.css?v=20260920p">
+</head>
+<body>
+  <a class="skip-link" href="#panel">跳到主要内容</a>
+  <header class="mobile-head">
+    <button type="button" class="mobile-nav-toggle ghost" id="mobile-nav-toggle" aria-label="打开导航" aria-controls="app-sidebar" aria-expanded="false">☰</button>
+    <strong>万年</strong>
+  </header>
+  <button type="button" class="mobile-nav-backdrop" id="mobile-nav-backdrop" aria-label="关闭导航" hidden></button>
+  <div class="shell">
+    <aside class="sidebar" id="app-sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">万</div>
+        <div class="brand-copy">
+          <div class="brand-name">万年</div>
+          <div class="brand-sub">本地数据工作台</div>
+        </div>
+      </div>
+      <nav id="manage-nav" aria-label="管理导航"></nav>
+    </aside>
+    <div class="workspace">
+      <header class="page-head content-frame">
+        <div class="page-head-text">
+          <h1 id="page-title">管理</h1>
+          <p id="enabled-line" class="page-status"></p>
+        </div>
+        <div id="page-actions" class="page-actions"></div>
+      </header>
+      <form id="token-form" class="auth-bar content-frame" hidden>
+        <label class="field" for="token-input">
+          <span class="field-label">管理口令</span>
+          <input id="token-input" type="password" autocomplete="off">
+        </label>
+        <button type="submit">保存到本次会话</button>
+      </form>
+      <div id="banner" class="banner content-frame" role="status" aria-live="polite"></div>
+      <main id="panel" class="content-frame" tabindex="-1"></main>
+    </div>
+  </div>
+  <script type="module" src="/manage/app.js?v=20260920p"></script>
+</body>
+</html>

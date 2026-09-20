@@ -1,0 +1,61 @@
+:root {
+  /* Geometry and motion stay stable when a color theme changes.
+     Themes override font stacks and heading expression. */
+  --font-sans: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-display: STKaiti, KaiTi, "KaiTi_GB2312", "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --font-brand: STKaiti, KaiTi, "KaiTi_GB2312", "Noto Serif SC", serif;
+  --font-mono: Consolas, "Cascadia Mono", "Sarasa Mono SC", ui-monospace, monospace;
+  --font-size-body: 14px;
+  --line-height-body: 1.55;
+
+  --heading-size: clamp(32px, 4vw, 48px);
+  --heading-tracking: -0.04em;
+  --heading-line-height: 1.1;
+  --heading-weight: 700;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius: 6px;
+  --radius-control: 6px;
+  --radius-dialog: 8px;
+  --radius-surface: 8px;
+  --control-height: 40px;
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --z-dialog: 40;
+
+  /* Theme expression defaults (paper-first). Other themes override. */
+  --label-transform: none;
+  --label-tracking: 0.04em;
+  --button-transform: none;
+  --button-tracking: 0.02em;
+  --brand-transform: none;
+  --brand-tracking: 0.08em;
+  --brand-sub-writing-mode: horizontal-tb;
+  --brand-sub-tracking: 0.12em;
+  --sidebar-hover: rgb(255 255 255 / 7%);
+  --sidebar-border: rgb(255 255 255 / 12%);
+  --sidebar-accent: var(--accent);
+  --sidebar-pattern: none;
+  --sidebar-surface: var(--sidebar);
+  --sidebar-pattern-size: auto;
+  --sidebar-watermark: "";
+  --sidebar-watermark-opacity: 0;
+  --brand-mark-bg: var(--accent);
+  --brand-mark-ink: var(--accent-foreground);
+  --brand-mark-border: transparent;
+  --workspace-bg: transparent;
+  --surface-shadow: none;
+  --button-shadow: none;
+  --kicker: var(--muted);
+}

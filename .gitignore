@@ -1,0 +1,18 @@
+# Local runtime / secrets
+/data/
+*.db
+manage.properties
+
+# Build
+**/target/
+**/node_modules/
+
+# Nested clones / unrelated
+/refs/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/

@@ -1,0 +1,8 @@
+# 本地 SQLite 数据（勿提交；勿改到 target/）
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Maven 构建输出，不是源码
+target/

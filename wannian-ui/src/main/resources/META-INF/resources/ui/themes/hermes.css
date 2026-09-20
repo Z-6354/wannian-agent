@@ -1,0 +1,74 @@
+/* Optional dark teal theme (Hermes-inspired). Keep as alternate, not default. */
+:root {
+  color-scheme: dark;
+  --bg: #041c1c;
+  --bg-accent: #062424;
+  --bg-hover: #0a2e2e;
+  --panel: #062424;
+  --card: #062424;
+  --ink: #ffe6cb;
+  --text: #ead3ba;
+  --text-strong: #fff1e2;
+  --muted: #9bb7a8;
+  --muted-strong: #bdd0c6;
+  --border: rgb(255 230 203 / 15%);
+  --border-strong: rgb(255 230 203 / 28%);
+  --accent: #ffe6cb;
+  --accent-hover: #fff1e2;
+  --accent-subtle: #0c3838;
+  --accent-foreground: #041c1c;
+  --danger: #fb5b63;
+  --danger-foreground: #041c1c;
+  --ok: #4ade80;
+  --warn: #ffbd38;
+  --info: #8fc7c0;
+  --ring: #ffe6cb;
+  --overlay: rgb(0 10 10 / 76%);
+  --shadow-float: 0 24px 72px rgb(0 8 8 / 46%);
+  --sidebar: #041c1c;
+  --sidebar-ink: #ffe6cb;
+  --sidebar-muted: #8aaa9a;
+  --sidebar-current: #0c3838;
+  --sidebar-hover: rgb(12 56 56 / 65%);
+  --sidebar-border: rgb(255 230 203 / 15%);
+  --sidebar-accent: #ffe6cb;
+  --sidebar-pattern: none;
+  --surface-input: rgb(4 28 28 / 72%);
+  --surface-banner: rgb(6 36 36 / 82%);
+  --surface-subtle: rgb(6 36 36 / 52%);
+  --surface-card: rgb(6 36 36 / 92%);
+  --surface-hover: rgb(12 56 56 / 65%);
+
+  --font-sans: "Arial Narrow", "Aptos Narrow", "Microsoft YaHei UI", sans-serif;
+  --font-display: "Arial Narrow", "Aptos Narrow", "Microsoft YaHei UI", sans-serif;
+  --font-brand: "Arial Narrow", "Aptos Narrow", "Microsoft YaHei UI", sans-serif;
+  --font-mono: "Cascadia Mono", "Courier New", monospace;
+  --heading-size: clamp(24px, 3vw, 36px);
+  --heading-tracking: 0.025em;
+  --heading-line-height: 1;
+  --heading-weight: 700;
+  --label-transform: uppercase;
+  --label-tracking: 0.1em;
+  --button-transform: uppercase;
+  --button-tracking: 0.09em;
+  --brand-transform: uppercase;
+  --brand-tracking: 0.055em;
+  --brand-sub-writing-mode: vertical-rl;
+  --brand-sub-tracking: 0.08em;
+
+  --workspace-bg: transparent;
+  --surface-shadow: none;
+  --button-shadow: none;
+  --kicker: #ffbd38;
+  --sidebar-surface: var(--sidebar);
+  --sidebar-pattern-size: auto;
+  --sidebar-watermark: "";
+  --sidebar-watermark-opacity: 0;
+  --brand-mark-bg: #0c3838;
+  --brand-mark-ink: #ffe6cb;
+  --brand-mark-border: rgb(255 230 203 / 28%);
+
+  --theme-glow: radial-gradient(ellipse at 0 0, rgb(255 189 56 / 28%) 0, transparent 55%);
+  --theme-glow-opacity: 0.2;
+  --theme-noise-opacity: 0.055;
+}

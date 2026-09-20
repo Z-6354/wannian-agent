@@ -1,0 +1,36 @@
+# K02 1B-0/1B-1：本机 SQLite 文件库（非 MySQL）。
+# 数据目录可通过环境变量 WANNIAN_DATA_DIR 覆盖；禁止放到 target/ 或构建产物下。
+
+server:
+  # 默认 HTTP 端口；测试使用 RANDOM_PORT，不受此项影响。
+  port: 8080
+
+wannian:
+  # SQLite 所在目录；库文件为该目录下的 wannian.db。
+  # 默认：工程内 wn-server/data（相对路径，由 SqliteConfig 解析到模块根，不落用户主目录）。
+  # 仍可用 WANNIAN_DATA_DIR 指到任意绝对路径。
+  data-dir: ${WANNIAN_DATA_DIR:data}
+  # 写入备份元数据的构建标识。未接构建流水线时为 unknown，不用它做版本切换。
+  build-id: ${WANNIAN_BUILD_ID:unknown}
+  backup:
+    # backups/ 下保留的快照份数，超出后删除最旧的。至少为 1。可用 WANNIAN_BACKUP_RETAIN_COUNT 覆盖。
+    retain-count: ${WANNIAN_BACKUP_RETAIN_COUNT:7}
+  manage:
+    # 外网管理口令。空则使用数据目录 manage.properties（没有就写入默认值）。本机回环不校验。
+    # 不要把口令写进本文件；WANNIAN_MANAGE_TOKEN 非空时覆盖本地文件。
+    token: ${WANNIAN_MANAGE_TOKEN:}
+  model:
+    # live：OpenAI 兼容真实调用，读 apiKeyEnv。
+    mode: ${WANNIAN_MODEL_MODE:live}
+
+spring:
+  application:
+    # 进程与日志中的应用名；探活 JSON 的 service 字段刻意为 wn-server，二者可并存。
+    name: wn-server
+  datasource:
+    # 说明性 URL（与 SqliteConfig 一致）；驱动类供文档与排障对照。
+    url: jdbc:sqlite:${wannian.data-dir}/wannian.db
+    driver-class-name: org.sqlite.JDBC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration

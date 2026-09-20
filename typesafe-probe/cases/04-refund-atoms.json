@@ -1,0 +1,27 @@
+{
+  "state": {
+    "message": "I was charged twice for the March invoice. Please refund the duplicate.",
+    "policy": "Duplicate charges are refunded automatically only when two identical amounts post on the same day. Anything else needs a person. Do not deny a same-day duplicate.",
+    "charges": ["2026-03-01 49.00", "2026-03-01 49.00"]
+  },
+  "model": "jev-latest",
+  "questions": {
+    "asks_refund": {
+      "type": "noul",
+      "instructions": "The customer is asking for a refund."
+    },
+    "duplicate_same_day": {
+      "type": "noul",
+      "instructions": "The charges show two identical amounts on the same day."
+    },
+    "policy_route": {
+      "type": "choice",
+      "instructions": "Given only the written policy and the charges, where should this go?",
+      "criteria": {
+        "auto_refund": "Policy says this exact pattern is refunded automatically",
+        "human_review": "Policy says a person must decide",
+        "deny": "Policy says this must not be refunded"
+      }
+    }
+  }
+}

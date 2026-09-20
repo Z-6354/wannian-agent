@@ -1,0 +1,24 @@
+{
+  "state": "我连了三天都绑不上 Stripe，订单进不来，请马上处理。",
+  "model": "jev-latest",
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "这条消息应该交给哪个组",
+      "criteria": {
+        "billing": "付款、账单、退款",
+        "technical": "故障、接入、集成",
+        "sales": "价格、升级、新账号"
+      }
+    },
+    "frustration": {
+      "type": "score",
+      "instructions": "用户看起来有多急躁",
+      "criteria": ["只是在陈述事实", "不高兴但还客气", "很生气"]
+    },
+    "is_urgent": {
+      "type": "noul",
+      "instructions": "这条消息在表达紧急或有时间压力"
+    }
+  }
+}

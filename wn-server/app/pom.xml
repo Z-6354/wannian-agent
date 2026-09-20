@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wannian</groupId>
+        <artifactId>wn-server</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>wn-server-app</artifactId>
+    <name>wn-server-app</name>
+    <description>Spring Boot 宿主：HTTP、各类 Adapter、进程生命周期</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wannian</groupId>
+            <artifactId>wn-server-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wannian</groupId>
+            <artifactId>wn-server-kernel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wannian</groupId>
+            <artifactId>wannian-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- K02 1B-0：JDBC 模板与 DataSource 自动配置；具体库文件由 SqliteConfig 组装 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+        <!-- Flyway：版本来自 Boot BOM；SQLite 支持在 flyway-core 内，无需额外 database 模块 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+          架构规则测试库（test only）：配合 ModuleDependencyRulesTest，
+          在 mvn test/package 时校验 api/kernel/app 包依赖方向，防止分层被 import 破坏。
+          版本由父 POM dependencyManagement 锁定；勿改为 compile/runtime。
+        -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
