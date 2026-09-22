@@ -101,7 +101,47 @@ public final class OpenAiCompatibleModelAdapter implements ModelPort {
         for (ModelMessage message : request.messages()) {
             ObjectNode row = messages.addObject();
             row.put("role", message.role());
-            row.put("content", message.content());
+            if (!message.toolCalls().isEmpty()) {
+                if (message.content() == null) {
+                    row.putNull("content");
+                } else {
+                    row.put("content", message.content());
+                }
+                if (message.reasoningContent() != null) {
+                    row.put("reasoning_content", message.reasoningContent());
+                }
+                ArrayNode toolCalls = row.putArray("tool_calls");
+                for (ToolCallRequest call : message.toolCalls()) {
+                    ObjectNode callNode = toolCalls.addObject();
+                    callNode.put("id", call.id());
+                    callNode.put("type", "function");
+                    ObjectNode function = callNode.putObject("function");
+                    function.put("name", call.name());
+                    function.put("arguments", call.argumentsJson());
+                }
+            } else {
+                row.put("content", message.content());
+                if (message.toolCallId() != null && !message.toolCallId().isBlank()) {
+                    row.put("tool_call_id", message.toolCallId());
+                }
+            }
+        }
+        if (!request.tools().isEmpty()) {
+            ArrayNode toolsNode = body.putArray("tools");
+            for (com.wannian.server.kernel.tool.ToolDescriptor descriptor : request.tools()) {
+                ObjectNode tool = toolsNode.addObject();
+                tool.put("type", "function");
+                ObjectNode function = tool.putObject("function");
+                function.put("name", descriptor.name());
+                function.put("description", descriptor.description());
+                try {
+                    function.set(
+                            "parameters", objectMapper.readTree(descriptor.parametersJsonSchema()));
+                } catch (IOException ex) {
+                    ObjectNode fallback = function.putObject("parameters");
+                    fallback.put("type", "object");
+                }
+            }
         }
 
         String json;
@@ -181,9 +221,14 @@ public final class OpenAiCompatibleModelAdapter implements ModelPort {
                     "供应商限流");
         }
         if (status < 200 || status >= 300) {
+            String vendorHint = truncateVendorBody(response.body());
+            String detail =
+                    vendorHint.isEmpty()
+                            ? "供应商返回 HTTP " + status
+                            : "供应商返回 HTTP " + status + ": " + vendorHint;
             return failure(
                     ErrorCodes.DEPENDENCY_UNAVAILABLE,
-                    "供应商返回 HTTP " + status,
+                    detail,
                     true,
                     correlationId,
                     started,
@@ -239,7 +284,15 @@ public final class OpenAiCompatibleModelAdapter implements ModelPort {
                 }
             }
             if (!calls.isEmpty()) {
-                return new ModelOutcome.ToolCalls(calls, usage);
+                String assistantContent =
+                        message.has("content") && !message.get("content").isNull()
+                                ? message.get("content").asText()
+                                : null;
+                String reasoningContent =
+                        message.has("reasoning_content") && !message.get("reasoning_content").isNull()
+                                ? message.get("reasoning_content").asText()
+                                : null;
+                return new ModelOutcome.ToolCalls(calls, usage, assistantContent, reasoningContent);
             }
         }
         String content = message.path("content").asText("");
@@ -257,5 +310,18 @@ public final class OpenAiCompatibleModelAdapter implements ModelPort {
             return new ModelUsage(0, 0);
         }
         return new ModelUsage(usage.path("prompt_tokens").asInt(0), usage.path("completion_tokens").asInt(0));
+    }
+
+    /** 截断供应商错误正文，便于实机排障；不含密钥（响应体通常无密钥）。 */
+    static String truncateVendorBody(String body) {
+        if (body == null) {
+            return "";
+        }
+        String trimmed = body.replaceAll("\\s+", " ").trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        int max = 400;
+        return trimmed.length() <= max ? trimmed : trimmed.substring(0, max) + "…";
     }
 }

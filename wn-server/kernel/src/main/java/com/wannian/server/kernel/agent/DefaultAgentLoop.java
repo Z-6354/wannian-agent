@@ -8,6 +8,11 @@ import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
 import com.wannian.server.kernel.model.ModelUsage;
+import com.wannian.server.kernel.model.ToolCallRequest;
+import com.wannian.server.kernel.tool.ToolExecutionContext;
+import com.wannian.server.kernel.tool.ToolExecutionOutcome;
+import com.wannian.server.kernel.tool.ToolInvocation;
+import com.wannian.server.kernel.tool.ToolRuntime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,12 +20,11 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * {@link AgentLoop} 的默认实现（0.2.1-B1/B2：有预算的 decide 循环 → FinalResponse）。
+ * {@link AgentLoop} 的默认实现（0.2.2：ToolCalls → ToolRuntime → 回灌 → 再决策）。
  *
- * <p>OWNER: USER — 按 {@code docs/guide/05-agent-loop.md} 演进；工具执行属 0.2.2。
+ * <p>OWNER: USER — 按 {@code docs/guide/05-agent-loop.md} 演进。
  *
- * <p>0.2.1 仅依赖 {@link ModelPort}；{@code ToolRuntime} 属 0.2.2，本批不构造。
- * 不依赖 DecisionPort / WorldAgent / Repository / Spring。
+ * <p>不依赖 DecisionPort / WorldAgent / Repository / Spring；不泄漏 Validator/Store/Adapter。
  */
 public final class DefaultAgentLoop implements AgentLoop {
 
@@ -28,16 +32,26 @@ public final class DefaultAgentLoop implements AgentLoop {
     private static final String FALLBACK_FAILURE = "模型调用失败";
 
     private final ModelPort model;
+    private final ToolRuntime tools;
 
     /**
      * @param model 模型决策入口；不得为 null
      */
     public DefaultAgentLoop(ModelPort model) {
-        this.model = Objects.requireNonNull(model, "model");
+        this(model, null);
     }
 
     /**
-     * 目的：在预算约束下执行模型—工具—观察循环（B2：ToolCalls 仍失败收口，不执行工具）。
+     * @param model 模型决策入口；不得为 null
+     * @param tools 工具运行时；null 时非空 ToolCalls 仍收口为 {@link ErrorCodes#TOOLS_NOT_ENABLED}
+     */
+    public DefaultAgentLoop(ModelPort model, ToolRuntime tools) {
+        this.model = Objects.requireNonNull(model, "model");
+        this.tools = tools;
+    }
+
+    /**
+     * 目的：在预算约束下执行模型—工具—观察循环。
      * 输入保证：上下文已经冻结；budget 为正数。
      * 输出保证：不会返回 null；不会直接提交数据库；不会直接发送 SSE。
      * 禁止：创建具体模型客户端、调用 Controller、执行任意 Shell。
@@ -50,123 +64,244 @@ public final class DefaultAgentLoop implements AgentLoop {
 
         List<ModelMessage> messages = buildInitialMessages(input);
         int completedDecisions = 0;
-
-        // 雷霆大循环，梦开始的地方
+        List<AgentTrace.Step> steps = new ArrayList<>();
 
         while (true) {
-
-            // 第一步 轮次判断
             Instant now = Instant.now();
             AgentOutcome blocked = AgentBudgetGate.beforeDecide(budget, completedDecisions, now);
             if (blocked != null) {
-                return blocked;
+                return withSteps(blocked, steps);
             }
 
             int stepNumber = completedDecisions + 1;
             ModelCallContext context = buildCallContext(input, budget, stepNumber);
             boolean softPassed = AgentBudgetGate.softDeadlinePassed(budget, Instant.now());
 
-            // 第二步 模型决策
             Instant decideStarted = Instant.now();
-            ModelOutcome decision = model.decide(new ModelRequest(messages), context);
+            ModelOutcome decision =
+                    model.decide(new ModelRequest(messages, input.toolDescriptors()), context);
             completedDecisions++;
             long durationMs = Duration.between(decideStarted, Instant.now()).toMillis();
 
-            // 第三步 四分支均结束循环；ToolCalls 暂不执行、不 continue（0.2.2 再接）
-            return switch (decision) {
+            switch (decision) {
                 case ModelOutcome.FinalAnswer answer -> {
                     if (answer.text().isBlank()) {
-                        yield new AgentOutcome.ControlledFailure(
+                        steps.add(
+                            step(
+                                    stepNumber,
+                                    "FinalAnswer",
+                                    durationMs,
+                                    answer.usage(),
+                                    ErrorCodes.EMPTY_FINAL_ANSWER,
+                                    softPassed));
+                        return new AgentOutcome.ControlledFailure(
                                 ErrorCodes.EMPTY_FINAL_ANSWER,
                                 "模型返回了空回答",
                                 false,
-                                traceOf(
-                                        stepNumber,
-                                        "FinalAnswer",
-                                        durationMs,
-                                        answer.usage(),
-                                        ErrorCodes.EMPTY_FINAL_ANSWER,
-                                        softPassed));
+                                traceFrom(steps));
                     }
-                    yield new AgentOutcome.FinalResponse(
-                            answer.text(),
-                            answer.usage(),
-                            traceOf(stepNumber, "FinalAnswer", durationMs, answer.usage(), null, softPassed));
+                    steps.add(
+                            step(
+                                    stepNumber,
+                                    "FinalAnswer",
+                                    durationMs,
+                                    answer.usage(),
+                                    null,
+                                    softPassed));
+                    return new AgentOutcome.FinalResponse(
+                            answer.text(), answer.usage(), traceFrom(steps));
                 }
                 case ModelOutcome.ToolCalls toolCalls -> {
                     if (toolCalls.calls().isEmpty()) {
-                        yield new AgentOutcome.ControlledFailure(
-                                ErrorCodes.INVALID_MODEL_OUTPUT,
-                                "模型返回了空的工具调用",
-                                false,
-                                traceOf(
+                        steps.add(
+                                step(
                                         stepNumber,
                                         "ToolCalls",
                                         durationMs,
                                         toolCalls.usage(),
                                         ErrorCodes.INVALID_MODEL_OUTPUT,
                                         softPassed));
+                        return new AgentOutcome.ControlledFailure(
+                                ErrorCodes.INVALID_MODEL_OUTPUT,
+                                "模型返回了空的工具调用",
+                                false,
+                                traceFrom(steps));
                     }
-                    yield new AgentOutcome.ControlledFailure(
-                            ErrorCodes.TOOLS_NOT_ENABLED,
-                            "本轮尚未启用工具",
-                            false,
-                            traceOf(
+                    if (tools == null) {
+                        steps.add(
+                                step(
+                                        stepNumber,
+                                        "ToolCalls",
+                                        durationMs,
+                                        toolCalls.usage(),
+                                        ErrorCodes.TOOLS_NOT_ENABLED,
+                                        softPassed));
+                        return new AgentOutcome.ControlledFailure(
+                                ErrorCodes.TOOLS_NOT_ENABLED,
+                                "本轮尚未启用工具",
+                                false,
+                                traceFrom(steps));
+                    }
+                    steps.add(
+                            step(
                                     stepNumber,
                                     "ToolCalls",
                                     durationMs,
                                     toolCalls.usage(),
-                                    ErrorCodes.TOOLS_NOT_ENABLED,
+                                    null,
                                     softPassed));
+                    appendToolRound(messages, input, toolCalls, stepNumber);
+                    // continue 再决策
                 }
-                case ModelOutcome.ModelRefusal refusal -> new AgentOutcome.ControlledFailure(
-                        ErrorCodes.MODEL_REFUSAL,
-                        sanitizeUserMessage(refusal.reason(), FALLBACK_REFUSAL),
-                        false,
-                        traceOf(
-                                stepNumber,
-                                "ModelRefusal",
-                                durationMs,
-                                refusal.usage(),
-                                ErrorCodes.MODEL_REFUSAL,
-                                softPassed));
+                case ModelOutcome.ModelRefusal refusal -> {
+                    steps.add(
+                            step(
+                                    stepNumber,
+                                    "ModelRefusal",
+                                    durationMs,
+                                    refusal.usage(),
+                                    ErrorCodes.MODEL_REFUSAL,
+                                    softPassed));
+                    return new AgentOutcome.ControlledFailure(
+                            ErrorCodes.MODEL_REFUSAL,
+                            sanitizeUserMessage(refusal.reason(), FALLBACK_REFUSAL),
+                            false,
+                            traceFrom(steps));
+                }
                 case ModelOutcome.Failure failure -> {
-                    AgentTrace trace =
-                            traceOf(
+                    steps.add(
+                            step(
                                     stepNumber,
                                     "Failure",
                                     durationMs,
                                     null,
                                     failure.code(),
-                                    softPassed);
+                                    softPassed));
+                    AgentTrace trace = traceFrom(steps);
                     if (ErrorCodes.CANCELLED.equals(failure.code())) {
-                        yield new AgentOutcome.Cancelled(trace);
+                        return new AgentOutcome.Cancelled(trace);
                     }
-                    yield new AgentOutcome.ControlledFailure(
+                    return new AgentOutcome.ControlledFailure(
                             failure.code(),
                             sanitizeUserMessage(failure.detail(), FALLBACK_FAILURE),
                             failure.retryable(),
                             trace);
                 }
-            };
+            }
         }
     }
 
-    private static AgentTrace traceOf(
+    private void appendToolRound(
+            List<ModelMessage> messages,
+            AgentInput input,
+            ModelOutcome.ToolCalls toolCalls,
+            int stepNumber) {
+        List<ToolCallRequest> calls = toolCalls.calls();
+        messages.add(
+                ModelMessage.assistantWithTools(
+                        toolCalls.assistantContent(), toolCalls.reasoningContent(), calls));
+
+        String turnKey = input.turnId().toString();
+        for (ToolCallRequest call : calls) {
+            String operationId = turnKey + ":s" + stepNumber + ":" + call.id();
+            ToolExecutionOutcome outcome =
+                    tools.execute(
+                            new ToolInvocation(call.id(), call.name(), call.argumentsJson()),
+                            new ToolExecutionContext(
+                                    operationId, turnKey, turnKey, input.toolDescriptors()));
+            messages.add(ModelMessage.toolResult(call.id(), formatObservation(call.id(), outcome)));
+        }
+    }
+
+    private static String formatObservation(String callId, ToolExecutionOutcome outcome) {
+        if (outcome instanceof ToolExecutionOutcome.Succeeded succeeded) {
+            return "{\"callId\":\""
+                    + callId
+                    + "\",\"status\":\"succeeded\",\"observation\":"
+                    + succeeded.observationJson()
+                    + "}";
+        }
+        if (outcome instanceof ToolExecutionOutcome.Rejected rejected) {
+            return "{\"callId\":\""
+                    + callId
+                    + "\",\"status\":\"rejected\",\"code\":\""
+                    + rejected.code()
+                    + "\",\"message\":\""
+                    + escape(rejected.message())
+                    + "\"}";
+        }
+        if (outcome instanceof ToolExecutionOutcome.Failed failed) {
+            return "{\"callId\":\""
+                    + callId
+                    + "\",\"status\":\"failed\",\"code\":\""
+                    + failed.code()
+                    + "\",\"message\":\""
+                    + escape(failed.message())
+                    + "\"}";
+        }
+        if (outcome instanceof ToolExecutionOutcome.Unknown unknown) {
+            return "{\"callId\":\""
+                    + callId
+                    + "\",\"status\":\"unknown\",\"code\":\""
+                    + unknown.code()
+                    + "\",\"message\":\""
+                    + escape(unknown.message())
+                    + "\"}";
+        }
+        return "{\"callId\":\"" + callId + "\",\"status\":\"failed\",\"code\":\""
+                + ErrorCodes.INTERNAL_DEFECT
+                + "\"}";
+    }
+
+    private static String escape(String text) {
+        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static AgentOutcome withSteps(AgentOutcome blocked, List<AgentTrace.Step> prior) {
+        if (prior.isEmpty()) {
+            return blocked;
+        }
+        List<String> merged = new ArrayList<>();
+        for (AgentTrace.Step s : prior) {
+            merged.add(s.toSummary());
+        }
+        if (blocked instanceof AgentOutcome.ControlledFailure failure) {
+            merged.addAll(failure.trace().steps());
+            return new AgentOutcome.ControlledFailure(
+                    failure.errorCode(),
+                    failure.safeUserMessage(),
+                    failure.retryable(),
+                    new AgentTrace(merged));
+        }
+        if (blocked instanceof AgentOutcome.Cancelled cancelled) {
+            merged.addAll(cancelled.trace().steps());
+            return new AgentOutcome.Cancelled(new AgentTrace(merged));
+        }
+        return blocked;
+    }
+
+    private static AgentTrace traceFrom(List<AgentTrace.Step> steps) {
+        List<String> summaries = new ArrayList<>(steps.size());
+        for (AgentTrace.Step s : steps) {
+            summaries.add(s.toSummary());
+        }
+        return new AgentTrace(summaries);
+    }
+
+    private static AgentTrace.Step step(
             int stepNumber,
             String decisionType,
             long durationMs,
             ModelUsage usage,
             String errorCode,
             boolean softDeadlinePassed) {
-        return AgentTrace.ofStep(
-                new AgentTrace.Step(
-                        stepNumber,
-                        decisionType,
-                        durationMs,
-                        usageSummary(usage),
-                        errorCode,
-                        softDeadlinePassed));
+        return new AgentTrace.Step(
+                stepNumber,
+                decisionType,
+                durationMs,
+                usageSummary(usage),
+                errorCode,
+                softDeadlinePassed);
     }
 
     private static String usageSummary(ModelUsage usage) {
@@ -189,11 +324,6 @@ public final class DefaultAgentLoop implements AgentLoop {
         return redacted;
     }
 
-    /**
-     * 组装单次 {@link ModelPort#decide} 的调用上下文。
-     *
-     * @param stepNumber 本轮 Loop 内第几次 decide（从 1 起）
-     */
     private static ModelCallContext buildCallContext(
             AgentInput input, AgentBudget budget, int stepNumber) {
         String turnKey = input.turnId().toString();
@@ -205,24 +335,18 @@ public final class DefaultAgentLoop implements AgentLoop {
                 turnKey);
     }
 
-    /** B1：首轮上下文。多步 / 工具 observation 在 messages 副本上追加，不改本方法签名。 */
     private static List<ModelMessage> buildInitialMessages(AgentInput input) {
         List<ModelMessage> messages = new ArrayList<>();
-        // 安全与人设：Assembler 必注入；本块不得截断
         messages.add(new ModelMessage("system", input.systemInstructions()));
-        // 关系快照：称呼/亲密度等；未注入时为 null
         if (input.relationshipSnapshot() != null && !input.relationshipSnapshot().isBlank()) {
             messages.add(new ModelMessage("system", input.relationshipSnapshot()));
         }
-        // 长期记忆：未注入时为 null；空串视为无有效记忆
         if (input.memoryContext() != null && !input.memoryContext().isBlank()) {
             messages.add(new ModelMessage("system", input.memoryContext()));
         }
-        // 近讯摘录：已裁剪的历史消息，不含当前用户句；空串表示本轮无摘录
         if (!input.conversationExcerpt().isBlank()) {
             messages.add(new ModelMessage("system", input.conversationExcerpt()));
         }
-        // 当前用户句：原文完整保留，不得截断
         messages.add(new ModelMessage("user", input.userMessage()));
         return messages;
     }

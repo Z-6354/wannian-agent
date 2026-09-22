@@ -165,7 +165,8 @@ public final class TurnEngine {
                                 turn.inputMessageId(),
                                 command.userMessage(),
                                 command.systemInstructions(),
-                                ContextAssembler.DEFAULT_RECENT_MESSAGES));
+                                ContextAssembler.DEFAULT_RECENT_MESSAGES,
+                                null));
         AgentOutcome outcome = agentLoop.run(input, command.budget());
 
         turn = turns.find(turn.id()).orElse(turn);

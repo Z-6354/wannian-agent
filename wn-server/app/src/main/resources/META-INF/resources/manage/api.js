@@ -78,6 +78,17 @@ export function saveAgentBudget(body) {
   });
 }
 
+export function getTools() {
+  return request("/api/manage/agent/tools");
+}
+
+export function saveTools(body) {
+  return request("/api/manage/agent/tools", {
+    method: "PUT",
+    body,
+  });
+}
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();

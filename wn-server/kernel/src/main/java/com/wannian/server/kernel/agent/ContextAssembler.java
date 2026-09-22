@@ -6,6 +6,12 @@ import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
 import com.wannian.server.kernel.conversation.ConversationMessage;
 import com.wannian.server.kernel.conversation.ConversationStore;
+import com.wannian.server.kernel.tool.FacetId;
+import com.wannian.server.kernel.tool.HostCapabilitySet;
+import com.wannian.server.kernel.tool.RoleId;
+import com.wannian.server.kernel.tool.ToolDescriptor;
+import com.wannian.server.kernel.tool.ToolVisibility;
+import com.wannian.server.kernel.tool.ToolVisibilityResolver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -15,6 +21,8 @@ import java.util.Objects;
  *
  * <p>只读 {@link ConversationStore}，不改原文。当前用户句单独放入 {@code userMessage}，
  * 不重复进 {@code conversationExcerpt}。记忆、关系、世界线本批不填。
+ *
+ * <p>0.2.2：可选注入 {@link ToolVisibilityResolver}，默认烟火 + 聊天面相可见工具。
  */
 public final class ContextAssembler {
 
@@ -22,9 +30,31 @@ public final class ContextAssembler {
     public static final int DEFAULT_RECENT_MESSAGES = 20;
 
     private final ConversationStore conversations;
+    private final ToolVisibilityResolver visibilityResolver;
+    private final HostCapabilitySet hostCapabilities;
+    private final RoleId defaultRoleId;
 
     public ContextAssembler(ConversationStore conversations) {
+        this(conversations, null, HostCapabilitySet.empty(), RoleId.YANHUO);
+    }
+
+    public ContextAssembler(
+            ConversationStore conversations,
+            ToolVisibilityResolver visibilityResolver,
+            HostCapabilitySet hostCapabilities) {
+        this(conversations, visibilityResolver, hostCapabilities, RoleId.YANHUO);
+    }
+
+    public ContextAssembler(
+            ConversationStore conversations,
+            ToolVisibilityResolver visibilityResolver,
+            HostCapabilitySet hostCapabilities,
+            RoleId defaultRoleId) {
         this.conversations = Objects.requireNonNull(conversations, "conversations");
+        this.visibilityResolver = visibilityResolver;
+        this.hostCapabilities =
+                hostCapabilities == null ? HostCapabilitySet.empty() : hostCapabilities;
+        this.defaultRoleId = defaultRoleId == null ? RoleId.YANHUO : defaultRoleId;
     }
 
     /**
@@ -38,6 +68,17 @@ public final class ContextAssembler {
                         request.conversationId(), request.recentMessageLimit() + 1);
         String excerpt =
                 formatExcerpt(recent, request.currentUserMessageId(), request.recentMessageLimit());
+
+        List<ToolDescriptor> tools = List.of();
+        String profileId = null;
+        if (visibilityResolver != null) {
+            FacetId facet = request.facetId() == null ? FacetId.CHAT : request.facetId();
+            ToolVisibility visibility =
+                    visibilityResolver.resolve(defaultRoleId, facet, hostCapabilities);
+            tools = visibility.descriptors();
+            profileId = visibility.profileId();
+        }
+
         return new AgentInput(
                 request.turnId(),
                 request.turnSource(),
@@ -45,8 +86,8 @@ public final class ContextAssembler {
                 null,
                 null,
                 request.userMessage(),
-                List.of(),
-                null,
+                tools,
+                profileId,
                 request.systemInstructions(),
                 null);
     }
@@ -54,7 +95,8 @@ public final class ContextAssembler {
     /**
      * 从已升序的近讯中去掉当前用户句，只保留最新 {@code limit} 条，拼成摘录。
      */
-    static String formatExcerpt(List<ConversationMessage> recent, MessageId currentUserMessageId, int limit) {
+    static String formatExcerpt(
+            List<ConversationMessage> recent, MessageId currentUserMessageId, int limit) {
         Objects.requireNonNull(recent, "recent");
         Objects.requireNonNull(currentUserMessageId, "currentUserMessageId");
         if (limit <= 0) {
@@ -79,10 +121,12 @@ public final class ContextAssembler {
     }
 
     private static String label(MessageRole role) {
-        return role == MessageRole.USER ? "用户: " : "助手: ";
+        return switch (role) {
+            case USER -> "用户: ";
+            case ASSISTANT -> "助手: ";
+        };
     }
 
-    /** 读取 v1 envelope 的 {@code text}，不修剪缩进与末尾换行。 */
     public static String textOf(String contentJson) {
         Objects.requireNonNull(contentJson, "contentJson");
         int key = indexOfKey(contentJson, "text");
@@ -134,49 +178,46 @@ public final class ContextAssembler {
     }
 
     private static String readJsonString(String json, int start) {
-        StringBuilder text = new StringBuilder();
+        StringBuilder out = new StringBuilder();
+        boolean escaped = false;
         for (int i = start; i < json.length(); i++) {
             char c = json.charAt(i);
-            if (c == '"') {
-                return text.toString();
-            }
-            if (c != '\\') {
-                text.append(c);
+            if (escaped) {
+                out.append(
+                        switch (c) {
+                            case '"', '\\', '/' -> c;
+                            case 'b' -> '\b';
+                            case 'f' -> '\f';
+                            case 'n' -> '\n';
+                            case 'r' -> '\r';
+                            case 't' -> '\t';
+                            case 'u' -> {
+                                if (i + 4 >= json.length()) {
+                                    throw new IllegalArgumentException("非法 \\u");
+                                }
+                                int code = Integer.parseInt(json.substring(i + 1, i + 5), 16);
+                                i += 4;
+                                yield (char) code;
+                            }
+                            default -> throw new IllegalArgumentException("非法转义");
+                        });
+                escaped = false;
                 continue;
             }
-            if (i + 1 >= json.length()) {
-                throw new IllegalArgumentException("content_json 的 text 转义不完整");
+            if (c == '\\') {
+                escaped = true;
+                continue;
             }
-            char next = json.charAt(++i);
-            switch (next) {
-                case '"', '\\', '/' -> text.append(next);
-                case 'b' -> text.append('\b');
-                case 'f' -> text.append('\f');
-                case 'n' -> text.append('\n');
-                case 'r' -> text.append('\r');
-                case 't' -> text.append('\t');
-                case 'u' -> {
-                    if (i + 4 >= json.length()) {
-                        throw new IllegalArgumentException("content_json 的 text 含不完整 unicode");
-                    }
-                    int code = Integer.parseInt(json.substring(i + 1, i + 5), 16);
-                    text.append((char) code);
-                    i += 4;
-                }
-                default -> throw new IllegalArgumentException("content_json 的 text 含未知转义");
+            if (c == '"') {
+                return out.toString();
             }
+            out.append(c);
         }
-        throw new IllegalArgumentException("content_json 的 text 未闭合");
+        throw new IllegalArgumentException("字符串未闭合");
     }
 
     /**
-     * @param conversationId 会话
-     * @param turnId 本回合
-     * @param turnSource 0.2.1 用 {@link TurnSource#USER}
-     * @param currentUserMessageId 已写入的当前用户消息；从近讯中排除
-     * @param userMessage 当前用户句原文
-     * @param systemInstructions 人设与安全指示
-     * @param recentMessageLimit 近讯条数上界；须为正
+     * @param facetId 面相；null ≡ {@link FacetId#CHAT}
      */
     public record AssemblyRequest(
             ConversationId conversationId,
@@ -185,7 +226,8 @@ public final class ContextAssembler {
             MessageId currentUserMessageId,
             String userMessage,
             String systemInstructions,
-            int recentMessageLimit) {
+            int recentMessageLimit,
+            FacetId facetId) {
 
         public AssemblyRequest {
             Objects.requireNonNull(conversationId, "conversationId");
@@ -199,7 +241,7 @@ public final class ContextAssembler {
             }
         }
 
-        /** 近讯条数使用 {@link ContextAssembler#DEFAULT_RECENT_MESSAGES}。 */
+        /** 近讯条数使用 {@link ContextAssembler#DEFAULT_RECENT_MESSAGES}；面相默认聊天。 */
         public static AssemblyRequest of(
                 ConversationId conversationId,
                 TurnId turnId,
@@ -213,7 +255,27 @@ public final class ContextAssembler {
                     currentUserMessageId,
                     userMessage,
                     systemInstructions,
-                    DEFAULT_RECENT_MESSAGES);
+                    DEFAULT_RECENT_MESSAGES,
+                    FacetId.CHAT);
+        }
+
+        /** 指定面相。 */
+        public static AssemblyRequest of(
+                ConversationId conversationId,
+                TurnId turnId,
+                MessageId currentUserMessageId,
+                String userMessage,
+                String systemInstructions,
+                FacetId facetId) {
+            return new AssemblyRequest(
+                    conversationId,
+                    turnId,
+                    TurnSource.USER,
+                    currentUserMessageId,
+                    userMessage,
+                    systemInstructions,
+                    DEFAULT_RECENT_MESSAGES,
+                    facetId);
         }
     }
 }

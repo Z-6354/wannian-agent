@@ -46,4 +46,24 @@ public final class ManageBodies {
 
     public record UpdateAgentBudgetRequest(
             Integer maxModelDecisions, Integer softDeadlineSeconds, Integer hardDeadlineSeconds) {}
+
+    /** 内置池条目（管理页勾选来源）。status: IN_USE | NOT_USING | UNAVAILABLE */
+    public record ToolPoolEntryBody(
+            String name,
+            String description,
+            List<String> requiredCapabilities,
+            String status,
+            boolean selectable) {}
+
+    /** 工具启用 + 烟火三模式；附本机能力与模型可见预览。 */
+    public record ToolsBody(
+            List<ToolPoolEntryBody> pool,
+            List<String> enabled,
+            YanhuoFacetsBody yanhuo,
+            List<String> hostCapabilities,
+            YanhuoFacetsBody modelVisiblePreview) {}
+
+    public record YanhuoFacetsBody(List<String> chat, List<String> work, List<String> research) {}
+
+    public record UpdateToolsRequest(List<String> enabled, YanhuoFacetsBody yanhuo) {}
 }

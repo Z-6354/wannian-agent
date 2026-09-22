@@ -33,7 +33,7 @@ Codex 可以解释、审查和提供更小的示例，但未经用户改变分�
 | [04-kernel-reference.md](./04-kernel-reference.md) | 包、类型、Interface、状态机与持久化 |
 | [05-agent-loop.md](./05-agent-loop.md) | **0.2.1**：用户亲自实现 Agent Loop |
 | [06-memory.md](./06-memory.md) | **0.2.3**：用户亲自实现记忆与关系 |
-| [07-testing.md](./07-testing.md) | 测试与故障练习；回归矩阵 R01—R12 |
+| [07-testing.md](./07-testing.md) | 测试与故障练习；回归矩阵 R01—R12；**§1.1 真人实机禁 Fake、能力由 harness 自证** |
 | [history/08-manage-adapter.md](./history/08-manage-adapter.md) | 历史 H4：管理页与模型适配器批次记录 |
 
 ## 4. 使用方法

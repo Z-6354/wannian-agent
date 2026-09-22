@@ -79,9 +79,9 @@
 | 号 | 内容 | 状态 |
 |----|------|------|
 | **0.2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute | **已交付**（[04 复核](../reviews/04-reverify-0.2.1.md)） |
-| **0.2.2** | ToolRuntime + 本节点安全工具 | 下一步 |
+| **0.2.2** | ToolRuntime + 本节点安全工具 | **已交付**（2026-09-22） |
 | **0.2.3** | Memory + Relationship | |
-| **0.2.4** | Outbox / SSE + `/chat/` 历史自动恢复 | |
+| **0.2.4** | 统一行为账本 → Outbox / SSE + `/chat/` 历史恢复 | |
 | **0.2.5** | Task / BackgroundTask | |
 | **0.2.6** | 生命周期探针 | |
 | **0.2.7** | 故障、恢复与资源验收 | |
@@ -91,7 +91,7 @@
 - 节点身份可以存在，但只部署并验收这一个节点
 - 不做世界树、不部署第二个节点、不做 Guardian
 
-施工：[0.2.1 已交付](../plans/k01-agent-loop.md)；下一步建 `k02-tools.md`（**0.2.2**）。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。
+施工：[0.2.1 已交付](../plans/k01-agent-loop.md)；[0.2.2 已交付](../plans/k02-tools.md)。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。下一步默认 **0.2.3**。
 
 ### v0.3 · 世界树 + 多核节点
 

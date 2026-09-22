@@ -2,14 +2,14 @@
 
 `status`: **v0.1 已封版** — 2026-09-20 重置。v0.1 = 当前已交付（骨架、持久化、管理页、直接回答）。下一步是 **v0.2 单核 harness + 单核节点**（**0.2.1** 起）。世界树与多核是 **v0.3**，本清单不提前开工。
 
-`plan-revised`: **2026-09-22** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1，不再算成 0.2.1。**0.2.4** 增补 `/chat/` 历史自动恢复与最近会话接入（见该节）。旧号对照仍有效。审查原文不改写。
+`plan-revised`: **2026-09-22** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1，不再算成 0.2.1。**0.2.4** = 行为账本（A）→ Outbox/SSE + `/chat/` 历史恢复（B）；立项 [k04-behavior-journal.md](../plans/k04-behavior-journal.md)。旧号对照仍有效。审查原文不改写。
 
 ## 版本
 
 | 档 | 状态 | 含 | 不含 |
 |----|------|----|------|
 | **v0.1** | 已交付 | H1–H4、`/chat/` 直接回答 | Agent Loop、工具、记忆策略、Outbox、多节点 |
-| **v0.2** | 进行中 | 单核 harness（**0.2.1 已交付**；**0.2.2–0.2.7**）、一个烟火节点 | 世界树、第二个节点、Guardian |
+| **v0.2** | 进行中 | 单核 harness（**0.2.1–0.2.2 已交付**；下一步 **0.2.3**）、一个烟火节点 | 世界树、第二个节点、Guardian |
 | **v0.3** | 未开工 | 世界树、多核节点 | 宿主主备、wn-agent |
 
 ## 使用规则
@@ -34,7 +34,7 @@
 | K03-A / C / D / E；施工别名 K01 | **0.2.1** 子批 A / B / C / D | 错误码、Loop、Turn 接线、execute |
 | K04；施工别名 K02 | **0.2.2** | ToolRuntime |
 | K05；施工别名 K03 | **0.2.3** | Memory / Relationship |
-| K06；施工别名 K04 | **0.2.4** | Outbox / SSE / 内嵌对话页 |
+| K06；施工别名 K04 | **0.2.4** | 行为账本 → Outbox / SSE / 内嵌对话页 |
 | K07；施工别名 K05 | **0.2.5** | Task / BackgroundTask |
 | K08；施工别名 K06 | **0.2.6** | 生命周期探针 |
 | K09；施工别名 K07 | **0.2.7** | 故障、恢复与资源 |
@@ -84,11 +84,12 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 ## v0.2 · 0.2.1 起
 
 下列 **0.2.1–0.2.7** 全部属于 **v0.2 单核 harness + 单核节点**。不要在 v0.1 上补做。  
-**0.2.1 已交付**（含审计收口，见 [04-reverify](../reviews/04-reverify-0.2.1.md)）；**下一步 0.2.2** 工具循环。
+**0.2.1 / 0.2.2 已交付**；**下一步 0.2.3** 记忆与关系。
 
 ## 0.2.1 · 错误码、Agent Loop 与 Turn 接线（别名 K01）
 
-`status`: **v0.2 · 0.2.1 已交付**（A/B/C/D + 审计 P1–P3 收口；B 遗留 blank/决策打满 live 待补，不挡收口、不挡开工 0.2.2）  
+`status`: **v0.2 · 0.2.1 已交付**（A/B/C/D + 审计 P1–P3 收口）  
+**原「决策打满 live」遗留已关闭：** 0.2.1 时 Loop 不对 ToolCalls `continue`，真模型几乎打不满 3 次 decide。**0.2.2 已接 continue**；窄测 `DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget` 覆盖「反复 ToolCalls → BUDGET_EXHAUSTED」。不要求再用真模型硬撞满 3 次。blank/Refusal 等难控路径有单测即可，**不挡收口**。
 `closure`: [施工单](../plans/k01-agent-loop.md) · [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md)
 
 ### 目标
@@ -100,7 +101,7 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 | 子批 | 旧称 | 状态 | 交付 |
 |---|---|---|---|
 | 0.2.1-A | K03-A / K01-A | **已交付** | 全进程错误 code 与日志约定；收编历史 H2 的 `reasonCode` |
-| 0.2.1-B | K03-C / K01-B | **已交付**（live 测见 `DefaultAgentLoopLiveTest`；blank/预算打满难触发待补） | Loop 类型与直接回答；ToolCalls/取消占位 |
+| 0.2.1-B | K03-C / K01-B | **已交付**（live：`DefaultAgentLoopLiveTest`；次数打满见 0.2.2 `DefaultAgentLoopToolContinueTest`） | Loop 类型与直接回答 |
 | 0.2.1-C | K03-D / K01-C | **已交付**（编排见 `TurnEngineOrchestrationTest`；live 见 `TurnEngineLiveCTest`；R01–R05 复验命令见施工单） | TurnEngine：认领 → Loop → 冻结计划 → 提交；R01—R05 复验 |
 | 0.2.1-D | K03-E / K01-D | **已交付**（`TurnEngineHttpLiveDTest`；`TurnDialogue` 已退役） | live 装配与对外 `execute` 入口 |
 
@@ -141,8 +142,8 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ```text
 [x] 直接回答测试（0.2.1-B；`DefaultAgentLoopLiveTest` live）
-[x] 工具分支占位测试（非空 ToolCalls→TOOLS_NOT_ENABLED；空→INVALID_MODEL_OUTPUT）
-[ ] 最大 3 次模型决策 live 打满（闸门可单测 AgentBudgetGate；ToolCalls continue 后强制回归属 0.2.2）
+[x] 工具分支占位测试（非空 ToolCalls→TOOLS_NOT_ENABLED；空→INVALID_MODEL_OUTPUT）——0.2.2 起已改为真执行路径
+[x] 最大 3 次模型决策打满 → BUDGET_EXHAUSTED（闸门：`AgentBudgetGateTest`；continue 路径：`DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget`，属 0.2.2 回归；不要求真模型硬撞满）
 [x] 15 秒软预算、30 秒硬上限可配置且生效（软截止后不再开新 decide；硬截止挡 decide 前）
 [x] 全进程只有一套错误 code 与一套日志约定；适配器引用 ErrorCodes
 [x] 历史 reasonCode 已纳入，没有第二套
@@ -165,13 +166,15 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ## 0.2.2 · ToolRuntime 与只读工具（别名 K02）
 
+`status`: **已交付**（2026-09-22）— 阶段 1–4 代码 + 窄测 + live（`list_tools` 真工具往返）；施工单 [k02-tools.md](../plans/k02-tools.md)。
+
 ### 防复发提示（T1/T2 的同类问题）
 
 `operationId` 须绑定工具名、规范化参数摘要与来源 Turn/Run。执行权用当前尝试身份。外部调用在短事务之外，超时不是“肯定没执行”。
 
 ### 目标
 
-深 Module `ToolRuntime`，提供 `current_time`、`calculate`，可选受限 `http_read`。
+深 Module `ToolRuntime`，提供 `list_tools`、`current_time`、`calculate`，可选受限 `http_read`；Windows 另提供 `powershell_resolve_5` / `_7`（启动探测 family 标签求交，模型只见一个；见 [k02-tool-impl-binding](../plans/k02-tool-impl-binding.md)）。
 
 ### Codex 可生成
 
@@ -190,16 +193,23 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 ### 验收
 
 ```text
-[ ] 不存在工具不会执行
-[ ] 非法参数不会进入 Adapter
-[ ] 每次执行有 operationId
-[ ] 结果受大小限制；超时有限
-[ ] 相同 operationId 参数冲突被拒绝
-[ ] Agent Loop 不直接依赖 Validator、Policy、OperationStore 或具体 Adapter
-[ ] 无 Shell、任意文件写入、桌面工具
-[ ] 改工具名/参数/来源时冲突，Adapter 调用次数不增加
-[ ] 响应丢失可查原结果；UNKNOWN 不盲重试
+[x] 不存在工具不会执行
+[x] 非法参数不会进入 Adapter
+[x] 每次执行有 operationId
+[x] 结果受大小限制；超时有限
+[x] 相同 operationId 参数冲突被拒绝
+[x] Agent Loop 不直接依赖 Validator、Policy、OperationStore 或具体 Adapter
+[x] 无 Shell、任意文件写入、桌面工具（PS 本批仅只读解析）
+[x] 改工具名/参数/来源时冲突，Adapter 调用次数不增加
+[x] 响应丢失可查原结果；UNKNOWN 不盲重试
+[x] ToolCalls continue + 次数打满 → BUDGET_EXHAUSTED
+[x] 角色×模式×主机求交；管理页三态与本机预览
+[x] live：真模型可调用 list_tools 并回灌（端口 8080 实机）
 ```
+
+证据（2026-09-22）：`ToolRuntimePhase1Test`、`ToolVisibilityPhase2Test`、`DefaultAgentLoopToolContinueTest`、`ContextAssemblerToolVisibilityTest`、`ToolUsePolicyTest`、`ToolSettingsTest`、`ToolManageHttpTest`、`OpenAiCompatibleModelAdapterTest`；装配见 `ToolRuntimeConfig` / `TurnEngineConfig`；live：`list_tools` 对话往返。
+
+**明确不在本批：** 思考/工具过程 UI、会话历史恢复（→0.2.4）；任意 PS 执行（更后）。可选未做见施工单 §12。
 
 ## 0.2.3 · Memory 与 Relationship（别名 K03）
 
@@ -235,47 +245,60 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 [ ] 同一提交重试不重复应用；恢复接口不绕过生命周期
 ```
 
-## 0.2.4 · Outbox、SSE 与内嵌网页（别名 K04）
+## 0.2.4 · 统一行为账本 → Outbox、SSE 与内嵌网页（别名 K04）
+
+内部顺序硬约束：**0.2.4-A 账本 → 0.2.4-B 交付/恢复**。A 未勾完不得勾选整批 0.2.4。立项见 [k04-behavior-journal.md](../plans/k04-behavior-journal.md)。
 
 ### 防复发提示（T1/T3/T5，审查 §6.5）
 
 复用 H3 的必需完成事件与事务内序号。最小单用户鉴权覆盖 HTTP、SSE、历史补发和 internal；**0.2.6** 再扩展探针测试。  
-`/chat/` 历史恢复只读已提交 Message，**不得**在恢复路径上调用模型 / Loop / ToolRuntime。
+`/chat/` 历史恢复只读已提交 Message，**不得**在恢复路径上调用模型 / Loop / ToolRuntime。  
+账本与 outbox 分工：`turn_step` = 逐步事实；`outbox_event` = 已提交后的可靠交付；禁止用 `log.info` / 仅内存 `AgentTrace` 冒充统一日志。
 
 ### 目标
 
-可靠交付已提交事件；页面断线不重做业务。  
-补齐 v0.1 `/chat/` 明确不做的缺口：**消息回读 + 自动恢复历史 + 接入最近会话**。
+1. **0.2.4-A**：统一行为账本——用户 / 系统 / agent 行为经单一写入路径落入 `turn_step`（及约定 kind）。
+2. **0.2.4-B**：可靠交付已提交事件；页面断线不重做业务；补齐 **消息回读 + 自动恢复历史 + 接入最近会话**。
 
 ### 已验证缺口（写入本批的原因）
 
+- 无统一行为落库：Message/Turn/outbox/`AgentTrace`/ErrorCodes 各管一段；`turn_step` 仅在内核参考设计，V001 未建表。
 - 服务端：会话与消息已在 SQLite（`wannian.db`）持久；`ConversationStore#listRecentMessages` 已有，供 Loop 近讯，**无**面向 `/chat/` 的 GET 回读。
 - 前端：`conversationId` 仅存 `sessionStorage`；`messages` 只在页内内存；空态文案写明「刷新后本页不回放历史」。
 - 关标签页会丢记住的 id；关服务再开**不会**自动挑库内最近会话；界面也不会回放 transcript（即便同 id 仍可用）。
 
 ### Codex 可生成
 
-- OutboxPublisher；SSE；event cursor；简单内嵌页面；断线重连与鉴权测试。
+- **A：** `turn_step` migration；Turn 路径追加步骤；按 turn 查询；脱敏与回滚测试。
+- **B：** OutboxPublisher；SSE；event cursor；简单内嵌页面；断线重连与鉴权测试。
 - 会话只读 API：按 id 取消息列表；取「最近一条 ACTIVE 会话」（按 `updated_at`）。
 - `/chat/api.js`：`listMessages` / `getRecentConversation`（或等价）；页面加载时解析会话 → 拉历史 → 渲染。
 - 客户端记住 id：改为跨标签关闭仍保留的存储（如 `localStorage`）；失效 / `CONVERSATION_NOT_FOUND` 时回落最近会话或清空。
 
 ### 用户实现
 
-- 页面展示文案与顺序；哪些内部事件不暴露。
+- 页面展示文案与顺序；哪些内部事件不暴露（含账本哪些 kind 可进 SSE）。
 - 「新会话」与「恢复最近会话」的文案/交互确认（默认：有记住的有效 id 用它；否则接最近 ACTIVE；都无则保持未建会话，发送时再 create）。
 
 ### 范围边界
 
 | 做 | 不做（本批） |
 |----|----------------|
+| `turn_step` 落库 + 单一写入路径；actor/kind/关联/脱敏结果 | 用 ErrorCodes / SafeErrorLog 冒充行为审计；开放检索产品 / 多会话审计 UI |
 | 刷新 / 关标签再开 / 关服务再开后：同一浏览器源自动接上最近可用会话并渲染已提交历史 | 多会话侧栏、搜索、跨设备同步、多用户账号体系 |
 | 恢复路径只读已提交 Message；顺序与落库一致 | 把未提交 / 执行中 Turn 伪造成已完成回复 |
-| 与 SSE 补发共存：历史恢复 ≠ 重跑业务 | 在 0.2.1–0.2.3 提前做完整恢复 UX |
+| 与 SSE 补发共存：历史恢复 ≠ 重跑业务 | 在 0.2.1–0.2.3 提前做完整恢复 UX 或抢做账本实现 |
 
 ### 验收
 
 ```text
+# 0.2.4-A 行为账本
+[ ] turn_step 表已建；一次成功 Turn 有单调 step_no 步骤
+[ ] 含工具的 Turn 有 TOOL_CALL；记忆正式写入可追溯（kind 约定）
+[ ] 回滚不残留半提交步骤；敏感字段脱敏
+[ ] AgentTrace 非唯一真相源
+
+# 0.2.4-B 交付与历史恢复
 [ ] 提交后才发送 SSE；lastEventId 补发正确
 [ ] 重连不增加模型/工具调用
 [ ] 慢客户端有缓存上限；页面关闭不取消已提交 Turn

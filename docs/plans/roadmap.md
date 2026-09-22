@@ -23,10 +23,15 @@ H1–H4 + `/chat/` 直接回答。无 Agent Loop。细节见清单「历史交�
        施工单 → plans/k01-agent-loop.md
        审计关闭 → reviews/04-reverify-0.2.1.md（快照 reviews/03-audit-0.2.1.md）
    ↓
-0.2.2  ToolRuntime + ToolProfile（本节点可安全工具）   （别名 K02）【下一步】
+0.2.2  ToolRuntime + ToolProfile（本节点可安全工具）   （别名 K02）【已交付 · 2026-09-22】
+       施工单 → plans/k02-tools.md（Role×Facet×Host 绑定）
+       重构计划 → plans/k02-tool-impl-binding.md（能力标签求交 · 多 id · **已实施**）
 0.2.3  Memory + Relationship（成长核心 · 高优先级）   （别名 K03）
        边界 → research/memory.md
-0.2.4  Outbox / SSE + `/chat/` 历史自动恢复（分享时才投用户） （别名 K04）
+0.2.4  统一行为账本 → Outbox / SSE → `/chat/` 历史恢复 （别名 K04）
+       ├─ 0.2.4-A  turn_step 统一行为账本（user/system/agent）【已立项】
+       │            立项 → plans/k04-behavior-journal.md
+       └─ 0.2.4-B  Outbox / SSE + 历史自动恢复（依赖 A；分享时才投用户）
 0.2.5  Task / BackgroundTask（可留 WORLD_TICK 类型名，不实现世界树）（别名 K05）
 0.2.6  生命周期探针                                     （别名 K06）
 0.2.7  故障、恢复与资源验收                             （别名 K07）
@@ -34,9 +39,13 @@ H1–H4 + `/chat/` 直接回答。无 Agent Loop。细节见清单「历史交�
 
 硬约束：
 
-- **0.2.1** 已交付；开工 **0.2.2** 前须保留会话公平锁与 `AgentBudgetGate`；ToolCalls `continue` 后强制回归次数打满。
+- **0.2.1** 已交付；**0.2.2** 已交付（含 ToolCalls continue 与次数打满单测回归）。
 - **0.2.1** Loop 验收禁止 Fake；须 live 真实模型。
+- **真人实机 / 产品路径**：默认 `mode=live`；本机能力以 harness `HostCapabilitySet` / 管理 API 自证为准，禁止 Agent shell 外挂探测冒充证据。见 [07-testing §1.1](../guide/07-testing.md)。
 - **0.2.1** 只接 USER ingress；世界字段仅契约预留。
+- **下一步默认 0.2.3**；展示思考/工具过程与历史恢复属 **0.2.4**，勿提前塞进工具批。
+- **0.2.4-A 必须先于 0.2.4-B**：未落 `turn_step` 与单一写入路径，不得勾选 0.2.4 完成、不得宣称 SSE 已有完整行为事件。账本 = 事实；outbox = 交付；二者不互相冒充。
+- 不把「统一行为账本」提前塞进 0.2.3（避免拖 Memory），也不拖到 0.2.7（恢复/补发会缺逐步真相）。
 - 未完成 **0.2.1–0.2.7** 不宣称 v0.2 完成。
 
 后续施工单命名：`k02-tools.md` 等可保留；文首须写正式号 `0.2.x`。未建计划 = 不授权提前做。

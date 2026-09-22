@@ -8,6 +8,7 @@
 | 要改什么 | 只改 |
 |----------|------|
 | 外部循环怎么切 | [agent-loop-survey.md](./agent-loop-survey.md) |
+| 十方工具模块与去重目录 | [ten-agent-tools.md](./ten-agent-tools.md) |
 | 本项目模块 | [wannian-loop-modules.md](./wannian-loop-modules.md) |
 | 世界 / 工具 / Jev | [world-evolution-and-extensions.md](./world-evolution-and-extensions.md) |
 | 设备 / 节点 / 角色（v0.3） | [multi-node-companion-world.md](./multi-node-companion-world.md) |
@@ -22,6 +23,7 @@
 | | 文档 | 档 |
 |--|------|----|
 | 1 | [agent-loop-survey.md](./agent-loop-survey.md) | 对照 |
+| 1b | [ten-agent-tools.md](./ten-agent-tools.md) | 工具模块 / 去重目录 |
 | 2 | [wannian-loop-modules.md](./wannian-loop-modules.md) | v0.2 模块 |
 | 3 | [in-flight-user-message.md](./in-flight-user-message.md) | 插话时序 |
 | 4 | [wechat-and-world-timing.md](./wechat-and-world-timing.md) | 微信 & 世界冲突 |

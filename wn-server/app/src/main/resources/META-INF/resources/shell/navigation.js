@@ -7,6 +7,7 @@ export const APP_NAV = [
   { id: "chat", href: "/chat/", label: "对话", icon: "◎", group: "agents" },
   { id: "vendors", href: "/manage/#vendors", label: "供应商", icon: "◇", group: "agents" },
   { id: "models", href: "/manage/#models", label: "模型", icon: "▦", group: "agents" },
+  { id: "tools", href: "/manage/#tools", label: "工具", icon: "⚒", group: "agents" },
   { id: "system", href: "/manage/#system", label: "系统", icon: "⚙", group: "system" },
 ];
 

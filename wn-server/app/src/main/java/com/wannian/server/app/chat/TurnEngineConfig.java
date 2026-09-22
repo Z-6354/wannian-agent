@@ -6,6 +6,9 @@ import com.wannian.server.kernel.agent.AgentLoop;
 import com.wannian.server.kernel.agent.ContextAssembler;
 import com.wannian.server.kernel.agent.DefaultAgentLoop;
 import com.wannian.server.kernel.conversation.ConversationStore;
+import com.wannian.server.kernel.tool.HostCapabilitySet;
+import com.wannian.server.kernel.tool.ToolRuntime;
+import com.wannian.server.kernel.tool.ToolVisibilityResolver;
 import com.wannian.server.kernel.turn.TurnCommitter;
 import com.wannian.server.kernel.turn.TurnEngine;
 import com.wannian.server.kernel.turn.TurnRepository;
@@ -17,13 +20,16 @@ import org.springframework.context.annotation.Configuration;
 public class TurnEngineConfig {
 
     @Bean
-    ContextAssembler contextAssembler(ConversationStore conversations) {
-        return new ContextAssembler(conversations);
+    ContextAssembler contextAssembler(
+            ConversationStore conversations,
+            ToolVisibilityResolver toolVisibilityResolver,
+            HostCapabilitySet hostCapabilitySet) {
+        return new ContextAssembler(conversations, toolVisibilityResolver, hostCapabilitySet);
     }
 
     @Bean
-    AgentLoop agentLoop(EnabledModelPortResolver modelPorts) {
-        return new DefaultAgentLoop(new ResolvingModelPort(modelPorts));
+    AgentLoop agentLoop(EnabledModelPortResolver modelPorts, ToolRuntime toolRuntime) {
+        return new DefaultAgentLoop(new ResolvingModelPort(modelPorts), toolRuntime);
     }
 
     @Bean

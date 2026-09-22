@@ -1,12 +1,12 @@
 # 0.2.1 · Agent Loop 施工单（别名 K01）
 
-`status`: **v0.2 · 0.2.1 · 已交付**（A/B/C/D + 审计 P1–P3 收口；blank/决策打满 live 仍待补）  
+`status`: **v0.2 · 0.2.1 · 已交付**（A/B/C/D + 审计 P1–P3 收口；次数打满由 0.2.2 continue 路径单测关闭）
 `version`: **0.2.1**（施工别名 K01）  
 `batch`: 实施清单 **0.2.1**（子批 A / B / C / D）  
 `authority`: [产品概览](../product/01-overview.md) · [实施清单](../guide/01-checklist.md) · [05 工作簿](../guide/05-agent-loop.md)  
 `schedule`: 全版本顺序只看 [roadmap.md](./roadmap.md)。本文只排 **0.2.1 内部**子批。  
 `research`: [research/README.md](../research/README.md) · 插话调度已定 [followup](../research/in-flight-user-message.md)  
-`closure`: [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md) · 下一步 **0.2.2**
+`closure`: [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md) · **遗留「决策打满」已由 0.2.2 关闭**；产品下一步 **0.2.3**
 
 给执行者（Codex / luna）的指令。用户保留 `OWNER: USER` 核心循环；Agent 可搭骨架、live 夹具与接线，**不得**擅自补全 `DefaultAgentLoop.run`，除非用户改分工。
 
@@ -24,7 +24,7 @@
 - 不做跨进程调度、不做队列 UI / 后台 drain（属 0.2.4）；严格「仅按 receive 序且无人 execute 更早 Turn」的 worker 本批不做。
 - 会话锁在无等待者时从 map 摘除，避免只增不删；`failAttempt`/`cancelAttempt` 落库失败打 `System.Logger` 警告（尽力而为，对外仍 Held）。
 
-**其余 P1：** F-02 软截止可读；F-03 次数闸门可单测（不盲目 ToolCalls continue）；F-04 `CANCELLED`→`Cancelled`；F-05 freeze `RevisionConflict`→`failAttempt`。
+**其余 P1：** F-02 软截止可读；F-03 次数闸门可单测（**0.2.2** 已接 ToolCalls continue 并覆盖打满）；F-04 `CANCELLED`→`Cancelled`；F-05 freeze `RevisionConflict`→`failAttempt`。
 
 ### 0.2.1 收口补丁 · P2/P3（2026-09-22）
 
@@ -58,7 +58,7 @@
 
 - 真实模型若返回 `ToolCalls`：0.2.1 受控失败/占位、不写库；真工具属 **0.2.2**。
 - **0.2.1-C** 用 `TurnEngine → AgentLoop` 替换直答段，保留 R01–R05 语义。
-- 空白/预算打满优先用真实失败或取消触发；难触发则记待补，不降「禁 fake」。
+- 空白/预算打满：0.2.1 难用真模型硬撞；**0.2.2** 用假模型控循环覆盖打满路径即可（仍禁用 Fake 冒充 0.2.1 直接回答 live）。
 
 ### 缺省（开工前可改）
 
@@ -243,14 +243,14 @@ claim → RUNNING
 [x] live：简单输入 → FinalResponse，非 blank；通常 1 次 decide（DefaultAgentLoopLiveTest）
 [x] mode=live 且出站真实发生（DeepSeek openai-compatible；需 DEEPSEEK_API_KEY）
 [x] 未用 Fake/Scripted 作 FinalResponse 通过证据
-[ ] blank/Refusal/Failure → ControlledFailure（难触发则待补）
+[ ] blank/Refusal/Failure → ControlledFailure（难触发；**不挡收口**，见清单说明）
 [x] Loop 无 SQL/SDK/Controller import
-[x] ToolCalls：不执行、受控 TOOLS_NOT_ENABLED
-[ ] maxModelDecisions=3（难触发则待补，仍禁 fake）
+[x] ToolCalls（0.2.1 当时）：不执行、受控 TOOLS_NOT_ENABLED → **0.2.2 已接真实工具 continue**
+[x] maxModelDecisions=3 打满：0.2.2 `DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget`（不要求真模型硬撞 3 次）
 [x] cancel 在 decide 前 → Cancelled 且无出站
 [x] Failure(CANCELLED) → AgentOutcome.Cancelled（非 ControlledFailure）
 [x] softDeadline：首次 decide 前仍可开；后续 decide 前过 soft → BUDGET_EXHAUSTED（AgentBudgetGateTest）
-[x] maxModelDecisions 闸门可单测（AgentBudgetGate；ToolCalls 仍不 continue，打满 live 待 0.2.2）
+[x] maxModelDecisions 闸门可单测（AgentBudgetGate；打满路径随 0.2.2 continue 关闭）
 ```
 ### A
 

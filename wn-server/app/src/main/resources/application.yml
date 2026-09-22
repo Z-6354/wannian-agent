@@ -20,7 +20,8 @@ wannian:
     # 不要把口令写进本文件；WANNIAN_MANAGE_TOKEN 非空时覆盖本地文件。
     token: ${WANNIAN_MANAGE_TOKEN:}
   model:
-    # live：OpenAI 兼容真实调用，读 apiKeyEnv。
+    # live（默认）：真实 OpenAI 兼容调用，读供应商 apiKeyEnv。真人实机 / 产品路径验收必须用 live。
+    # fake：仅单测与管理页无模型冒烟；禁止当作实机或 Loop/工具收口证据。见 guide/07-testing.md §1.1。
     mode: ${WANNIAN_MODEL_MODE:live}
   agent:
     budget:

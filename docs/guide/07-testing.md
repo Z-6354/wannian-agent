@@ -33,6 +33,19 @@ resource verification   2 核 2 GB 等价环境
 
 优先通过 Module Interface 测试行为，不为私有方法逐个写脆弱测试。
 
+### 1.1 真人实机 / 产品路径验收（强制）
+
+与「隔离单测里注入 Fake / 假 HostCapability」分开：凡宣称**真人实机、用户路径、收口证据**的验证，必须最接近真实用户环境。
+
+| 要求 | 说明 |
+|------|------|
+| 默认 `wannian.model.mode=live` | **禁止**为「方便跑通」把实机验收改成 `fake`。缺密钥/外网 → 标明未就绪并停测，不得静默退 Fake 冒充通过。 |
+| 本机能力由 harness 自证 | OS / PowerShell 等是否可用，以进程内 `LocalHostCapabilityDetector` → `HostCapabilitySet` 及管理 API（如 `GET /api/manage/agent/tools` 的 `hostCapabilities` / 工具三态）为准。**禁止**用 Agent shell 自行 `Get-Command pwsh` 等外挂探测当验收证据，也不得用外挂结论覆盖 harness。 |
+| 配置与数据路径贴近默认 | 优先默认 `data-dir`、默认端口与真实 `wannian.json`；临时目录仅用于不污染用户数据的隔离实机冒烟，仍须 `mode=live`。 |
+| Fake 仅限单测替身 | `FakeModelAdapter`、测试注入的假能力集可留在仓库，**不得**当作真人实机或 Loop/工具产品路径的通过证据。 |
+
+Agent 执行「实际测试 / 实机验收」时：启动真实装配进程 → 调产品 API / 对话路径 → 以响应与落库为准；不得先用 shell 预判环境再改产品行为。
+
 ## 2. 测试工具
 
 准备：

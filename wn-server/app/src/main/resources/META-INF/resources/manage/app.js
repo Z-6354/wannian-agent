@@ -1,8 +1,9 @@
-import { getToken, isLocalHost, setToken } from "/manage/api.js?v=20260920p";
-import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260920p";
+import { getToken, isLocalHost, setToken } from "/manage/api.js?v=20260922t";
+import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260922t";
 import { clearBanner, clearStatus } from "/manage/page-feedback.js?v=20260920p";
 import { mountModelsPage } from "/manage/models-page.js?v=20260920p";
 import { mountSystem } from "/manage/system-panel.js?v=20260921a";
+import { mountToolsPage } from "/manage/tools-page.js?v=20260922v";
 import { mountVendorsPage } from "/manage/vendors-page.js?v=20260920p";
 
 const nav = document.querySelector("#manage-nav");
@@ -61,6 +62,19 @@ function render() {
     clearStatus(enabledLine);
     clearBanner(banner);
     mountSystem({ main: panel, actions: pageActions, status: enabledLine, banner });
+    return;
+  }
+  if (view.path === "tools") {
+    title.textContent = "工具";
+    clearStatus(enabledLine);
+    clearBanner(banner);
+    if (!local && !getToken()) {
+      panel.replaceChildren();
+      banner.className = "banner error";
+      banner.textContent = "外网访问需要管理口令";
+      return;
+    }
+    mountToolsPage({ main: panel, actions: pageActions, status: enabledLine, banner, route: view.params });
     return;
   }
   const page = view.path === "models" ? "models" : "vendors";

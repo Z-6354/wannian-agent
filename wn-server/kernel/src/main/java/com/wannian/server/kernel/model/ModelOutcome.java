@@ -13,11 +13,21 @@ public sealed interface ModelOutcome {
         }
     }
 
-    record ToolCalls(List<ToolCallRequest> calls, ModelUsage usage) implements ModelOutcome {
+    record ToolCalls(
+            List<ToolCallRequest> calls,
+            ModelUsage usage,
+            String assistantContent,
+            String reasoningContent)
+            implements ModelOutcome {
         public ToolCalls {
             Objects.requireNonNull(calls, "calls");
             calls = List.copyOf(calls);
             usage = usage == null ? new ModelUsage(0, 0) : usage;
+        }
+
+        /** 无 thinking 附带字段时的简写。 */
+        public ToolCalls(List<ToolCallRequest> calls, ModelUsage usage) {
+            this(calls, usage, null, null);
         }
     }
 

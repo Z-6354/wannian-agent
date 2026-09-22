@@ -73,6 +73,21 @@ public final class ErrorCodes {
     /** 当前回合状态不允许开始这一次执行。 */
     public static final String ILLEGAL_STATUS = "ILLEGAL_STATUS";
 
+    /** 工具目录中同名工具已注册，拒绝覆盖。 */
+    public static final String TOOL_ALREADY_REGISTERED = "TOOL_ALREADY_REGISTERED";
+
+    /** 工具名未在封闭目录中登记。 */
+    public static final String TOOL_NOT_FOUND = "TOOL_NOT_FOUND";
+
+    /** 工具参数不合法或违反工具专用约束。 */
+    public static final String TOOL_INVALID_ARGUMENTS = "TOOL_INVALID_ARGUMENTS";
+
+    /** 同一 operationId 绑定与已存记录冲突。 */
+    public static final String TOOL_OPERATION_CONFLICT = "TOOL_OPERATION_CONFLICT";
+
+    /** 工具所需本机能力不可用（如无 PowerShell）。 */
+    public static final String TOOL_UNAVAILABLE = "TOOL_UNAVAILABLE";
+
     // —— 策略：权限、预算或产品能力未开放 ——
 
     /** 管理口令未通过。 */
@@ -207,6 +222,10 @@ public final class ErrorCodes {
         put(map, STALE_ATTEMPT, ErrorCategory.CONFLICT, false);
         put(map, ILLEGAL_TRANSITION, ErrorCategory.CONFLICT, false);
         put(map, ILLEGAL_STATUS, ErrorCategory.CONFLICT, false);
+        put(map, TOOL_ALREADY_REGISTERED, ErrorCategory.CONFLICT, false);
+        put(map, TOOL_NOT_FOUND, ErrorCategory.VALIDATION, false);
+        put(map, TOOL_INVALID_ARGUMENTS, ErrorCategory.VALIDATION, false);
+        put(map, TOOL_OPERATION_CONFLICT, ErrorCategory.CONFLICT, false);
 
         put(map, UNAUTHENTICATED, ErrorCategory.POLICY_DENIED, false);
         put(map, MANAGE_UNCONFIGURED, ErrorCategory.POLICY_DENIED, false);
@@ -222,6 +241,7 @@ public final class ErrorCodes {
         put(map, RETRYABLE_BUSY, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, MODEL_TIMEOUT, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, MODEL_RATE_LIMITED, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
+        put(map, TOOL_UNAVAILABLE, ErrorCategory.DEPENDENCY_UNAVAILABLE, false);
 
         put(map, CLAIM_EXPIRED, ErrorCategory.EXECUTION_FAILED, true);
         put(map, CLAIM_FAILED, ErrorCategory.EXECUTION_FAILED, true);
