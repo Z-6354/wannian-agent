@@ -1,5 +1,6 @@
 package com.wannian.server.app.persistence;
 
+import com.wannian.server.kernel.error.ErrorCodes;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import org.sqlite.SQLiteErrorCode;
@@ -49,5 +50,17 @@ final class SqliteErrors {
             }
         }
         return false;
+    }
+
+    /**
+     * 把 JDBC 异常译成 {@link ErrorCodes}；不把 SQL 原文带出边界。
+     *
+     * <p>唯一约束由调用方按业务语义处理（幂等冲突等），此处默认 {@code PERSISTENCE_FAILED}。
+     */
+    static String toErrorCode(SQLException ex) {
+        if (isBusy(ex)) {
+            return ErrorCodes.RETRYABLE_BUSY;
+        }
+        return ErrorCodes.PERSISTENCE_FAILED;
     }
 }

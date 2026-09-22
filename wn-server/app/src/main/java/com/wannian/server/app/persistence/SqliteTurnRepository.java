@@ -1,5 +1,6 @@
 package com.wannian.server.app.persistence;
 
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
@@ -94,7 +95,7 @@ public class SqliteTurnRepository implements TurnRepository {
             return new SaveTurnResult.RevisionConflict(turn.id(), again.revision());
         } catch (SQLException ex) {
             return new SaveTurnResult.Rejected(
-                    turn.id(), "PERSISTENCE_FAILED", "保存回合迁移失败: " + turn.id().asString());
+                    turn.id(), ErrorCodes.PERSISTENCE_FAILED, "保存回合迁移失败: " + turn.id().asString());
         }
     }
 
@@ -106,22 +107,22 @@ public class SqliteTurnRepository implements TurnRepository {
         if (!isLegalSave(current.status(), turn.status())) {
             return new SaveTurnResult.Rejected(
                     turn.id(),
-                    "ILLEGAL_TRANSITION",
+                    ErrorCodes.ILLEGAL_TRANSITION,
                     "不能从 " + current.status() + " 写成 " + turn.status());
         }
         if (turn.status() == TurnStatus.CLAIMED
                 && (turn.claimExpiresAt() == null || !turn.claimExpiresAt().isAfter(now))) {
             return new SaveTurnResult.Rejected(
-                    turn.id(), "CLAIM_EXPIRED", "不能保存已经过期的认领");
+                    turn.id(), ErrorCodes.CLAIM_EXPIRED, "不能保存已经过期的认领");
         }
         if (turn.status() == TurnStatus.RUNNING) {
             if (!Objects.equals(current.executionId(), turn.executionId())) {
                 return new SaveTurnResult.Rejected(
-                        turn.id(), "OWNER_MISMATCH", "executionId 与库中冻结身份不一致");
+                        turn.id(), ErrorCodes.OWNER_MISMATCH, "executionId 与库中冻结身份不一致");
             }
             if (current.claimExpiresAt() == null || !current.claimExpiresAt().isAfter(now)) {
                 return new SaveTurnResult.Rejected(
-                        turn.id(), "CLAIM_EXPIRED", "lease 已过期，不能进入下一步");
+                        turn.id(), ErrorCodes.CLAIM_EXPIRED, "lease 已过期，不能进入下一步");
             }
         }
         return null;

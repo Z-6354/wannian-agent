@@ -4,6 +4,7 @@ import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.kernel.conversation.CreateConversationResult;
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.turn.ReceiveTurnResult;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,7 +50,7 @@ final class HttpMapping {
                                     "conflict",
                                     conflict.existingTurnId().asString(),
                                     null,
-                                    "CLIENT_REQUEST_CONFLICT",
+                                    ErrorCodes.CLIENT_REQUEST_CONFLICT,
                                     conflict.detail(),
                                     null));
             case ReceiveTurnResult.Rejected rejected ->
@@ -106,8 +107,8 @@ final class HttpMapping {
 
     private static HttpStatus statusFor(String reasonCode) {
         return switch (reasonCode) {
-            case "CONVERSATION_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "PERSISTENCE_FAILED", "RETRYABLE_BUSY" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case ErrorCodes.CONVERSATION_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case ErrorCodes.PERSISTENCE_FAILED, ErrorCodes.RETRYABLE_BUSY -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
     }

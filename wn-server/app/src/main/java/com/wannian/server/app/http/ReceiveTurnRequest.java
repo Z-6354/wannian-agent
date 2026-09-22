@@ -3,7 +3,7 @@ package com.wannian.server.app.http;
 /**
  * {@code POST /api/conversations/{conversationId}/turns} 的请求体。
  *
- * <p>只接收用户文本。服务端包成内容信封，不接受助手消息。接收成功后，若已启用模型，会在同一请求里完成直接回答。
+ * <p>只接收用户文本。服务端包成内容信封，不接受助手消息。接收成功后，若已启用模型，经 TurnEngine 完成一轮回答。
  *
  * @param clientRequestId 幂等键，必填
  * @param text 用户原文。空白会被拒绝，但前后空白和换行会原样保存

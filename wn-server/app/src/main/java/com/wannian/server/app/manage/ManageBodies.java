@@ -40,4 +40,10 @@ public final class ManageBodies {
 
     public record ProbeResponse(
             String outcome, String text, String vendorId, String modelId, String code, String detail) {}
+
+    /** Agent Loop 预算；与数据目录 wannian.json 的 agentBudget 字段对应。 */
+    public record AgentBudgetBody(int maxModelDecisions, int softDeadlineSeconds, int hardDeadlineSeconds) {}
+
+    public record UpdateAgentBudgetRequest(
+            Integer maxModelDecisions, Integer softDeadlineSeconds, Integer hardDeadlineSeconds) {}
 }

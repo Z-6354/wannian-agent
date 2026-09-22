@@ -2,14 +2,14 @@
 
 `status`: **v0.1 已封版** — 2026-09-20 重置。v0.1 = 当前已交付（骨架、持久化、管理页、直接回答）。下一步是 **v0.2 单核 harness + 单核节点**（**0.2.1** 起）。世界树与多核是 **v0.3**，本清单不提前开工。
 
-`plan-revised`: **2026-09-20** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1，不再算成 0.2.1。旧号对照仍有效。审查原文不改写。
+`plan-revised`: **2026-09-22** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1，不再算成 0.2.1。**0.2.4** 增补 `/chat/` 历史自动恢复与最近会话接入（见该节）。旧号对照仍有效。审查原文不改写。
 
 ## 版本
 
 | 档 | 状态 | 含 | 不含 |
 |----|------|----|------|
 | **v0.1** | 已交付 | H1–H4、`/chat/` 直接回答 | Agent Loop、工具、记忆策略、Outbox、多节点 |
-| **v0.2** | 未开工 | 单核 harness（**0.2.1–0.2.7**）、一个烟火节点 | 世界树、第二个节点、Guardian |
+| **v0.2** | 进行中 | 单核 harness（**0.2.1 已交付**；**0.2.2–0.2.7**）、一个烟火节点 | 世界树、第二个节点、Guardian |
 | **v0.3** | 未开工 | 世界树、多核节点 | 宿主主备、wn-agent |
 
 ## 使用规则
@@ -76,17 +76,20 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 - 这两个函数打 `POST /api/conversations` 和 `POST /api/conversations/{id}/turns`。已启用模型时响应带 `reply`，回合进入 COMPLETED。同一 `clientRequestId` 重放已完成回合只回放已保存回复，不再调用模型。
 - 未启用模型时回合停在 RECEIVED，`detail` / `reasonCode` 说明原因。页面不得在没有 `reply` 时装作已经回答。
 - 不做 SSE、Outbox 补发、消息回读，也不执行工具。刷新后本页不恢复历史。
+- **延期到 0.2.4**：消息回读、刷新/重开后自动恢复 transcript、关闭服务再开后接入最近会话（见下文 **0.2.4**）。v0.1 / 0.2.1–0.2.3 不得提前做完整恢复 UX。
 - Loop 完成后只改 `api.js`（以及届时的服务端对话接口），不把厂商调用写进页面。
 
 ---
 
-## v0.2 · 0.2.1 起（未开工）
+## v0.2 · 0.2.1 起
 
-下列 **0.2.1–0.2.7** 全部属于 **v0.2 单核 harness + 单核节点**。不要在 v0.1 上补做。
+下列 **0.2.1–0.2.7** 全部属于 **v0.2 单核 harness + 单核节点**。不要在 v0.1 上补做。  
+**0.2.1 已交付**（含审计收口，见 [04-reverify](../reviews/04-reverify-0.2.1.md)）；**下一步 0.2.2** 工具循环。
 
 ## 0.2.1 · 错误码、Agent Loop 与 Turn 接线（别名 K01）
 
-`status`: **v0.2 第一步，未开工** — 顺序见 [路线图](../plans/roadmap.md)；分步见 [0.2.1 施工单](../plans/k01-agent-loop.md)。
+`status`: **v0.2 · 0.2.1 已交付**（A/B/C/D + 审计 P1–P3 收口；B 遗留 blank/决策打满 live 待补，不挡收口、不挡开工 0.2.2）  
+`closure`: [施工单](../plans/k01-agent-loop.md) · [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md)
 
 ### 目标
 
@@ -96,10 +99,10 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 
 | 子批 | 旧称 | 状态 | 交付 |
 |---|---|---|---|
-| 0.2.1-A | K03-A / K01-A | 可与 B 交错 | 全进程错误 code 与日志约定；收编历史 H2 的 `reasonCode` |
-| 0.2.1-B | K03-C / K01-B | **下一步** | Loop 类型与 `OWNER: USER` 骨架；直接回答 |
-| 0.2.1-C | K03-D / K01-C | 等 B | TurnEngine：认领 → Loop → 冻结计划 → 提交；R01—R05 复验 |
-| 0.2.1-D | K03-E / K01-D | 等 C | live 装配与对外 `execute` 入口 |
+| 0.2.1-A | K03-A / K01-A | **已交付** | 全进程错误 code 与日志约定；收编历史 H2 的 `reasonCode` |
+| 0.2.1-B | K03-C / K01-B | **已交付**（live 测见 `DefaultAgentLoopLiveTest`；blank/预算打满难触发待补） | Loop 类型与直接回答；ToolCalls/取消占位 |
+| 0.2.1-C | K03-D / K01-C | **已交付**（编排见 `TurnEngineOrchestrationTest`；live 见 `TurnEngineLiveCTest`；R01–R05 复验命令见施工单） | TurnEngine：认领 → Loop → 冻结计划 → 提交；R01—R05 复验 |
+| 0.2.1-D | K03-E / K01-D | **已交付**（`TurnEngineHttpLiveDTest`；`TurnDialogue` 已退役） | live 装配与对外 `execute` 入口 |
 
 ### 防复发提示（T1/T2/T3/T5/T7）
 
@@ -109,11 +112,18 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 分类起点见 [`28`](04-kernel-reference.md) 第 14 节；预期业务失败用封闭结果（见 [`34`](03-architecture.md) 第 11 节）。
 
-- 稳定 `code` 只登记一处。
+- 稳定 `code` 只登记一处：`com.wannian.server.kernel.error.ErrorCodes`（0.2.1-A 已交付）。
 - 厂商 SDK、JDBC、HTTP 异常在 app 边界译成上述 code，不得原样进入 kernel。
-- 编程缺陷与进程级不可恢复故障仍走异常。
-- 日志只记稳定 code、操作类别、关联 ID、耗时与脱敏原因；不含密钥、SQL、堆栈或原始敏感正文。
-- 历史 H2 的 `reasonCode` 收进这一套，不保留第二套字符串。
+- 编程缺陷与进程级不可恢复故障仍走异常（`InternalDefectException`）。
+- 日志只记稳定 code、操作类别、关联 ID、耗时与脱敏原因（`ErrorLogFields` + app `SafeErrorLog`）；不含密钥、SQL、堆栈或原始敏感正文。边界适配器（Timeout / OpenAI 兼容）已接线 `SafeErrorLog`；非要求全仓每一处 Logger 立刻统一。
+- 历史 H2 的 `reasonCode` 与管理面 `ManageReason` 已收进这一套（`ManageReason` 仅为别名，禁止再增字面量表）。
+
+```text
+[x] 全进程只有一套错误 code 与一套日志约定
+[x] 历史 reasonCode 已纳入，没有第二套
+[x] 日志约定类型可脱敏；边界路径 SafeErrorLog 已接线；样例不含 API key、SQL 或堆栈
+[x] kernel 不依赖具体日志实现或厂商异常类型
+```
 
 ### Codex 可生成
 
@@ -130,20 +140,21 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 ### 验收
 
 ```text
-[ ] 直接回答测试（0.2.1-B）
-[ ] 工具分支占位测试
-[ ] 最大 3 次模型决策
-[ ] 15 秒软预算、30 秒硬上限可配置
-[ ] 全进程只有一套错误 code 与一套日志约定
-[ ] 历史 reasonCode 已纳入，没有第二套
-[ ] 超时/限流/格式错误使用该套 code
-[ ] 日志不含 API key、SQL 或堆栈
-[ ] kernel 不依赖具体日志实现或厂商异常类型
-[ ] Loop 不 import SDK/SQL/Controller
-[ ] 同键重试不增加模型调用；错误 owner 的迟到 Outcome 不写正式事实
-[ ] 模型完成但提交响应丢失时回放已保存结果，不重跑模型
-[ ] 同会话执行顺序与上下文一致，跨会话并发有配置上限
-[ ] 原文保存与 prompt 裁剪分离；COMMITTING 恢复不依赖进程内 Outcome
+[x] 直接回答测试（0.2.1-B；`DefaultAgentLoopLiveTest` live）
+[x] 工具分支占位测试（非空 ToolCalls→TOOLS_NOT_ENABLED；空→INVALID_MODEL_OUTPUT）
+[ ] 最大 3 次模型决策 live 打满（闸门可单测 AgentBudgetGate；ToolCalls continue 后强制回归属 0.2.2）
+[x] 15 秒软预算、30 秒硬上限可配置且生效（软截止后不再开新 decide；硬截止挡 decide 前）
+[x] 全进程只有一套错误 code 与一套日志约定；适配器引用 ErrorCodes
+[x] 历史 reasonCode 已纳入，没有第二套
+[x] 超时/限流/格式错误使用该套 code
+[x] 日志不含 API key、SQL 或堆栈；边界 SafeErrorLog 已接线
+[x] kernel 不依赖具体日志实现或厂商异常类型
+[x] Loop 不 import SDK/SQL/Controller
+[x] 同键重试不增加模型调用；错误 owner 的迟到 Outcome 不写正式事实
+[x] 模型完成但提交响应丢失时回放已保存结果，不重跑模型
+[x] 同会话 followup 串行（方案 A 公平锁，异键不双跑 Loop）；同键幂等见 ReceiveTurnIdempotency
+[x] Failure(CANCELLED)→Cancelled→DB CANCELLED（产品 Stop HTTP 未接，后置）
+[x] 原文保存与 prompt 裁剪分离；COMMITTING 恢复不依赖进程内 Outcome；freeze RevisionConflict→FAILED
 ```
 
 ### 禁止
@@ -228,19 +239,39 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ### 防复发提示（T1/T3/T5，审查 §6.5）
 
-复用 H3 的必需完成事件与事务内序号。最小单用户鉴权覆盖 HTTP、SSE、历史补发和 internal；**0.2.6** 再扩展探针测试。
+复用 H3 的必需完成事件与事务内序号。最小单用户鉴权覆盖 HTTP、SSE、历史补发和 internal；**0.2.6** 再扩展探针测试。  
+`/chat/` 历史恢复只读已提交 Message，**不得**在恢复路径上调用模型 / Loop / ToolRuntime。
 
 ### 目标
 
-可靠交付已提交事件；页面断线不重做业务。
+可靠交付已提交事件；页面断线不重做业务。  
+补齐 v0.1 `/chat/` 明确不做的缺口：**消息回读 + 自动恢复历史 + 接入最近会话**。
+
+### 已验证缺口（写入本批的原因）
+
+- 服务端：会话与消息已在 SQLite（`wannian.db`）持久；`ConversationStore#listRecentMessages` 已有，供 Loop 近讯，**无**面向 `/chat/` 的 GET 回读。
+- 前端：`conversationId` 仅存 `sessionStorage`；`messages` 只在页内内存；空态文案写明「刷新后本页不回放历史」。
+- 关标签页会丢记住的 id；关服务再开**不会**自动挑库内最近会话；界面也不会回放 transcript（即便同 id 仍可用）。
 
 ### Codex 可生成
 
 - OutboxPublisher；SSE；event cursor；简单内嵌页面；断线重连与鉴权测试。
+- 会话只读 API：按 id 取消息列表；取「最近一条 ACTIVE 会话」（按 `updated_at`）。
+- `/chat/api.js`：`listMessages` / `getRecentConversation`（或等价）；页面加载时解析会话 → 拉历史 → 渲染。
+- 客户端记住 id：改为跨标签关闭仍保留的存储（如 `localStorage`）；失效 / `CONVERSATION_NOT_FOUND` 时回落最近会话或清空。
 
 ### 用户实现
 
 - 页面展示文案与顺序；哪些内部事件不暴露。
+- 「新会话」与「恢复最近会话」的文案/交互确认（默认：有记住的有效 id 用它；否则接最近 ACTIVE；都无则保持未建会话，发送时再 create）。
+
+### 范围边界
+
+| 做 | 不做（本批） |
+|----|----------------|
+| 刷新 / 关标签再开 / 关服务再开后：同一浏览器源自动接上最近可用会话并渲染已提交历史 | 多会话侧栏、搜索、跨设备同步、多用户账号体系 |
+| 恢复路径只读已提交 Message；顺序与落库一致 | 把未提交 / 执行中 Turn 伪造成已完成回复 |
+| 与 SSE 补发共存：历史恢复 ≠ 重跑业务 | 在 0.2.1–0.2.3 提前做完整恢复 UX |
 
 ### 验收
 
@@ -252,6 +283,12 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 [ ] 逆序完成仍能按 cursor 补发
 [ ] 未认证不能读会话/SSE/历史；越界 cursor 不扩大可见范围
 [ ] 请求 key 与会话绑定；缩进/换行可往返保存
+[ ] GET（或等价）可按 conversationId 回读已提交消息；角色与正文可渲染
+[ ] 可查询最近一条 ACTIVE 会话；库空时明确无会话
+[ ] 打开 `/chat/`：有有效记住的 id → 接入该会话并渲染历史；id 失效 → 回落最近 ACTIVE 或空态，不报未处理异常
+[ ] 关服务再开、同浏览器再开 `/chat/`：自动接入最近可用会话并显示历史；恢复路径零次模型/工具调用
+[ ] 「新会话」仍可清空本地记忆并在下次发送时 create；不污染已恢复会话
+[ ] 空态不再声称「刷新后本页不回放历史」（或仅在确无任何可恢复会话时出现）
 ```
 
 ## 0.2.5 · TaskRuntime、BackgroundTask 与 SubAgentRun（别名 K05）

@@ -17,6 +17,7 @@ import com.wannian.server.app.manage.ModelVendorStore.RemoveResult;
 import com.wannian.server.app.manage.ModelVendorStore.SaveResult;
 import com.wannian.server.app.model.EnabledModelPortResolver;
 import com.wannian.server.app.model.EnabledModelPortResolver.ResolveResult;
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelMessage;
 import com.wannian.server.kernel.model.ModelOutcome;
@@ -179,8 +180,8 @@ public class ModelManageController {
             case ManageReason.REVISION_CONFLICT -> HttpStatus.CONFLICT;
             case ManageReason.MANAGE_UNCONFIGURED,
                     ManageReason.DEPENDENCY_UNAVAILABLE,
-                    "MODEL_TIMEOUT",
-                    "MODEL_RATE_LIMITED" ->
+                    ErrorCodes.MODEL_TIMEOUT,
+                    ErrorCodes.MODEL_RATE_LIMITED ->
                     HttpStatus.SERVICE_UNAVAILABLE;
             case ManageReason.UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
             case ManageReason.MODEL_NOT_ENABLED -> HttpStatus.CONFLICT;

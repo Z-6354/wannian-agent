@@ -164,7 +164,7 @@ function render() {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     const line = document.createElement("p");
-    line.textContent = "还没有消息。发送后会交给当前启用的模型直接回答。刷新后本页不回放历史。";
+    line.textContent = "还没有消息。发送后会交给当前启用的模型。刷新后本页不回放历史。";
     empty.append(line);
     transcript.append(empty);
     return;

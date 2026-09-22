@@ -1,15 +1,34 @@
 # 0.2.1 · Agent Loop 施工单（别名 K01）
 
-`status`: **v0.2 · 0.2.1 · 未开工**  
+`status`: **v0.2 · 0.2.1 · 已交付**（A/B/C/D + 审计 P1–P3 收口；blank/决策打满 live 仍待补）  
 `version`: **0.2.1**（施工别名 K01）  
 `batch`: 实施清单 **0.2.1**（子批 A / B / C / D）  
 `authority`: [产品概览](../product/01-overview.md) · [实施清单](../guide/01-checklist.md) · [05 工作簿](../guide/05-agent-loop.md)  
 `schedule`: 全版本顺序只看 [roadmap.md](./roadmap.md)。本文只排 **0.2.1 内部**子批。  
-`research`: [research/README.md](../research/README.md) · 插话调度已定 [followup](../research/in-flight-user-message.md)
+`research`: [research/README.md](../research/README.md) · 插话调度已定 [followup](../research/in-flight-user-message.md)  
+`closure`: [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md) · 下一步 **0.2.2**
 
 给执行者（Codex / luna）的指令。用户保留 `OWNER: USER` 核心循环；Agent 可搭骨架、live 夹具与接线，**不得**擅自补全 `DefaultAgentLoop.run`，除非用户改分工。
 
 **会话调度（已定）：** 同会话 **followup（FIFO）**；不拒收；不做默认 Steer；不用 Jev 调度。C/D 接线须保证双 POST 不双跑；cancel 仅显式路径。
+
+### 0.2.1 收口补丁 · followup 实现（2026-09-22）
+
+对照 [03-audit-0.2.1](../reviews/03-audit-0.2.1.md) P1（F-01…F-05）。
+
+**F-01 执行层（已定 · 方案 A）：**
+
+- 同会话在 **单 JVM** 内用 `conversationId → ReentrantLock(true)`（进程内公平锁）串行整段 `execute` 的 **RECEIVED 与 COMMITTING 恢复**（claim→Loop→freeze/commit 或 recover commit）。
+- `receive` 仍不拒收；异键第二 POST 在锁上等待，前序 flight 终态后再 claim，不双跑 Loop。
+- **本批不新增** `TURN_QUEUED` 等排队错误码：方案 A 下客户端仍等完整 `reply` / 原有失败码，不把「服务端排队」暴露为 Held。
+- 不做跨进程调度、不做队列 UI / 后台 drain（属 0.2.4）；严格「仅按 receive 序且无人 execute 更早 Turn」的 worker 本批不做。
+- 会话锁在无等待者时从 map 摘除，避免只增不删；`failAttempt`/`cancelAttempt` 落库失败打 `System.Logger` 警告（尽力而为，对外仍 Held）。
+
+**其余 P1：** F-02 软截止可读；F-03 次数闸门可单测（不盲目 ToolCalls continue）；F-04 `CANCELLED`→`Cancelled`；F-05 freeze `RevisionConflict`→`failAttempt`。
+
+### 0.2.1 收口补丁 · P2/P3（2026-09-22）
+
+对照审计 F-06…F-13（不改写审计旧稿）：TimeoutModelPort 共享池 + HTTP 尊重 deadline；用户文案 `ErrorLogFields.redact`；`SafeErrorLog` 接入适配器；`DecisionPort`+`Noop`（未挂 Loop 构造器）；损坏 `wannian.json` 拒绝覆盖；适配器 `ErrorCodes` 字面量收口；`AgentTrace` 单步字段；空 `ToolCalls`→`INVALID_MODEL_OUTPUT`。
 ---
 
 ## 测试策略（已定）
@@ -46,7 +65,7 @@
 | 项 | 缺省 |
 |----|------|
 | 验收模型 | live + 外网 |
-| 供应商/模型 | 本机 manage 已启用绑定 |
+| 供应商/模型 | 本批：管理页已启用绑定；后续改为预设供应商（§11） |
 | A / B 顺序 | 先 B 骨架与练习一，A 可并行 |
 | 直答退役 | C 通过后再删或委托 |
 | maxModelDecisions | 3 |
@@ -73,8 +92,10 @@
 - Loop 内 JDBC / Controller / 厂商 SDK
 - 改原始 Message 做 prompt 裁剪
 - Memory / SSE 完整实现 → **0.2.3** / **0.2.4**
+- `/chat/` 消息回读、刷新/重开自动恢复历史、接入最近会话 → **0.2.4**（见清单该节；本批不改 chat 恢复 UX）
 - Fake 验收；解冻 legacy/han-agent
 - 默认 Steer；用 Jev/DecisionPort 裁决排队 vs 打断；生成中 busy 拒收
+- 预设供应商与按目录自动读取上下文窗口 → **后续**（见 §11）；本批仍用管理页启用的 openai-compatible 绑定
 ---
 
 ## 2. 允许改动与类型
@@ -101,6 +122,9 @@ AgentInput:
   worldContext?（0.2.1 恒空）
 
 AgentBudget: maxModelDecisions=3, soft/hard deadline, cancelToken
+  可写真源：数据目录 wannian.json 的 agentBudget
+  后续管理页可改项追加在同一 JSON，不另开 properties
+  application.yml / 环境变量只作首次种子
 
 DecisionPort: 接口 + NoopDecisionPort（默认不分享）；无 Jev 编译依赖
 ```
@@ -193,7 +217,7 @@ claim → RUNNING
 - 装配 `DefaultAgentLoop` + live `ModelPort`
 - 对外入口走 TurnEngine，不走 probe
 - `/chat/api.js` 仍只 `createConversation` / `sendTurn`
-- 删除或降级 `TurnDialogue` 直答
+- 删除或降级 `TurnDialogue` 直答（**已删** `TurnDialogue`；HTTP 只走 TurnEngine）
 - 相关回归改为 live，或拆「无模型 / live」两类
 
 ---
@@ -216,38 +240,58 @@ claim → RUNNING
 ### B
 
 ```text
-[ ] live：简单输入 → FinalResponse，非 blank；无多余 decide
-[ ] mode=live 且出站真实发生
-[ ] 未用 Fake/Scripted 作通过证据
+[x] live：简单输入 → FinalResponse，非 blank；通常 1 次 decide（DefaultAgentLoopLiveTest）
+[x] mode=live 且出站真实发生（DeepSeek openai-compatible；需 DEEPSEEK_API_KEY）
+[x] 未用 Fake/Scripted 作 FinalResponse 通过证据
 [ ] blank/Refusal/Failure → ControlledFailure（难触发则待补）
-[ ] Loop 无 SQL/SDK/Controller import
-[ ] ToolCalls：不执行、不写库
+[x] Loop 无 SQL/SDK/Controller import
+[x] ToolCalls：不执行、受控 TOOLS_NOT_ENABLED
 [ ] maxModelDecisions=3（难触发则待补，仍禁 fake）
-[ ] cancel 在 decide 前 → Cancelled 且无出站
+[x] cancel 在 decide 前 → Cancelled 且无出站
+[x] Failure(CANCELLED) → AgentOutcome.Cancelled（非 ControlledFailure）
+[x] softDeadline：首次 decide 前仍可开；后续 decide 前过 soft → BUDGET_EXHAUSTED（AgentBudgetGateTest）
+[x] maxModelDecisions 闸门可单测（AgentBudgetGate；ToolCalls 仍不 continue，打满 live 待 0.2.2）
 ```
-
 ### A
 
 ```text
-[ ] 仅一套 code 登记；历史 reasonCode 有映射
-[ ] 日志样例无 key / SQL / 堆栈
+[x] 仅一套 code 登记；历史 reasonCode 有映射（ErrorCodes；ManageReason 别名）
+[x] 日志样例无 key / SQL / 堆栈（ErrorLogFieldsTest）
 ```
 
 ### C
 
 ```text
-[ ] R01–R05 复验（命令与输出贴审阅）
-[ ] 重放不增加模型计数；错误 owner 三表不变
-[ ] COMMITTING 恢复不调 Loop；原文与裁剪分离
+[x] R01–R05 复验（命令见下；编排补测 TurnEngineOrchestrationTest / TurnEngineLiveCTest）
+[x] 重放不增加模型计数；错误 owner / STALE_ATTEMPT 不写助手消息
+[x] COMMITTING 恢复不调 Loop；原文与裁剪分离（Assembler + TurnEngine）
+[x] 同会话异键并发 execute 不双跑 Loop（会话公平锁 · 方案 A；TurnEngineOrchestrationTest）
+[x] freeze RevisionConflict → failAttempt，status ≠ RUNNING
+[x] Loop Cancelled → DB CANCELLED
 ```
 
+复验命令（本机，退出码 0）：
+
+```text
+mvn -pl app -am test -Dtest=TurnEngineOrchestrationTest,TurnEngineLiveCTest,ReceiveTurnIdempotencyTest,RecoverableCommitPlanTest,TurnTransitionPersistenceTest,TurnCommitterAtomicityTest,ContextAssemblerTest,TurnTransitionTest,AgentBudgetGateTest,DefaultAgentLoopBudgetTest -Dsurefire.failIfNoSpecifiedTests=false
+```
 ### D
 
 ```text
-[ ] 已启用：HTTP 有 reply；路径经 TurnEngine+Loop；live
-[ ] 未启用：RECEIVED + reason；页面不装已答
-[ ] probe 仍非会话入口
+[x] 已启用：HTTP 有 reply；路径经 TurnEngine+Loop；live（TurnEngineHttpLiveDTest）
+[x] 未启用：RECEIVED + reason；页面不装已答（无 reply）
+[x] probe 仍非会话入口（不建 conversation/turn；/chat 不调 probe）
 ```
+
+命令：
+
+```text
+mvn -pl app -am test -Dtest=TurnEngineHttpLiveDTest,TurnEngineHttpTest,ChatPageTest,ModelProbeHttpTest -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+### 与临时代码（§8）
+
+`TurnDialogue` / `TurnDialogueHttpTest` 已不存在；HTTP 只走 `TurnController` → `TurnEngine`。
 
 ---
 
@@ -272,7 +316,7 @@ mode=live 证明（脱敏）：
 
 | 现状 | 处置 |
 |------|------|
-| `TurnDialogue` | B 保留；C 委托；D 去双路径 |
+| `TurnDialogue` | **已退役**；HTTP 只走 TurnController → TurnEngine |
 | `FakeModelAdapter` | 可留；不作 0.2.1 验收 |
 | `TurnDialogueHttpTest` fake | 改 live 或拆用例 |
 | manage `probe` | 不动；可作连通冒烟 |
@@ -295,6 +339,39 @@ mode=live 证明（脱敏）：
 | Outbox 注释 | 仅分享世界经历时投用户 |
 
 v0.3 顺序见 [roadmap.md](./roadmap.md)。
+
+---
+
+## 11. 后续：预设供应商与上下文窗口（本批不改代码）
+
+已定方向，实现排在上下文读取接口定下来之后。0.2.1 的管理页仍允许填写 `openai-compatible` 供应商并手选模型。
+
+参照：
+
+- **OpenClaw**：模型写成已知 `provider/model`；provider 来自内置目录（另可接兼容端点），上下文按配置块分配，不要求用户为每条模型手填窗口。
+- **Hermes**：走已知后端配置，模型从该后端目录选择，不把「自建任意协议」当默认路径。
+
+wannian 后续收成：
+
+1. 供应商由预设列表提供（协议仍可同为 OpenAI 兼容，但 baseUrl、目录字段由预设决定）。用户选择预设中的供应商与其目录中的模型，不手填协议或上下文长度。
+2. 先有一份默认上下文窗口（放在数据目录 `wannian.json`，与 `agentBudget` 同文件、不同键）。
+3. 导入或刷新目录时自动读取窗口。标准 `GET /models` 只有 `id`；各家额外字段不统一（如 `context_length`、`max_model_len`）。读哪个键写在供应商预设里。解析不到则保留默认窗口。
+4. 上下文预算模块在上述接口确定后再做：窗口减去预留输出与余量，用于裁近讯。现有 `agentBudget`（次数、软硬截止）不并进窗口字段。
+
+本批禁止：为手填窗口加管理项；把预算模块提前做成 token 闸门。
+
+---
+
+## 12. 后续：列出会话（本批不先做）
+
+创建会话已有：`POST /api/conversations` → `ConversationStore.create`。消息近讯已有：`listRecentMessages`（某一个会话内的消息，不是会话清单）。
+
+尚无列出会话。后续补：
+
+1. `ConversationStore.list()`：按更新时间返回会话摘要（id、标题、状态），不含消息正文。
+2. `GET /api/conversations` 映射该结果。聊天页用它显示会话列表；点进某一条后再用 `listRecentMessages` 取该会话近讯。
+
+不把会话清单塞进 `ContextAssembler` 或 `AgentLoop`。排在 `TurnEngine` 编排之后。
 
 ---
 

@@ -70,28 +70,28 @@
 - `/chat/`：已启用模型时，同一次接收请求里直接回答；未启用则只收下并说明原因
 - 不做工具循环、不替换成 Loop、不做记忆策略、不做 Outbox/SSE、不多节点
 
-### v0.2 · 单核 harness + 单核节点（下一步）
+### v0.2 · 单核 harness + 单核节点（进行中）
 
 **单核** = 一个节点、一个角色（烟火）。**harness** = 这一个节点上的 Agent 运行时，不是再包一层空接口。
 
 正式小版本（须全部完成才标 v0.2 完成）：
 
-| 号 | 内容 |
-|----|------|
-| **0.2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute |
-| **0.2.2** | ToolRuntime + 本节点安全工具 |
-| **0.2.3** | Memory + Relationship |
-| **0.2.4** | Outbox / SSE |
-| **0.2.5** | Task / BackgroundTask |
-| **0.2.6** | 生命周期探针 |
-| **0.2.7** | 故障、恢复与资源验收 |
+| 号 | 内容 | 状态 |
+|----|------|------|
+| **0.2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute | **已交付**（[04 复核](../reviews/04-reverify-0.2.1.md)） |
+| **0.2.2** | ToolRuntime + 本节点安全工具 | 下一步 |
+| **0.2.3** | Memory + Relationship | |
+| **0.2.4** | Outbox / SSE + `/chat/` 历史自动恢复 | |
+| **0.2.5** | Task / BackgroundTask | |
+| **0.2.6** | 生命周期探针 | |
+| **0.2.7** | 故障、恢复与资源验收 | |
 
 - 一个 `AgentLoop`：预算、取消、真实模型、Turn 认领与提交
 - 本节点可安全执行的工具、记忆与关系、Outbox/SSE、长任务不占住聊天 Turn
 - 节点身份可以存在，但只部署并验收这一个节点
 - 不做世界树、不部署第二个节点、不做 Guardian
 
-施工从 [0.2.1](../plans/k01-agent-loop.md) 起；全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。
+施工：[0.2.1 已交付](../plans/k01-agent-loop.md)；下一步建 `k02-tools.md`（**0.2.2**）。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。
 
 ### v0.3 · 世界树 + 多核节点
 

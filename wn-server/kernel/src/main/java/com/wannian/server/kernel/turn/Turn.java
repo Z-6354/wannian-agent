@@ -4,6 +4,7 @@ import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.turn.TurnStatus;
+import com.wannian.server.kernel.error.ErrorCodes;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -157,11 +158,11 @@ public final class Turn {
         requireStatus(TurnStatus.RECEIVED, "claim");
         if (!claim.expiresAt().isAfter(now)) {
             throw new TurnTransitionException(
-                    "CLAIM_EXPIRED", "claim 的 expiresAt 必须晚于 now，不能保存已经过期的认领");
+                    ErrorCodes.CLAIM_EXPIRED, "claim 的 expiresAt 必须晚于 now，不能保存已经过期的认领");
         }
         if (hasActiveOwner(now)) {
             throw new TurnTransitionException(
-                    "OWNER_ACTIVE", "回合仍有未过期的执行 owner，不能重复 claim");
+                    ErrorCodes.OWNER_ACTIVE, "回合仍有未过期的执行 owner，不能重复 claim");
         }
         this.executionId = claim.executionId();
         this.claimExpiresAt = claim.expiresAt();
@@ -173,7 +174,7 @@ public final class Turn {
         Objects.requireNonNull(now, "now");
         requireStatus(TurnStatus.CLAIMED, "start");
         if (!hasActiveOwner(now)) {
-            throw new TurnTransitionException("CLAIM_EXPIRED", "claim 已过期，不能 start");
+            throw new TurnTransitionException(ErrorCodes.CLAIM_EXPIRED, "claim 已过期，不能 start");
         }
         advance(TurnStatus.RUNNING, now);
     }
@@ -193,7 +194,8 @@ public final class Turn {
         Objects.requireNonNull(now, "now");
         requireStatus(TurnStatus.RUNNING, "beginCommit");
         if (!hasActiveOwner(now)) {
-            throw new TurnTransitionException("CLAIM_EXPIRED", "claim 已过期，不能进入 COMMITTING");
+            throw new TurnTransitionException(
+                    ErrorCodes.CLAIM_EXPIRED, "claim 已过期，不能进入 COMMITTING");
         }
         advance(TurnStatus.COMMITTING, now);
     }
@@ -205,7 +207,7 @@ public final class Turn {
                 && status != TurnStatus.CLAIMED
                 && status != TurnStatus.RUNNING) {
             throw new TurnTransitionException(
-                    "ILLEGAL_TRANSITION",
+                    ErrorCodes.ILLEGAL_TRANSITION,
                     "当前状态 " + status + " 不可 cancel（已进入不可取消提交或已终态）");
         }
         advance(TurnStatus.CANCELLED, now);
@@ -221,7 +223,7 @@ public final class Turn {
         }
         if (status != TurnStatus.CLAIMED && status != TurnStatus.RUNNING) {
             throw new TurnTransitionException(
-                    "ILLEGAL_TRANSITION", "当前状态 " + status + " 不可 fail");
+                    ErrorCodes.ILLEGAL_TRANSITION, "当前状态 " + status + " 不可 fail");
         }
         this.errorCode = code;
         advance(TurnStatus.FAILED, now);
@@ -237,7 +239,7 @@ public final class Turn {
     private void requireRevision(long expectedRevision) {
         if (this.revision != expectedRevision) {
             throw new TurnTransitionException(
-                    "REVISION_CONFLICT",
+                    ErrorCodes.REVISION_CONFLICT,
                     "revision 不匹配，期望 " + expectedRevision + " 实际 " + this.revision);
         }
     }
@@ -245,7 +247,7 @@ public final class Turn {
     private void requireStatus(TurnStatus expected, String action) {
         if (status != expected) {
             throw new TurnTransitionException(
-                    "ILLEGAL_TRANSITION",
+                    ErrorCodes.ILLEGAL_TRANSITION,
                     "不能对状态 " + status + " 执行 " + action + "（需要 " + expected + "）");
         }
     }

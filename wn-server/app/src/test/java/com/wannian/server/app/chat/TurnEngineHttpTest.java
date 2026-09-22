@@ -25,11 +25,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** 已启用模型时接收回合应带回直接回答；未启用时只收下并说明原因。 */
+/**
+ * HTTP 经 TurnEngine 完成回合：已启用模型应带回 reply；未启用则停在 RECEIVED。
+ *
+ * <p>本类用 {@code mode=fake} 作接线回归；0.2.1 Loop 行为验收仍须另走 live。
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class TurnDialogueHttpTest {
+class TurnEngineHttpTest {
 
-    private static final String TOKEN = "dialogue-token";
+    private static final String TOKEN = "turn-engine-token";
 
     @TempDir
     static Path tempDataDir;

@@ -100,7 +100,7 @@ UserChannel / WorldScheduler / GameBridge / …
 
 | | |
 |--|--|
-| **契约** | maxModelDecisions（默认 3）、软 15s / 硬 30s、cancelToken |
+| **契约** | maxModelDecisions（默认 3）、软 15s / 硬 30s、cancelToken；可写真源为数据目录 `wannian.json` 的 `agentBudget`（后续同类项同文件追加）；yml 仅首次种子 |
 | **主参照** | G1 `max_turns`；G3 `max_steps`；L1 `AgentBudget` + warn ratio |
 | **辅参照** | L3 grace call（可后加「再给一次收口」）；G5 美元预算（**不做**） |
 

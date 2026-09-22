@@ -1,7 +1,11 @@
 package com.wannian.server.app.persistence;
 
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.api.common.ConversationId;
+import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.conversation.ConversationStatus;
+import com.wannian.server.api.conversation.MessageRole;
+import com.wannian.server.kernel.conversation.ConversationMessage;
 import com.wannian.server.kernel.conversation.ConversationStore;
 import com.wannian.server.kernel.conversation.ConversationTitlePolicy;
 import com.wannian.server.kernel.conversation.CreateConversationCommand;
@@ -11,14 +15,19 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.springframework.stereotype.Component;
 
 /**
- * K02 1B-5a：{@link ConversationStore} 的 SQLite 实现。
+ * {@link ConversationStore} 的 SQLite 实现。
  *
- * <p>仅 INSERT；冲突不更新已有会话。receive 不得调用本类来「补建」会话。
+ * <p>创建仅 INSERT；冲突不更新已有会话。receive 不得调用本类来「补建」会话。
+ * 列近讯只读，不改写 {@code message} 正文。
  *
  * <p>未提供 title 时委托 {@link ConversationTitlePolicy} 生成默认名。
  */
@@ -55,7 +64,7 @@ public class SqliteConversationStore implements ConversationStore {
                     return new CreateConversationResult.AlreadyExists(id);
                 }
                 return new CreateConversationResult.Rejected(
-                        "PERSISTENCE_FAILED", "创建会话失败，id=" + id.asString());
+                        ErrorCodes.PERSISTENCE_FAILED, "创建会话失败，id=" + id.asString());
             } catch (RuntimeException ex) {
                 rollbackQuietly(connection);
                 throw ex;
@@ -63,7 +72,45 @@ public class SqliteConversationStore implements ConversationStore {
                 connection.setAutoCommit(true);
             }
         } catch (SQLException ex) {
-            return new CreateConversationResult.Rejected("PERSISTENCE_FAILED", "无法打开数据库连接以创建会话");
+            return new CreateConversationResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "无法打开数据库连接以创建会话");
+        }
+    }
+
+    @Override
+    public List<ConversationMessage> listRecentMessages(ConversationId conversationId, int limit) {
+        Objects.requireNonNull(conversationId, "conversationId");
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit 须为正");
+        }
+
+        String sql =
+                """
+                SELECT id, role, content_json, sequence_no
+                FROM message
+                WHERE conversation_id = ?
+                ORDER BY sequence_no DESC
+                LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, conversationId.asString());
+            ps.setInt(2, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<ConversationMessage> newestFirst = new ArrayList<>();
+                while (rs.next()) {
+                    newestFirst.add(
+                            new ConversationMessage(
+                                    new MessageId(UUID.fromString(rs.getString("id"))),
+                                    MessageRole.valueOf(rs.getString("role")),
+                                    rs.getString("content_json"),
+                                    rs.getInt("sequence_no")));
+                }
+                Collections.reverse(newestFirst);
+                return List.copyOf(newestFirst);
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException(
+                    "读取近讯失败，conversationId=" + conversationId.asString(), ex);
         }
     }
 

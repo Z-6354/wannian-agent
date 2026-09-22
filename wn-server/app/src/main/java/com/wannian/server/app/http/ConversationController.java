@@ -3,6 +3,7 @@ package com.wannian.server.app.http;
 import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.kernel.conversation.ConversationStore;
 import com.wannian.server.kernel.conversation.CreateConversationCommand;
+import com.wannian.server.kernel.error.ErrorCodes;
 import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +34,7 @@ public class ConversationController {
         } else {
             Optional<ConversationId> parsed = HttpMapping.conversationId(rawId);
             if (parsed.isEmpty()) {
-                return HttpMapping.rejectedConversation("ILLEGAL_ARGUMENT", "conversationId 不是合法 UUID");
+                return HttpMapping.rejectedConversation(ErrorCodes.ILLEGAL_ARGUMENT, "conversationId 不是合法 UUID");
             }
             id = parsed.get();
         }

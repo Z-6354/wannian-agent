@@ -1,5 +1,6 @@
 package com.wannian.server.app.model;
 
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelMessage;
 import com.wannian.server.kernel.model.ModelOutcome;
@@ -20,7 +21,7 @@ public final class FakeModelAdapter implements ModelPort {
     @Override
     public ModelOutcome decide(ModelRequest request, ModelCallContext context) {
         if (context != null && context.cancelled()) {
-            return new ModelOutcome.Failure("CANCELLED", "调用已取消", false);
+            return new ModelOutcome.Failure(ErrorCodes.CANCELLED, "调用已取消", false);
         }
         String lastUser = lastUserText(request.messages());
         return new ModelOutcome.FinalAnswer("假模型(" + modelId + ")：" + lastUser, new ModelUsage(0, 0));

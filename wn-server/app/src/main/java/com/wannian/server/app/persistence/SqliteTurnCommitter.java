@@ -1,5 +1,6 @@
 package com.wannian.server.app.persistence;
 
+import com.wannian.server.kernel.error.ErrorCodes;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,7 +62,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
     public ReceiveTurnResult receive(ReceiveTurnPlan plan) {
         Objects.requireNonNull(plan, "plan");
         if (plan.userMessage().role() != MessageRole.USER) {
-            return new ReceiveTurnResult.Rejected("ILLEGAL_ARGUMENT", "userMessage.role 必须为 USER");
+            return new ReceiveTurnResult.Rejected(ErrorCodes.ILLEGAL_ARGUMENT, "userMessage.role 必须为 USER");
         }
 
         long deadline = System.nanoTime() + IDEMPOTENCY_WAIT_BUDGET_MS * 1_000_000L;
@@ -90,7 +91,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                         pause();
                         continue;
                     }
-                    return new ReceiveTurnResult.Rejected("PERSISTENCE_FAILED", "接收回合失败");
+                    return new ReceiveTurnResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "接收回合失败");
                 } catch (RuntimeException ex) {
                     rollbackQuietly(connection);
                     throw ex;
@@ -105,7 +106,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 if (SqliteErrors.isBusy(ex)) {
                     return busy(plan.clientRequestId());
                 }
-                return new ReceiveTurnResult.Rejected("PERSISTENCE_FAILED", "无法打开数据库连接以接收回合");
+                return new ReceiveTurnResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "无法打开数据库连接以接收回合");
             }
         }
     }
@@ -115,14 +116,14 @@ public class SqliteTurnCommitter implements TurnCommitter {
         Objects.requireNonNull(plan, "plan");
         if (plan.assistantMessage().role() != MessageRole.ASSISTANT) {
             return new FreezeCommitResult.Rejected(
-                    "ILLEGAL_ARGUMENT", "assistantMessage.role 必须为 ASSISTANT");
+                    ErrorCodes.ILLEGAL_ARGUMENT, "assistantMessage.role 必须为 ASSISTANT");
         }
         for (CommitTurnPlan.OutboxEventDraft event : plan.additionalOutboxEvents()) {
             if (TURN_COMPLETED.equals(event.eventType())
                     && (!AGGREGATE_TURN.equals(event.aggregateType())
                             || !plan.turnId().asString().equals(event.aggregateId()))) {
                 return new FreezeCommitResult.Rejected(
-                        "ILLEGAL_ARGUMENT", "附加完成事件必须指向本次 Turn");
+                        ErrorCodes.ILLEGAL_ARGUMENT, "附加完成事件必须指向本次 Turn");
             }
         }
 
@@ -138,7 +139,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 return result;
             } catch (SQLException | JsonProcessingException ex) {
                 rollbackQuietly(connection);
-                return new FreezeCommitResult.Rejected("PERSISTENCE_FAILED", "冻结完成计划失败");
+                return new FreezeCommitResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "冻结完成计划失败");
             } catch (RuntimeException ex) {
                 rollbackQuietly(connection);
                 throw ex;
@@ -146,7 +147,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 connection.setAutoCommit(true);
             }
         } catch (SQLException ex) {
-            return new FreezeCommitResult.Rejected("PERSISTENCE_FAILED", "无法打开数据库连接以冻结完成计划");
+            return new FreezeCommitResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "无法打开数据库连接以冻结完成计划");
         }
     }
 
@@ -179,11 +180,11 @@ public class SqliteTurnCommitter implements TurnCommitter {
         Objects.requireNonNull(plan, "plan");
         if (plan.hasUnsupportedExtensions()) {
             return new CommitTurnResult.Rejected(
-                    "UNSUPPORTED_EXTENSION", "本批尚不支持 Memory/Relationship/Task 变更");
+                    ErrorCodes.UNSUPPORTED_EXTENSION, "本批尚不支持 Memory/Relationship/Task 变更");
         }
         if (plan.assistantMessage().role() != MessageRole.ASSISTANT) {
             return new CommitTurnResult.Rejected(
-                    "ILLEGAL_ARGUMENT", "assistantMessage.role 必须为 ASSISTANT");
+                    ErrorCodes.ILLEGAL_ARGUMENT, "assistantMessage.role 必须为 ASSISTANT");
         }
         CommitTurnResult mismatched = mismatchedCompletion(plan);
         if (mismatched != null) {
@@ -202,7 +203,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 return result;
             } catch (SQLException | JsonProcessingException ex) {
                 rollbackQuietly(connection);
-                return new CommitTurnResult.Rejected("PERSISTENCE_FAILED", "完成回合提交失败");
+                return new CommitTurnResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "完成回合提交失败");
             } catch (RuntimeException ex) {
                 rollbackQuietly(connection);
                 throw ex;
@@ -210,7 +211,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 connection.setAutoCommit(true);
             }
         } catch (SQLException ex) {
-            return new CommitTurnResult.Rejected("PERSISTENCE_FAILED", "无法打开数据库连接以完成回合提交");
+            return new CommitTurnResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "无法打开数据库连接以完成回合提交");
         }
     }
 
@@ -218,7 +219,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
             throws SQLException {
         if (!conversationExists(connection, plan.conversationId().asString())) {
             return new ReceiveTurnResult.Rejected(
-                    "CONVERSATION_NOT_FOUND",
+                    ErrorCodes.CONVERSATION_NOT_FOUND,
                     "会话不存在，请先创建会话: " + plan.conversationId().asString());
         }
 
@@ -277,22 +278,22 @@ public class SqliteTurnCommitter implements TurnCommitter {
         TurnId turnId = plan.turnId();
         TurnRow turn = loadTurn(connection, turnId);
         if (turn == null) {
-            return new FreezeCommitResult.Rejected("TURN_NOT_FOUND", "回合不存在: " + turnId.asString());
+            return new FreezeCommitResult.Rejected(ErrorCodes.TURN_NOT_FOUND, "回合不存在: " + turnId.asString());
         }
         if (!TurnStatus.RUNNING.name().equals(turn.status())) {
             return new FreezeCommitResult.Rejected(
-                    "ILLEGAL_STATUS", "冻结完成计划要求状态为 RUNNING，当前为 " + turn.status());
+                    ErrorCodes.ILLEGAL_STATUS, "冻结完成计划要求状态为 RUNNING，当前为 " + turn.status());
         }
         if (!plan.expectedExecutionId().equals(turn.executionId())) {
             return new FreezeCommitResult.Rejected(
-                    "OWNER_MISMATCH", "executionId 与库中冻结身份不一致: " + turnId.asString());
+                    ErrorCodes.OWNER_MISMATCH, "executionId 与库中冻结身份不一致: " + turnId.asString());
         }
         if (turn.revision() != plan.expectedTurnRevision()) {
             return new FreezeCommitResult.RevisionConflict(turnId, turn.revision());
         }
         Instant expiresAt = loadClaimExpiresAt(connection, turnId);
         if (expiresAt == null || !expiresAt.isAfter(plan.now())) {
-            return new FreezeCommitResult.Rejected("CLAIM_EXPIRED", "lease 已过期，不能进入 COMMITTING");
+            return new FreezeCommitResult.Rejected(ErrorCodes.CLAIM_EXPIRED, "lease 已过期，不能进入 COMMITTING");
         }
         if (loadFrozenPlan(connection, turnId) != null) {
             return new FreezeCommitResult.Rejected(
@@ -322,7 +323,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         TurnId turnId = plan.turnId();
         TurnRow turn = loadTurn(connection, turnId);
         if (turn == null) {
-            return new CommitTurnResult.Rejected("TURN_NOT_FOUND", "回合不存在: " + turnId.asString());
+            return new CommitTurnResult.Rejected(ErrorCodes.TURN_NOT_FOUND, "回合不存在: " + turnId.asString());
         }
         if (TurnStatus.COMPLETED.name().equals(turn.status())) {
             if (!plan.expectedExecutionId().equals(turn.executionId())) {
@@ -332,7 +333,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         }
         if (!TurnStatus.COMMITTING.name().equals(turn.status())) {
             return new CommitTurnResult.Rejected(
-                    "ILLEGAL_STATUS", "完成提交要求状态为 COMMITTING，当前为 " + turn.status());
+                    ErrorCodes.ILLEGAL_STATUS, "完成提交要求状态为 COMMITTING，当前为 " + turn.status());
         }
         if (!plan.expectedExecutionId().equals(turn.executionId())) {
             return ownerMismatch(turnId);
@@ -343,7 +344,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         FrozenPlan frozen = loadFrozenPlan(connection, turnId);
         if (frozen == null) {
             return new CommitTurnResult.Rejected(
-                    "MISSING_COMMIT_PLAN", "COMMITTING 缺少可恢复完成计划，不能提交");
+                    ErrorCodes.MISSING_COMMIT_PLAN, "COMMITTING 缺少可恢复完成计划，不能提交");
         }
         CommitTurnResult mismatch = mismatchedFrozenPlan(plan, frozen);
         if (mismatch != null) {
@@ -377,7 +378,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
     private static CommitTurnResult mismatchedFrozenPlan(CommitTurnPlan plan, FrozenPlan frozen) {
         if (!frozen.executionId().equals(plan.expectedExecutionId())) {
             return new CommitTurnResult.Rejected(
-                    "PLAN_MISMATCH", "提交计划的 executionId 与冻结计划不一致");
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的 executionId 与冻结计划不一致");
         }
         var expected = frozen.assistantMessage();
         var actual = plan.assistantMessage();
@@ -385,11 +386,11 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 || !expected.contentJson().equals(actual.contentJson())
                 || expected.role() != actual.role()) {
             return new CommitTurnResult.Rejected(
-                    "PLAN_MISMATCH", "提交计划的助手消息与冻结计划不一致");
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的助手消息与冻结计划不一致");
         }
         if (frozen.additionalEvents().size() != plan.outboxEvents().size()) {
             return new CommitTurnResult.Rejected(
-                    "PLAN_MISMATCH", "提交计划的附加事件与冻结计划不一致");
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的附加事件与冻结计划不一致");
         }
         for (int i = 0; i < frozen.additionalEvents().size(); i++) {
             var left = frozen.additionalEvents().get(i);
@@ -400,7 +401,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
                     || !left.eventType().equals(right.eventType())
                     || !left.payloadJson().equals(right.payloadJson())) {
                 return new CommitTurnResult.Rejected(
-                        "PLAN_MISMATCH", "提交计划的附加事件与冻结计划不一致");
+                        ErrorCodes.PLAN_MISMATCH, "提交计划的附加事件与冻结计划不一致");
             }
         }
         return null;
@@ -414,7 +415,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
             if (!AGGREGATE_TURN.equals(event.aggregateType())
                     || !plan.turnId().asString().equals(event.aggregateId())) {
                 return new CommitTurnResult.Rejected(
-                        "ILLEGAL_ARGUMENT", "完成事件必须指向本次 Turn，不能用错配事件代替");
+                        ErrorCodes.ILLEGAL_ARGUMENT, "完成事件必须指向本次 Turn，不能用错配事件代替");
             }
         }
         return null;
@@ -465,12 +466,12 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
     private static CommitTurnResult ownerMismatch(TurnId turnId) {
         return new CommitTurnResult.Rejected(
-                "OWNER_MISMATCH", "executionId 与冻结的执行尝试不一致: " + turnId.asString());
+                ErrorCodes.OWNER_MISMATCH, "executionId 与冻结的执行尝试不一致: " + turnId.asString());
     }
 
     private static ReceiveTurnResult busy(String clientRequestId) {
         return new ReceiveTurnResult.Rejected(
-                "RETRYABLE_BUSY", "幂等键竞争尚未落定，请重试: " + clientRequestId);
+                ErrorCodes.RETRYABLE_BUSY, "幂等键竞争尚未落定，请重试: " + clientRequestId);
     }
 
     /** 信封按 HTTP 已确定的序列化文本比较，不另做通用 JSON 语义比较。 */

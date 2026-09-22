@@ -67,6 +67,17 @@ export function enableModel(vendorId, modelId) {
   });
 }
 
+export function getAgentBudget() {
+  return request("/api/manage/agent/budget");
+}
+
+export function saveAgentBudget(body) {
+  return request("/api/manage/agent/budget", {
+    method: "PUT",
+    body,
+  });
+}
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();

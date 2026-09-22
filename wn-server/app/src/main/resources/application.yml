@@ -22,6 +22,13 @@ wannian:
   model:
     # live：OpenAI 兼容真实调用，读 apiKeyEnv。
     mode: ${WANNIAN_MODEL_MODE:live}
+  agent:
+    budget:
+      # 下列为首次生成数据目录 wannian.json 中 agentBudget 时的种子；运行期以该文件为准，管理页可改。
+      # 环境变量可覆盖种子默认值（仅影响尚未写出的 wannian.json）。
+      max-model-decisions: ${WANNIAN_AGENT_MAX_MODEL_DECISIONS:3}
+      soft-deadline-seconds: ${WANNIAN_AGENT_SOFT_DEADLINE_SECONDS:15}
+      hard-deadline-seconds: ${WANNIAN_AGENT_HARD_DEADLINE_SECONDS:30}
 
 spring:
   application:

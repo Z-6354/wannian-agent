@@ -2,7 +2,7 @@ import { getToken, isLocalHost, setToken } from "/manage/api.js?v=20260920p";
 import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260920p";
 import { clearBanner, clearStatus } from "/manage/page-feedback.js?v=20260920p";
 import { mountModelsPage } from "/manage/models-page.js?v=20260920p";
-import { mountSystem } from "/manage/system-panel.js?v=20260920p";
+import { mountSystem } from "/manage/system-panel.js?v=20260921a";
 import { mountVendorsPage } from "/manage/vendors-page.js?v=20260920p";
 
 const nav = document.querySelector("#manage-nav");

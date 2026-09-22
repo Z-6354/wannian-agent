@@ -1,5 +1,5 @@
 /**
- * 领域内核：Turn、Agent Loop、Memory / Relationship 策略、工具策略等业务含义。
+ * 领域内核：Turn、Agent Loop、Memory / Relationship 策略、工具策略、错误 code 登记等业务含义。
  *
  * <h2>依赖</h2>
  * 仅允许依赖 {@code com.wannian.server.api}（以及 JDK）。
@@ -8,6 +8,7 @@
  * <h2>放置原则</h2>
  * <ul>
  *   <li>业务决策与状态机 → 本模块</li>
+ *   <li>稳定错误 code / 日志字段约定 → {@code error}（实现与 Logger 仍在 app）</li>
  *   <li>HTTP、SSE、JDBC、SDK → {@code app} 的 Adapter</li>
  *   <li>稳定对外形状 → {@code api}</li>
  * </ul>
