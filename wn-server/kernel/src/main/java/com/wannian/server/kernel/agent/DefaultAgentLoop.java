@@ -2,6 +2,12 @@ package com.wannian.server.kernel.agent;
 
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.error.ErrorLogFields;
+import com.wannian.server.kernel.journal.JournalActor;
+import com.wannian.server.kernel.journal.JournalJson;
+import com.wannian.server.kernel.journal.JournalKind;
+import com.wannian.server.kernel.journal.JournalSettings;
+import com.wannian.server.kernel.journal.RunJournal;
+import com.wannian.server.kernel.journal.RunJournalEntry;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelMessage;
 import com.wannian.server.kernel.model.ModelOutcome;
@@ -9,6 +15,7 @@ import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
 import com.wannian.server.kernel.model.ModelUsage;
 import com.wannian.server.kernel.model.ToolCallRequest;
+import com.wannian.server.kernel.tool.ToolDescriptor;
 import com.wannian.server.kernel.tool.ToolExecutionContext;
 import com.wannian.server.kernel.tool.ToolExecutionOutcome;
 import com.wannian.server.kernel.tool.ToolInvocation;
@@ -16,8 +23,11 @@ import com.wannian.server.kernel.tool.ToolRuntime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * {@link AgentLoop} 的默认实现（0.2.2：ToolCalls → ToolRuntime → 回灌 → 再决策）。
@@ -25,6 +35,8 @@ import java.util.Objects;
  * <p>OWNER: USER — 按 {@code docs/guide/05-agent-loop.md} 演进。
  *
  * <p>不依赖 DecisionPort / WorldAgent / Repository / Spring；不泄漏 Validator/Store/Adapter。
+ *
+ * <p>0.2.3-L：可选 {@link RunJournal} 记录 MODEL_CALL / TOOL_CALL（失败不抛回循环）。
  */
 public final class DefaultAgentLoop implements AgentLoop {
 
@@ -33,12 +45,14 @@ public final class DefaultAgentLoop implements AgentLoop {
 
     private final ModelPort model;
     private final ToolRuntime tools;
+    private final RunJournal journal;
+    private final JournalSettings journalSettings;
 
     /**
      * @param model 模型决策入口；不得为 null
      */
     public DefaultAgentLoop(ModelPort model) {
-        this(model, null);
+        this(model, null, RunJournal.noop(), JournalSettings.DEFAULT);
     }
 
     /**
@@ -46,8 +60,21 @@ public final class DefaultAgentLoop implements AgentLoop {
      * @param tools 工具运行时；null 时非空 ToolCalls 仍收口为 {@link ErrorCodes#TOOLS_NOT_ENABLED}
      */
     public DefaultAgentLoop(ModelPort model, ToolRuntime tools) {
+        this(model, tools, RunJournal.noop(), JournalSettings.DEFAULT);
+    }
+
+    /**
+     * @param model 模型决策入口；不得为 null
+     * @param tools 工具运行时；可为 null
+     * @param journal 行为账本；不得为 null（可用 {@link RunJournal#noop()}）
+     * @param journalSettings 账本写入选项；不得为 null
+     */
+    public DefaultAgentLoop(
+            ModelPort model, ToolRuntime tools, RunJournal journal, JournalSettings journalSettings) {
         this.model = Objects.requireNonNull(model, "model");
         this.tools = tools;
+        this.journal = Objects.requireNonNull(journal, "journal");
+        this.journalSettings = Objects.requireNonNull(journalSettings, "journalSettings");
     }
 
     /**
@@ -64,7 +91,11 @@ public final class DefaultAgentLoop implements AgentLoop {
 
         List<ModelMessage> messages = buildInitialMessages(input);
         int completedDecisions = 0;
+        int decideSequence = 0;
         List<AgentTrace.Step> steps = new ArrayList<>();
+        AtomicInteger journalStep = new AtomicInteger(0);
+        String turnKey = input.turnId().asString();
+        Map<String, Integer> systemToolInvocations = new HashMap<>();
 
         while (true) {
             Instant now = Instant.now();
@@ -73,15 +104,29 @@ public final class DefaultAgentLoop implements AgentLoop {
                 return withSteps(blocked, steps);
             }
 
-            int stepNumber = completedDecisions + 1;
+            decideSequence++;
+            int stepNumber = decideSequence;
             ModelCallContext context = buildCallContext(input, budget, stepNumber);
             boolean softPassed = AgentBudgetGate.softDeadlinePassed(budget, Instant.now());
 
             Instant decideStarted = Instant.now();
+            List<ModelMessage> requestSnapshot = List.copyOf(messages);
             ModelOutcome decision =
                     model.decide(new ModelRequest(messages, input.toolDescriptors()), context);
-            completedDecisions++;
-            long durationMs = Duration.between(decideStarted, Instant.now()).toMillis();
+            if (countsTowardDecisionBudget(decision, input.toolDescriptors())) {
+                completedDecisions++;
+            }
+            Instant decideFinished = Instant.now();
+            long durationMs = Duration.between(decideStarted, decideFinished).toMillis();
+            journalModelCall(
+                    turnKey,
+                    conversationKey(input),
+                    input.toolDescriptors(),
+                    journalStep,
+                    requestSnapshot,
+                    decision,
+                    decideStarted,
+                    decideFinished);
 
             switch (decision) {
                 case ModelOutcome.FinalAnswer answer -> {
@@ -150,7 +195,14 @@ public final class DefaultAgentLoop implements AgentLoop {
                                     toolCalls.usage(),
                                     null,
                                     softPassed));
-                    appendToolRound(messages, input, toolCalls, stepNumber);
+                    appendToolRound(
+                            messages,
+                            input,
+                            toolCalls,
+                            stepNumber,
+                            journalStep,
+                            budget,
+                            systemToolInvocations);
                     // continue 再决策
                 }
                 case ModelOutcome.ModelRefusal refusal -> {
@@ -195,22 +247,220 @@ public final class DefaultAgentLoop implements AgentLoop {
             List<ModelMessage> messages,
             AgentInput input,
             ModelOutcome.ToolCalls toolCalls,
-            int stepNumber) {
+            int stepNumber,
+            AtomicInteger journalStep,
+            AgentBudget budget,
+            Map<String, Integer> systemToolInvocations) {
         List<ToolCallRequest> calls = toolCalls.calls();
         messages.add(
                 ModelMessage.assistantWithTools(
                         toolCalls.assistantContent(), toolCalls.reasoningContent(), calls));
 
-        String turnKey = input.turnId().toString();
+        String turnKey = input.turnId().asString();
+        int systemCap = budget.maxSystemToolInvocationsPerTool();
         for (ToolCallRequest call : calls) {
             String operationId = turnKey + ":s" + stepNumber + ":" + call.id();
-            ToolExecutionOutcome outcome =
-                    tools.execute(
-                            new ToolInvocation(call.id(), call.name(), call.argumentsJson()),
-                            new ToolExecutionContext(
-                                    operationId, turnKey, turnKey, input.toolDescriptors()));
+            Instant toolStarted = Instant.now();
+            ToolExecutionOutcome outcome;
+            boolean systemTool = !toolCountsTowardBudget(call.name(), input.toolDescriptors());
+            if (systemTool) {
+                int used = systemToolInvocations.getOrDefault(call.name(), 0);
+                if (used >= systemCap) {
+                    outcome =
+                            new ToolExecutionOutcome.Failed(
+                                    operationId,
+                                    ErrorCodes.BUDGET_SYSTEM_TOOL_EXHAUSTED,
+                                    "系统工具 "
+                                            + call.name()
+                                            + " 本轮已达上限 "
+                                            + systemCap
+                                            + " 次，请直接回复用户或改用其它工具",
+                                    false);
+                } else {
+                    systemToolInvocations.put(call.name(), used + 1);
+                    outcome =
+                            tools.execute(
+                                    new ToolInvocation(call.id(), call.name(), call.argumentsJson()),
+                                    new ToolExecutionContext(
+                                            operationId,
+                                            turnKey,
+                                            turnKey,
+                                            input.toolDescriptors(),
+                                            input.pending()));
+                }
+            } else {
+                outcome =
+                        tools.execute(
+                                new ToolInvocation(call.id(), call.name(), call.argumentsJson()),
+                                new ToolExecutionContext(
+                                        operationId,
+                                        turnKey,
+                                        turnKey,
+                                        input.toolDescriptors(),
+                                        input.pending()));
+            }
+            Instant toolFinished = Instant.now();
+            journalToolCall(
+                    turnKey,
+                    conversationKey(input),
+                    journalStep,
+                    call,
+                    operationId,
+                    outcome,
+                    toolStarted,
+                    toolFinished);
             messages.add(ModelMessage.toolResult(call.id(), formatObservation(call.id(), outcome)));
         }
+    }
+
+    private void journalModelCall(
+            String turnId,
+            String conversationId,
+            List<ToolDescriptor> toolDescriptors,
+            AtomicInteger journalStep,
+            List<ModelMessage> requestMessages,
+            ModelOutcome decision,
+            Instant started,
+            Instant finished) {
+        try {
+            boolean full = journalSettings.includeFullMessages();
+            int max = journalSettings.maxPayloadChars();
+            StringBuilder toolNames = new StringBuilder("[");
+            if (toolDescriptors != null) {
+                for (int i = 0; i < toolDescriptors.size(); i++) {
+                    if (i > 0) {
+                        toolNames.append(',');
+                    }
+                    toolNames
+                            .append('"')
+                            .append(JournalJson.escape(toolDescriptors.get(i).name()))
+                            .append('"');
+                }
+            }
+            toolNames.append(']');
+            String request =
+                    "{\"messages\":"
+                            + JournalJson.messagesJson(requestMessages, full, max)
+                            + ",\"tools\":"
+                            + toolNames
+                            + "}";
+            String result = JournalJson.modelOutcomeJson(decision, full, max);
+            String errorCode = null;
+            String status = "SUCCEEDED";
+            if (decision instanceof ModelOutcome.Failure failure) {
+                errorCode = failure.code();
+                status = "FAILED";
+            } else if (decision instanceof ModelOutcome.ModelRefusal) {
+                errorCode = ErrorCodes.MODEL_REFUSAL;
+                status = "FAILED";
+            }
+            journal.append(
+                    RunJournalEntry.of(
+                            turnId,
+                            conversationId,
+                            journalStep.incrementAndGet(),
+                            JournalActor.AGENT,
+                            JournalKind.MODEL_CALL,
+                            request,
+                            result,
+                            status,
+                            errorCode,
+                            started,
+                            finished));
+        } catch (RuntimeException ignored) {
+            // 账本不得打断决策
+        }
+    }
+
+    private void journalToolCall(
+            String turnId,
+            String conversationId,
+            AtomicInteger journalStep,
+            ToolCallRequest call,
+            String operationId,
+            ToolExecutionOutcome outcome,
+            Instant started,
+            Instant finished) {
+        try {
+            int max = journalSettings.maxPayloadChars();
+            String request =
+                    "{\"name\":"
+                            + JournalJson.quote(call.name())
+                            + ",\"callId\":"
+                            + JournalJson.quote(call.id())
+                            + ",\"operationId\":"
+                            + JournalJson.quote(operationId)
+                            + ",\"argumentsJson\":"
+                            + JournalJson.quote(JournalJson.clip(call.argumentsJson(), max))
+                            + "}";
+            String result = JournalJson.toolResultJson(outcome, max);
+            String errorCode = null;
+            String status = "SUCCEEDED";
+            if (outcome instanceof ToolExecutionOutcome.Rejected rejected) {
+                errorCode = rejected.code();
+                status = "REJECTED";
+            } else if (outcome instanceof ToolExecutionOutcome.Failed failed) {
+                errorCode = failed.code();
+                status = "FAILED";
+            } else if (outcome instanceof ToolExecutionOutcome.Unknown unknown) {
+                errorCode = unknown.code();
+                status = "UNKNOWN";
+            }
+            journal.append(
+                    RunJournalEntry.of(
+                            turnId,
+                            conversationId,
+                            journalStep.incrementAndGet(),
+                            JournalActor.AGENT,
+                            JournalKind.TOOL_CALL,
+                            request,
+                            result,
+                            status,
+                            errorCode,
+                            started,
+                            finished));
+        } catch (RuntimeException ignored) {
+            // 账本不得打断工具
+        }
+    }
+
+    private static String conversationKey(AgentInput input) {
+        return input.conversationId() == null ? null : input.conversationId().asString();
+    }
+
+    /**
+     * 仅含 {@code countsTowardDecisionBudget=false} 的 ToolCalls 不计入决策次数；
+     * FinalAnswer / Refusal / Failure / 空调用 / 含普通工具的回合计入。
+     *
+     * <p>纯系统工具回合不消耗 {@code maxModelDecisions}，但每个系统工具仍受
+     * {@link AgentBudget#maxSystemToolInvocationsPerTool()} 约束；超限时该次调用失败回灌，
+     * 不执行 Adapter。软/硬墙钟截止仍生效。
+     */
+    static boolean countsTowardDecisionBudget(ModelOutcome decision, List<ToolDescriptor> visible) {
+        if (!(decision instanceof ModelOutcome.ToolCalls toolCalls)) {
+            return true;
+        }
+        if (toolCalls.calls().isEmpty()) {
+            return true;
+        }
+        for (ToolCallRequest call : toolCalls.calls()) {
+            if (toolCountsTowardBudget(call.name(), visible)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean toolCountsTowardBudget(String toolName, List<ToolDescriptor> visible) {
+        if (visible != null) {
+            for (ToolDescriptor d : visible) {
+                if (d.name().equals(toolName)) {
+                    return d.countsTowardDecisionBudget();
+                }
+            }
+        }
+        // 未知或不在可见集：保守计入，避免漏计普通工具
+        return true;
     }
 
     private static String formatObservation(String callId, ToolExecutionOutcome outcome) {

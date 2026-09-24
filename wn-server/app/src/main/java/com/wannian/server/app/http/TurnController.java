@@ -9,6 +9,7 @@ import com.wannian.server.api.conversation.MessageRole;
 import com.wannian.server.api.turn.TurnStatus;
 import com.wannian.server.app.chat.CompletedTurnReplyLoader;
 import com.wannian.server.app.manage.AgentBudgetSettings;
+import com.wannian.server.app.memory.MemoryReviewTurnHooks;
 import com.wannian.server.app.model.EnabledModelPortResolver;
 import com.wannian.server.app.model.EnabledModelPortResolver.ResolveResult;
 import com.wannian.server.kernel.agent.AgentBudget;
@@ -23,6 +24,7 @@ import com.wannian.server.kernel.turn.TurnEngine;
 import com.wannian.server.kernel.turn.TurnRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 接收用户回合，并在已启用模型时经 {@link TurnEngine} 完成一轮回答。
  *
  * <p>未启用模型时回合停在 RECEIVED，响应里说明原因。不发 SSE。
+ * 完成时附带本回合 {@code toolCalls}（来自 turn_step；账本关闭则为空）。
  */
 @RestController
 @RequestMapping("/api/conversations/{conversationId}/turns")
@@ -52,6 +55,8 @@ public class TurnController {
     private final EnabledModelPortResolver modelPorts;
     private final AgentBudgetSettings budgetSettings;
     private final CompletedTurnReplyLoader completedReplies;
+    private final MemoryReviewTurnHooks memoryReviewTurnHooks;
+    private final TurnToolCallProjector toolCallProjector;
     private final ObjectMapper objectMapper;
 
     public TurnController(
@@ -61,6 +66,8 @@ public class TurnController {
             EnabledModelPortResolver modelPorts,
             AgentBudgetSettings budgetSettings,
             CompletedTurnReplyLoader completedReplies,
+            MemoryReviewTurnHooks memoryReviewTurnHooks,
+            TurnToolCallProjector toolCallProjector,
             ObjectMapper objectMapper) {
         this.turnCommitter = turnCommitter;
         this.turns = turns;
@@ -68,6 +75,8 @@ public class TurnController {
         this.modelPorts = modelPorts;
         this.budgetSettings = budgetSettings;
         this.completedReplies = completedReplies;
+        this.memoryReviewTurnHooks = memoryReviewTurnHooks;
+        this.toolCallProjector = toolCallProjector;
         this.objectMapper = objectMapper;
     }
 
@@ -128,13 +137,13 @@ public class TurnController {
             ReceiveTurnResult.Accepted accepted, String userMessage) {
         Optional<Turn> found = turns.find(accepted.turnId());
         if (found.isEmpty()) {
-            return HttpMapping.accepted(accepted, null, ErrorCodes.TURN_NOT_FOUND, "回合不存在");
+            return HttpMapping.accepted(accepted, null, ErrorCodes.TURN_NOT_FOUND, "回合不存在", null);
         }
         Turn turn = found.get();
         if (turn.status() == TurnStatus.RECEIVED) {
             ResolveResult resolved = modelPorts.resolve();
             if (resolved instanceof ResolveResult.Rejected rejected) {
-                return HttpMapping.accepted(accepted, null, rejected.code(), rejected.detail());
+                return HttpMapping.accepted(accepted, null, rejected.code(), rejected.detail(), null);
             }
         }
 
@@ -148,20 +157,36 @@ public class TurnController {
                                 SYSTEM_INSTRUCTIONS,
                                 budget,
                                 CLAIM_LEASE));
+        String turnKey = accepted.turnId().asString();
         return switch (outcome) {
-            case ExecuteTurnResult.Replied replied ->
-                    HttpMapping.accepted(accepted, replied.text(), null, null);
+            case ExecuteTurnResult.Replied replied -> {
+                memoryReviewTurnHooks.afterTurnCompleted(turn.conversationId());
+                yield HttpMapping.accepted(
+                        accepted, replied.text(), null, null, toolCallProjector.listForTurn(turnKey));
+            }
             case ExecuteTurnResult.AlreadyCompleted completed -> {
                 Optional<String> text = completedReplies.loadText(completed.turnId());
+                List<ToolCallView> tools = toolCallProjector.listForTurn(completed.turnId().asString());
                 if (text.isPresent()) {
-                    yield HttpMapping.accepted(accepted, text.get(), null, null);
+                    yield HttpMapping.accepted(accepted, text.get(), null, null, tools);
                 }
-                yield HttpMapping.accepted(accepted, null, ErrorCodes.REPLY_MISSING, "已完成回合缺少助手正文");
+                yield HttpMapping.accepted(
+                        accepted, null, ErrorCodes.REPLY_MISSING, "已完成回合缺少助手正文", tools);
             }
             case ExecuteTurnResult.Cancelled cancelled ->
-                    HttpMapping.accepted(accepted, null, "CANCELLED", "回合已取消");
+                    HttpMapping.accepted(
+                            accepted,
+                            null,
+                            "CANCELLED",
+                            "回合已取消",
+                            toolCallProjector.listForTurn(turnKey));
             case ExecuteTurnResult.Held held ->
-                    HttpMapping.accepted(accepted, null, held.code(), held.detail());
+                    HttpMapping.accepted(
+                            accepted,
+                            null,
+                            held.code(),
+                            held.detail(),
+                            toolCallProjector.listForTurn(turnKey));
         };
     }
 

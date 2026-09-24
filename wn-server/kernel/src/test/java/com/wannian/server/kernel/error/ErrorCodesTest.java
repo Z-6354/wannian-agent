@@ -25,6 +25,9 @@ class ErrorCodesTest {
                         "TOOLS_NOT_ENABLED",
                         "INVALID_MODEL_OUTPUT",
                         "BUDGET_EXHAUSTED",
+                        "BUDGET_DECISIONS_EXHAUSTED",
+                        "BUDGET_SOFT_DEADLINE",
+                        "BUDGET_HARD_DEADLINE",
                         "MODEL_TIMEOUT",
                         "CANCELLED");
         assertThat(ErrorCodes.allCodes().stream().distinct().count())

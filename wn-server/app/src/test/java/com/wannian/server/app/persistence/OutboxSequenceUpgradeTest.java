@@ -58,7 +58,7 @@ class OutboxSequenceUpgradeTest {
                         assistantId, MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"升级\"}", 0);
         SqliteTurnCommitter committer = new SqliteTurnCommitter(dataSource, new ObjectMapper());
         FreezeCommitResult frozen =
-                committer.freezeCommit(FreezeCommitPlan.of(turnId, 1L, "exec-seed", freezeAt, assistant));
+                committer.freezeCommit(FreezeCommitPlan.of(turnId, 1L, "exec-seed", freezeAt, assistant, List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         CommitTurnResult result =
                 committer.commit(
@@ -67,7 +67,7 @@ class OutboxSequenceUpgradeTest {
                                 ((FreezeCommitResult.Frozen) frozen).committingRevision(),
                                 "exec-seed",
                                 assistant,
-                                List.of()));
+                                List.of(), List.of(), null));
         assertThat(result).isInstanceOf(CommitTurnResult.Committed.class);
 
         try (Connection connection = dataSource.getConnection()) {
@@ -124,7 +124,7 @@ class OutboxSequenceUpgradeTest {
         FreezeCommitResult frozen =
                 committer.freezeCommit(
                         FreezeCommitPlan.of(
-                                turnId, 1L, "exec-seed", Instant.parse("2026-09-18T12:00:00Z"), assistant));
+                                turnId, 1L, "exec-seed", Instant.parse("2026-09-18T12:00:00Z"), assistant, List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         assertThat(
                         committer.commit(
@@ -133,7 +133,7 @@ class OutboxSequenceUpgradeTest {
                                         ((FreezeCommitResult.Frozen) frozen).committingRevision(),
                                         "exec-seed",
                                         assistant,
-                                        List.of())))
+                                        List.of(), List.of(), null)))
                 .isInstanceOf(CommitTurnResult.Committed.class);
         try (Connection connection = dataSource.getConnection()) {
             assertThat(

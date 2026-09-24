@@ -58,6 +58,18 @@ body {
   border-color: color-mix(in srgb, var(--ok) 18%, var(--border));
 }
 
+.chat-message[data-role="tool"] {
+  background: color-mix(in srgb, var(--surface-muted, var(--surface-card)) 88%, var(--border));
+  border-style: dashed;
+}
+
+.chat-tool-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted, var(--text));
+}
+
 .chat-role {
   margin: 0 0 8px;
   color: var(--kicker);

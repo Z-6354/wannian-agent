@@ -17,6 +17,8 @@
 | 执行中插话（Cancel/Queue/Steer）· **专题** | [in-flight-user-message.md](./in-flight-user-message.md) |
 | 微信通道 & 世界树/用户时序冲突 | [wechat-and-world-timing.md](./wechat-and-world-timing.md) |
 | 记忆已确认边界 | [memory.md](./memory.md) |
+| 记忆注入超限他者对照 | [memory-inject-budget-peers.md](./memory-inject-budget-peers.md) |
+| Agent 运行日志同业对照（0.2.3-L） | [agent-run-logging-peers.md](./agent-run-logging-peers.md) |
 
 ## 现行（按读序）
 
@@ -32,7 +34,9 @@
 
 ## 记忆
 
-唯一正文：[memory.md](./memory.md)。未决从该文 §6 继续。
+- 已确认产品边界：[memory.md](./memory.md)。未决从该文 §6 继续。
+- **0.2.3 记忆（已交付）：** [memory-system-0.2.3.md](./memory-system-0.2.3.md) §4 + §4.1 · [k03-memory.md](../plans/k03-memory.md)
+- 旧「仅正交轴」稿指针：[memory-axes-0.2.3.md](./memory-axes-0.2.3.md)（已迁移，勿单独施工）
 
 ## 历史（更后，不是产品 v0.2）
 

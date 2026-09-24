@@ -56,12 +56,28 @@ class MigrationSmokeTest {
                             "turn",
                             "outbox_event",
                             "sequence_counter",
-                            "turn_commit_plan")
-                    .doesNotContain("turn_step", "memory_record", "background_task");
+                            "turn_commit_plan",
+                            "memory_record",
+                            "memory_subject_generation",
+                            "relationship_state",
+                            "turn_step",
+                            "process_event")
+                    .doesNotContain("background_task");
+            assertThat(indexExists(connection, "idx_memory_one_active_subject")).isTrue();
             assertThat(planDetails(connection, "SELECT sequence_no FROM message WHERE conversation_id = 'x' ORDER BY sequence_no"))
                     .doesNotContain("idx_message_conversation_seq");
             assertThat(planDetails(connection, "SELECT sequence_no FROM outbox_event ORDER BY sequence_no"))
                     .doesNotContain("idx_outbox_sequence");
+        }
+    }
+
+    private static boolean indexExists(Connection connection, String name) throws Exception {
+        try (var ps = connection.prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 

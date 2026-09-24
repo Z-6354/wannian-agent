@@ -6,6 +6,12 @@ import com.wannian.server.kernel.tool.ToolBindingTable;
 import com.wannian.server.kernel.tool.ToolCatalog;
 import com.wannian.server.kernel.tool.ToolRuntime;
 import com.wannian.server.kernel.tool.ToolVisibilityResolver;
+import com.wannian.server.kernel.memory.CompanionIdentity;
+import com.wannian.server.kernel.memory.MemoryRecallTouch;
+import com.wannian.server.kernel.memory.MemorySearchLimits;
+import com.wannian.server.kernel.memory.MemoryStore;
+import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,6 +20,19 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class ToolRuntimeConfig {
+
+    @Bean
+    SearchMemoryToolAdapter searchMemoryToolAdapter(
+            MemoryStore memoryStore,
+            MemoryRecallTouch recallTouch,
+            MemorySearchLimits memorySearchLimits) {
+        return new SearchMemoryToolAdapter(
+                CompanionIdentity.YANHUO,
+                memoryStore,
+                Clock.systemUTC(),
+                recallTouch,
+                memorySearchLimits);
+    }
 
     @Bean
     ToolCatalog toolCatalog() {

@@ -3,6 +3,7 @@ package com.wannian.server.kernel.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.wannian.server.kernel.error.ErrorCodes;
+import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -143,6 +144,37 @@ class ToolRuntimePhase1Test {
     }
 
     @Test
+    void runtimeSanitizerKeepsOversizedAdapterObservationValidJson() {
+        String payload = ToolJson.escape("引号\"和\nemoji🙂").repeat(10_000);
+        String observation =
+                "{\"authorization\":\"Bearer private-token\",\"matches\":[{\"claim\":\""
+                        + payload
+                        + "\"}]}";
+        ToolCatalog catalog = new ToolCatalog();
+        catalog.register(
+                new ToolRegistration(
+                        "sanitizer_test",
+                        "test observation sanitizing",
+                        new ToolParameterSchema("{\"type\":\"object\",\"properties\":{}}"),
+                        java.util.Set.of(),
+                        request -> new ToolAdapterResult.Succeeded(observation)));
+        ToolRuntime sanitizerRuntime = new DefaultToolRuntime(catalog);
+
+        ToolExecutionOutcome outcome =
+                sanitizerRuntime.execute(
+                        new ToolInvocation("c1", "sanitizer_test", "{}"), ctx("op-sanitize"));
+
+        assertThat(outcome).isInstanceOf(ToolExecutionOutcome.Succeeded.class);
+        String cleaned = ((ToolExecutionOutcome.Succeeded) outcome).observationJson();
+        assertThat(cleaned)
+                .contains("\"authorization\":\"***\"")
+                .contains("\"truncated\":true")
+                .doesNotContain("private-token");
+        assertThat(cleaned.length()).isLessThanOrEqualTo(ToolResultSanitizer.MAX_OBSERVATION_CHARS);
+        assertThat(ToolResultSanitizer.sanitize(cleaned)).isEqualTo(cleaned);
+    }
+
+    @Test
     void duplicateRegisterRejected() {
         ToolCatalog catalog = new ToolCatalog();
         BuiltinToolRegistrar.registerAll(catalog);
@@ -203,7 +235,8 @@ class ToolRuntimePhase1Test {
         ToolExecutionOutcome outcome =
                 runtime.execute(
                         new ToolInvocation("c1", BuiltinToolNames.LIST_TOOLS, "{}"),
-                        new ToolExecutionContext("op-list-1", "turn-1", "attempt-1", visible));
+                        ToolExecutionContext.basic(
+                                "op-list-1", "turn-1", "attempt-1", visible, null));
         assertThat(outcome).isInstanceOf(ToolExecutionOutcome.Succeeded.class);
         String json = ((ToolExecutionOutcome.Succeeded) outcome).observationJson();
         assertThat(json)
@@ -214,6 +247,6 @@ class ToolRuntimePhase1Test {
     }
 
     private static ToolExecutionContext ctx(String operationId) {
-        return new ToolExecutionContext(operationId, "turn-1", "attempt-1");
+        return ToolExecutionContext.basic(operationId, "turn-1", "attempt-1", List.of(), null);
     }
 }

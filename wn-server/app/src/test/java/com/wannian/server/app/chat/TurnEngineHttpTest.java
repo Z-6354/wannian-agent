@@ -56,6 +56,7 @@ class TurnEngineHttpTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
+            connection.createStatement().executeUpdate("DELETE FROM turn_step");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");

@@ -1,6 +1,7 @@
 package com.wannian.server.kernel.tool;
 
 import com.wannian.server.kernel.tool.builtin.HttpReadToolAdapter;
+import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -34,8 +35,20 @@ public final class BuiltinToolRegistrar {
      */
     public static void registerEnabled(
             ToolCatalog catalog, Set<String> enabled, String httpReadUserAgent) {
+        registerEnabled(catalog, enabled, httpReadUserAgent, SearchMemoryToolAdapter.unavailable());
+    }
+
+    /**
+     * 同上；{@code search_memory} 可由组合根注入专用 Adapter，避免其 ports 进入通用运行上下文。
+     */
+    public static void registerEnabled(
+            ToolCatalog catalog,
+            Set<String> enabled,
+            String httpReadUserAgent,
+            SearchMemoryToolAdapter searchMemoryAdapter) {
         Objects.requireNonNull(catalog, "catalog");
         Objects.requireNonNull(enabled, "enabled");
+        Objects.requireNonNull(searchMemoryAdapter, "searchMemoryAdapter");
         String userAgent = normalizeHttpUserAgent(httpReadUserAgent);
         LinkedHashSet<String> names = new LinkedHashSet<>();
         for (String raw : enabled) {
@@ -52,6 +65,10 @@ public final class BuiltinToolRegistrar {
         for (String name : names) {
             if (BuiltinToolNames.HTTP_READ.equals(name)) {
                 requireAccepted(catalog.register(httpReadRegistration(userAgent)));
+            } else if (BuiltinToolNames.SEARCH_MEMORY.equals(name)) {
+                requireAccepted(
+                        catalog.register(
+                                BuiltinToolPool.registrationOf(name, searchMemoryAdapter)));
             } else {
                 requireAccepted(catalog.register(BuiltinToolPool.registrationOf(name)));
             }
@@ -74,7 +91,8 @@ public final class BuiltinToolRegistrar {
                 spec.description(),
                 new ToolParameterSchema(spec.parameterSchemaJson()),
                 spec.requiredCapabilities(),
-                new HttpReadToolAdapter(userAgent));
+                new HttpReadToolAdapter(userAgent),
+                spec.countsTowardDecisionBudget());
     }
 
     private static void requireAccepted(RegisterToolResult result) {

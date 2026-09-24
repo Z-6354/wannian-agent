@@ -46,6 +46,7 @@ function normalize(response, payload) {
   const turnId = stringField(payload, "turnId") || null;
   const reply = stringField(payload, "reply") || null;
   const replayed = Boolean(payload && payload.replayed === true);
+  const toolCalls = normalizeToolCalls(payload && payload.toolCalls);
   const ok = response.ok && (result === "created" || result === "accepted");
   return {
     ok,
@@ -54,10 +55,36 @@ function normalize(response, payload) {
     conversationId,
     turnId,
     reply,
+    toolCalls,
     replayed,
     code,
     detail,
   };
+}
+
+function normalizeToolCalls(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const name = typeof item.name === "string" ? item.name : "";
+    if (!name) {
+      continue;
+    }
+    out.push({
+      name,
+      startedAt: typeof item.startedAt === "string" ? item.startedAt : "",
+      finishedAt: typeof item.finishedAt === "string" ? item.finishedAt : "",
+      argumentsJson: typeof item.argumentsJson === "string" ? item.argumentsJson : "{}",
+      status: typeof item.status === "string" ? item.status : "",
+      errorCode: typeof item.errorCode === "string" ? item.errorCode : "",
+    });
+  }
+  return out;
 }
 
 function failed(status, code, detail) {
@@ -68,6 +95,7 @@ function failed(status, code, detail) {
     conversationId: null,
     turnId: null,
     reply: null,
+    toolCalls: [],
     replayed: false,
     code,
     detail,

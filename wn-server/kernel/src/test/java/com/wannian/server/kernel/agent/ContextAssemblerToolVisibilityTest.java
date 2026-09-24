@@ -7,6 +7,7 @@ import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.kernel.conversation.ConversationMessage;
 import com.wannian.server.kernel.conversation.ConversationStore;
+import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import com.wannian.server.kernel.tool.BuiltinToolNames;
 import com.wannian.server.kernel.tool.BuiltinToolRegistrar;
 import com.wannian.server.kernel.tool.FacetId;
@@ -34,12 +35,16 @@ class ContextAssemblerToolVisibilityTest {
                                 TurnId.generate(),
                                 MessageId.generate(),
                                 "现在几点",
-                                "你是烟火"));
+                                "你是烟火",
+                                new InMemoryTurnMemoryPending()));
         assertThat(input.toolProfileId()).isEqualTo("yanhuo.chat.default");
         assertThat(names(input))
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -57,7 +62,8 @@ class ContextAssemblerToolVisibilityTest {
                                 MessageId.generate(),
                                 "解析 powershell",
                                 "你是烟火",
-                                FacetId.WORK));
+                                FacetId.WORK,
+                                new InMemoryTurnMemoryPending()));
         assertThat(input.toolProfileId()).isEqualTo("yanhuo.work.default");
         assertThat(names(input)).contains(BuiltinToolNames.POWERSHELL_RESOLVE_7, BuiltinToolNames.HTTP_READ);
         assertThat(names(input)).doesNotContain(BuiltinToolNames.POWERSHELL_RESOLVE_5);

@@ -3,17 +3,16 @@ package com.wannian.server.kernel.turn;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
+import com.wannian.server.kernel.memory.ApprovedMemoryChange;
+import com.wannian.server.kernel.relationship.ApprovedRelationshipChange;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * 完成 Turn 时一次性提交的不可变计划。
  *
- * <p>本批（K02 1B-3）覆盖「完成回合」最小切片：助手消息 + Turn 终态所需 revision + outbox。
- * Memory / Relationship / Task 仅占位：必须为空；非空应由实现返回 {@link CommitTurnResult.Rejected}，
- * 避免半吊子假提交。
- *
- * <p>接收 Turn（用户消息 + RECEIVED）不在本计划形状内，后续批次另议。
+ * <p>0.2.3：可携带已批准的记忆与可选关系变更，由 {@code TurnCommitter} 同事务落库。
+ * {@code taskDraft} 仍为占位；非空应由实现返回 {@link CommitTurnResult.Rejected}。
  */
 public record CommitTurnPlan(
         TurnId turnId,
@@ -21,20 +20,10 @@ public record CommitTurnPlan(
         String expectedExecutionId,
         AssistantMessageDraft assistantMessage,
         List<OutboxEventDraft> outboxEvents,
-        List<?> approvedMemoryChanges,
-        Object approvedRelationshipChange,
+        List<ApprovedMemoryChange> approvedMemoryChanges,
+        ApprovedRelationshipChange approvedRelationshipChange,
         Object taskDraft) {
 
-    /**
-     * @param turnId 目标回合
-     * @param expectedTurnRevision 乐观锁；与库中不一致则冲突。已完成回合的重试不靠这个字段再写一遍
-     * @param expectedExecutionId 进入 COMMITTING 时冻结的那一次尝试；revision 对也不能代替它
-     * @param assistantMessage 待写入的助手消息。序号由提交事务分配，草稿里的序号不是权威
-     * @param outboxEvents 可选的附加事件。完成事件本身由提交器生成，空列表不等于可以没有完成事件
-     * @param approvedMemoryChanges 占位；本批必须 empty
-     * @param approvedRelationshipChange 占位；本批必须 null
-     * @param taskDraft 占位；本批必须 null
-     */
     public CommitTurnPlan {
         Objects.requireNonNull(turnId, "turnId");
         Objects.requireNonNull(expectedExecutionId, "expectedExecutionId");
@@ -50,40 +39,32 @@ public record CommitTurnPlan(
     }
 
     /**
-     * 构造本批支持的完成计划（Memory/Rel/Task 固定为空）。
+     * 完成计划（记忆可 empty；关系可 null；task 固定 null）。
      */
     public static CommitTurnPlan completeTurn(
             TurnId turnId,
             long expectedTurnRevision,
             String expectedExecutionId,
             AssistantMessageDraft assistantMessage,
-            List<OutboxEventDraft> outboxEvents) {
+            List<OutboxEventDraft> outboxEvents,
+            List<ApprovedMemoryChange> approvedMemoryChanges,
+            ApprovedRelationshipChange approvedRelationshipChange) {
         return new CommitTurnPlan(
                 turnId,
                 expectedTurnRevision,
                 expectedExecutionId,
                 assistantMessage,
                 outboxEvents,
-                List.of(),
-                null,
+                approvedMemoryChanges,
+                approvedRelationshipChange,
                 null);
     }
 
-    /** 本批是否携带尚未支持的扩展变更（实现应拒绝）。 */
+    /** 是否携带尚未支持的扩展（本批仅 Task）。 */
     public boolean hasUnsupportedExtensions() {
-        return !approvedMemoryChanges.isEmpty()
-                || approvedRelationshipChange != null
-                || taskDraft != null;
+        return taskDraft != null;
     }
 
-    /**
-     * 待提交的助手消息草稿（非 DB 行对象）。
-     *
-     * @param messageId 应用层预生成的消息 id
-     * @param role 应为 {@link MessageRole#ASSISTANT}
-     * @param contentJson 版本化 JSON envelope 文本
-     * @param sequenceNo 已弃用。提交事务会自行分配会话内序号，这个数字不会被写入
-     */
     public record AssistantMessageDraft(
             MessageId messageId, MessageRole role, String contentJson, int sequenceNo) {
 
@@ -94,16 +75,6 @@ public record CommitTurnPlan(
         }
     }
 
-    /**
-     * 待追加的 outbox 事件草稿（非 DB 行对象）。
-     *
-     * @param eventId 应用层预生成的事件 id。完成事件的 id 由提交器生成，调用方 id 不作为完成事实
-     * @param aggregateType 如 {@code turn}
-     * @param aggregateId 通常为 turnId 字符串
-     * @param eventType 如 {@code TurnCompleted}。错配的完成事件会被拒绝，不能靠一条无关事件蒙混
-     * @param payloadJson 对外载荷 JSON；不得含敏感 trace
-     * @param sequenceNo 已弃用。全局序号在写事务内分配，调用方数字不是游标权威
-     */
     public record OutboxEventDraft(
             String eventId,
             String aggregateType,

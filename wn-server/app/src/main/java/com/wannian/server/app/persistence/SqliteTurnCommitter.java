@@ -2,9 +2,7 @@ package com.wannian.server.app.persistence;
 
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
@@ -23,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +28,7 @@ import javax.sql.DataSource;
 import org.springframework.stereotype.Component;
 
 /**
- * {@link TurnCommitter} 的 SQLite 实现。
+ * {@link TurnCommitter} 的 SQLite 实现（编排：消息 / Turn / Outbox / 冻结计划；memory/rel 委托 Writer）。
  *
  * <p>幂等键是全局的，绑定会话和原始正文。序号在本事务内分配，不采用调用方数字。
  * 进入 {@code COMMITTING} 必须经 {@link #freezeCommit}，与可恢复计划同事务写入。
@@ -44,7 +40,6 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
     static final String TURN_COMPLETED = "TurnCompleted";
     private static final String AGGREGATE_TURN = "turn";
-    private static final int COMMIT_PLAN_FORMAT = 1;
     /** 唯一键竞争或 SQLITE_BUSY 的总等待上限。到点返回可重试忙，不假装成功。 */
     private static final long IDEMPOTENCY_WAIT_BUDGET_MS = 200L;
     private static final long RETRY_PAUSE_MS = 15L;
@@ -52,10 +47,16 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
+    private final SqliteFrozenPlanStore frozenPlanStore;
+    private final SqliteMemoryCommitWriter memoryWriter;
+    private final SqliteRelationshipCommitWriter relationshipWriter;
 
     public SqliteTurnCommitter(DataSource dataSource, ObjectMapper objectMapper) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.frozenPlanStore = new SqliteFrozenPlanStore(objectMapper);
+        this.memoryWriter = new SqliteMemoryCommitWriter(objectMapper);
+        this.relationshipWriter = new SqliteRelationshipCommitWriter(objectMapper);
     }
 
     @Override
@@ -159,7 +160,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
             if (turn == null || !TurnStatus.COMMITTING.name().equals(turn.status())) {
                 return Optional.empty();
             }
-            FrozenPlan frozen = loadFrozenPlan(connection, turnId);
+            SqliteFrozenPlanStore.FrozenPlan frozen = frozenPlanStore.load(connection, turnId);
             if (frozen == null) {
                 return Optional.empty();
             }
@@ -169,7 +170,9 @@ public class SqliteTurnCommitter implements TurnCommitter {
                             turn.revision(),
                             frozen.executionId(),
                             frozen.assistantMessage(),
-                            frozen.additionalEvents()));
+                            frozen.additionalEvents(),
+                            frozen.approvedMemoryChanges(),
+                            frozen.approvedRelationshipChange()));
         } catch (SQLException | JsonProcessingException ex) {
             return Optional.empty();
         }
@@ -180,7 +183,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         Objects.requireNonNull(plan, "plan");
         if (plan.hasUnsupportedExtensions()) {
             return new CommitTurnResult.Rejected(
-                    ErrorCodes.UNSUPPORTED_EXTENSION, "本批尚不支持 Memory/Relationship/Task 变更");
+                    ErrorCodes.UNSUPPORTED_EXTENSION, "本批尚不支持 Task 变更");
         }
         if (plan.assistantMessage().role() != MessageRole.ASSISTANT) {
             return new CommitTurnResult.Rejected(
@@ -295,12 +298,12 @@ public class SqliteTurnCommitter implements TurnCommitter {
         if (expiresAt == null || !expiresAt.isAfter(plan.now())) {
             return new FreezeCommitResult.Rejected(ErrorCodes.CLAIM_EXPIRED, "lease 已过期，不能进入 COMMITTING");
         }
-        if (loadFrozenPlan(connection, turnId) != null) {
+        if (frozenPlanStore.load(connection, turnId) != null) {
             return new FreezeCommitResult.Rejected(
                     "PLAN_ALREADY_FROZEN", "该回合已有完成计划，不能再次冻结");
         }
 
-        insertFrozenPlan(connection, plan);
+        frozenPlanStore.insert(connection, plan);
         long newRevision = turn.revision() + 1;
         int updated =
                 advanceToCommitting(
@@ -341,7 +344,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         if (turn.revision() != plan.expectedTurnRevision()) {
             return new CommitTurnResult.RevisionConflict(turnId, turn.revision());
         }
-        FrozenPlan frozen = loadFrozenPlan(connection, turnId);
+        SqliteFrozenPlanStore.FrozenPlan frozen = frozenPlanStore.load(connection, turnId);
         if (frozen == null) {
             return new CommitTurnResult.Rejected(
                     ErrorCodes.MISSING_COMMIT_PLAN, "COMMITTING 缺少可恢复完成计划，不能提交");
@@ -371,11 +374,33 @@ public class SqliteTurnCommitter implements TurnCommitter {
         }
         insertRequiredCompletion(connection, plan, turn.conversationId(), now);
         insertAdditionalEvents(connection, plan, now);
-        deleteFrozenPlan(connection, turnId);
+        Instant writeAt = Instant.parse(now);
+        memoryWriter.applyAll(connection, turnId, writeAt, plan.approvedMemoryChanges());
+        relationshipWriter.apply(connection, turnId, writeAt, plan.approvedRelationshipChange());
+        touchConversationActivity(connection, turn.conversationId(), now);
+        frozenPlanStore.delete(connection, turnId);
         return new CommitTurnResult.Committed(turnId, newRevision);
     }
 
-    private static CommitTurnResult mismatchedFrozenPlan(CommitTurnPlan plan, FrozenPlan frozen) {
+    /** 完成回合同事务刷新会话活动时间（IdleScanner 用）。 */
+    private static void touchConversationActivity(
+            Connection connection, String conversationId, String now) throws SQLException {
+        try (PreparedStatement ps =
+                connection.prepareStatement(
+                        """
+                        UPDATE conversation
+                        SET last_activity_at = ?, updated_at = ?
+                        WHERE id = ?
+                        """)) {
+            ps.setString(1, now);
+            ps.setString(2, now);
+            ps.setString(3, conversationId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static CommitTurnResult mismatchedFrozenPlan(
+            CommitTurnPlan plan, SqliteFrozenPlanStore.FrozenPlan frozen) {
         if (!frozen.executionId().equals(plan.expectedExecutionId())) {
             return new CommitTurnResult.Rejected(
                     ErrorCodes.PLAN_MISMATCH, "提交计划的 executionId 与冻结计划不一致");
@@ -403,6 +428,15 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 return new CommitTurnResult.Rejected(
                         ErrorCodes.PLAN_MISMATCH, "提交计划的附加事件与冻结计划不一致");
             }
+        }
+        if (!frozen.approvedMemoryChanges().equals(plan.approvedMemoryChanges())) {
+            return new CommitTurnResult.Rejected(
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的记忆变更与冻结计划不一致");
+        }
+        if (!Objects.equals(
+                frozen.approvedRelationshipChange(), plan.approvedRelationshipChange())) {
+            return new CommitTurnResult.Rejected(
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的关系变更与冻结计划不一致");
         }
         return null;
     }
@@ -664,88 +698,6 @@ public class SqliteTurnCommitter implements TurnCommitter {
         }
     }
 
-    private void insertFrozenPlan(Connection connection, FreezeCommitPlan plan)
-            throws SQLException, JsonProcessingException {
-        ObjectNode root = objectMapper.createObjectNode();
-        root.put("v", COMMIT_PLAN_FORMAT);
-        root.put("executionId", plan.expectedExecutionId());
-        root.put("assistantMessageId", plan.assistantMessage().messageId().asString());
-        root.put("assistantRole", plan.assistantMessage().role().name());
-        root.put("assistantContentJson", plan.assistantMessage().contentJson());
-        ArrayNode events = root.putArray("additionalEvents");
-        for (CommitTurnPlan.OutboxEventDraft event : plan.additionalOutboxEvents()) {
-            ObjectNode node = events.addObject();
-            node.put("eventId", event.eventId());
-            node.put("aggregateType", event.aggregateType());
-            node.put("aggregateId", event.aggregateId());
-            node.put("eventType", event.eventType());
-            node.put("payloadJson", event.payloadJson());
-        }
-        String sql =
-                """
-                INSERT INTO turn_commit_plan (
-                    turn_id, format_version, execution_id, plan_json, frozen_at
-                ) VALUES (?, ?, ?, ?, ?)
-                """;
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, plan.turnId().asString());
-            ps.setInt(2, COMMIT_PLAN_FORMAT);
-            ps.setString(3, plan.expectedExecutionId());
-            ps.setString(4, objectMapper.writeValueAsString(root));
-            ps.setString(5, plan.now().toString());
-            ps.executeUpdate();
-        }
-    }
-
-    private FrozenPlan loadFrozenPlan(Connection connection, TurnId turnId)
-            throws SQLException, JsonProcessingException {
-        try (PreparedStatement ps =
-                connection.prepareStatement(
-                        """
-                        SELECT format_version, execution_id, plan_json
-                        FROM turn_commit_plan
-                        WHERE turn_id = ?
-                        """)) {
-            ps.setString(1, turnId.asString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    return null;
-                }
-                if (rs.getInt("format_version") != COMMIT_PLAN_FORMAT) {
-                    throw new SQLException("不支持的完成计划格式: " + rs.getInt("format_version"));
-                }
-                JsonNode root = objectMapper.readTree(rs.getString("plan_json"));
-                MessageId messageId =
-                        new MessageId(UUID.fromString(root.path("assistantMessageId").asText()));
-                MessageRole role = MessageRole.valueOf(root.path("assistantRole").asText());
-                String content = root.path("assistantContentJson").asText();
-                List<CommitTurnPlan.OutboxEventDraft> events = new ArrayList<>();
-                for (JsonNode node : root.path("additionalEvents")) {
-                    events.add(
-                            new CommitTurnPlan.OutboxEventDraft(
-                                    node.path("eventId").asText(),
-                                    node.path("aggregateType").asText(),
-                                    node.path("aggregateId").asText(),
-                                    node.path("eventType").asText(),
-                                    node.path("payloadJson").asText(),
-                                    0L));
-                }
-                return new FrozenPlan(
-                        rs.getString("execution_id"),
-                        new CommitTurnPlan.AssistantMessageDraft(messageId, role, content, 0),
-                        List.copyOf(events));
-            }
-        }
-    }
-
-    private static void deleteFrozenPlan(Connection connection, TurnId turnId) throws SQLException {
-        try (PreparedStatement ps =
-                connection.prepareStatement("DELETE FROM turn_commit_plan WHERE turn_id = ?")) {
-            ps.setString(1, turnId.asString());
-            ps.executeUpdate();
-        }
-    }
-
     private static int advanceToCommitting(
             Connection connection,
             TurnId turnId,
@@ -874,8 +826,4 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
     private record ExistingTurn(TurnId turnId, String conversationId, String inputMessageId) {}
 
-    private record FrozenPlan(
-            String executionId,
-            CommitTurnPlan.AssistantMessageDraft assistantMessage,
-            List<CommitTurnPlan.OutboxEventDraft> additionalEvents) {}
 }

@@ -1,6 +1,7 @@
 package com.wannian.server.app.manage;
 
 import java.util.List;
+import java.util.Map;
 
 /** 管理接口的 JSON 形状。字段名保持驼峰，与现有回合请求一致。 */
 public final class ManageBodies {
@@ -42,28 +43,40 @@ public final class ManageBodies {
             String outcome, String text, String vendorId, String modelId, String code, String detail) {}
 
     /** Agent Loop 预算；与数据目录 wannian.json 的 agentBudget 字段对应。 */
-    public record AgentBudgetBody(int maxModelDecisions, int softDeadlineSeconds, int hardDeadlineSeconds) {}
+    public record AgentBudgetBody(
+            int maxModelDecisions,
+            int maxSystemToolInvocationsPerTool,
+            int softDeadlineSeconds,
+            int hardDeadlineSeconds) {}
 
     public record UpdateAgentBudgetRequest(
-            Integer maxModelDecisions, Integer softDeadlineSeconds, Integer hardDeadlineSeconds) {}
+            Integer maxModelDecisions,
+            Integer maxSystemToolInvocationsPerTool,
+            Integer softDeadlineSeconds,
+            Integer hardDeadlineSeconds) {}
 
-    /** 内置池条目（管理页勾选来源）。status: IN_USE | NOT_USING | UNAVAILABLE */
+    /**
+     * 内置池条目（管理页勾选来源）。
+     *
+     * <p>{@code status}: IN_USE | NOT_USING | UNAVAILABLE；{@code configState}: locked | on | off。
+     */
     public record ToolPoolEntryBody(
             String name,
             String description,
             List<String> requiredCapabilities,
             String status,
+            String configState,
             boolean selectable) {}
 
-    /** 工具启用 + 烟火三模式；附本机能力与模型可见预览。 */
+    /** 工具 byName 三态 + 烟火三模式；附本机能力与模型可见预览。 */
     public record ToolsBody(
             List<ToolPoolEntryBody> pool,
-            List<String> enabled,
+            Map<String, String> byName,
             YanhuoFacetsBody yanhuo,
             List<String> hostCapabilities,
             YanhuoFacetsBody modelVisiblePreview) {}
 
     public record YanhuoFacetsBody(List<String> chat, List<String> work, List<String> research) {}
 
-    public record UpdateToolsRequest(List<String> enabled, YanhuoFacetsBody yanhuo) {}
+    public record UpdateToolsRequest(Map<String, String> byName, YanhuoFacetsBody yanhuo) {}
 }

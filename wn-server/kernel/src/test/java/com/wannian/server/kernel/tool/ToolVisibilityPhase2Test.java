@@ -33,6 +33,9 @@ class ToolVisibilityPhase2Test {
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.HTTP_READ,
                         BuiltinToolNames.POWERSHELL_RESOLVE_7);
@@ -66,6 +69,9 @@ class ToolVisibilityPhase2Test {
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -83,6 +89,9 @@ class ToolVisibilityPhase2Test {
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -98,6 +107,9 @@ class ToolVisibilityPhase2Test {
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.POWERSHELL_RESOLVE_7);
     }
@@ -113,6 +125,9 @@ class ToolVisibilityPhase2Test {
                 .containsExactly(
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.HTTP_READ)
                 .doesNotContain(

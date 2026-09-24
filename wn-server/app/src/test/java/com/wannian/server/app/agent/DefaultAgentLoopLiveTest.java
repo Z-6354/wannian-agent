@@ -12,6 +12,7 @@ import com.wannian.server.kernel.agent.AgentOutcome;
 import com.wannian.server.kernel.agent.DefaultAgentLoop;
 import com.wannian.server.kernel.agent.TurnSource;
 import com.wannian.server.kernel.error.ErrorCodes;
+import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
@@ -106,6 +107,7 @@ class DefaultAgentLoopLiveTest {
     private static AgentInput sampleInput(String userMessage) {
         return new AgentInput(
                 TurnId.generate(),
+                null,
                 TurnSource.USER,
                 "",
                 null,
@@ -114,7 +116,8 @@ class DefaultAgentLoopLiveTest {
                 List.of(),
                 null,
                 "你是万年，一个有帮助的助手。",
-                null);
+                null,
+                new InMemoryTurnMemoryPending());
     }
 
     private static AgentBudget sampleBudget() {

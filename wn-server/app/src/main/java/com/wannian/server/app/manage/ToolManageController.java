@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 工具启用与烟火模式可见集管理。系统 HostCapability 优先；返回三态与本机模型可见预览。
+ * 工具 byName 三态与烟火模式可见集管理。系统 HostCapability 优先；锁死名不可关。
  */
 @RestController
 @RequestMapping("/api/manage/agent")
@@ -53,8 +54,8 @@ public class ToolManageController {
 
     @PutMapping("/tools")
     public ResponseEntity<?> putTools(@RequestBody(required = false) UpdateToolsRequest request) {
-        if (request == null || request.enabled() == null || request.yanhuo() == null) {
-            return error(ManageReason.ILLEGAL_ARGUMENT, "enabled / yanhuo 均必填");
+        if (request == null || request.byName() == null || request.yanhuo() == null) {
+            return error(ManageReason.ILLEGAL_ARGUMENT, "byName / yanhuo 均必填");
         }
         YanhuoFacetsBody yanhuo = request.yanhuo();
         if (yanhuo.chat() == null || yanhuo.work() == null || yanhuo.research() == null) {
@@ -63,7 +64,7 @@ public class ToolManageController {
         try {
             ToolSettings.Snapshot snap =
                     toolSettings.update(
-                            request.enabled(),
+                            request.byName(),
                             new ToolSettings.FacetLists(yanhuo.chat(), yanhuo.work(), yanhuo.research()));
             return ResponseEntity.ok(toBody(snap));
         } catch (IllegalArgumentException ex) {
@@ -76,21 +77,28 @@ public class ToolManageController {
 
     private ToolsBody toBody(ToolSettings.Snapshot snap) {
         Set<String> enabled = new LinkedHashSet<>(snap.enabled());
+        Map<String, String> byName = snap.byName();
         List<ToolPoolEntryBody> pool = new ArrayList<>();
         for (BuiltinToolPool.Spec spec : BuiltinToolPool.allSpecs()) {
             BuiltinToolPool.PoolEntry entry = spec.toPoolEntry();
-            String status = ToolUsePolicy.status(entry.name(), hostCapabilities, enabled);
+            String name = entry.name();
+            String configState =
+                    byName.getOrDefault(name, ToolUsePolicy.productDefault(name).wire());
+            String status = ToolUsePolicy.status(name, hostCapabilities, enabled);
+            boolean selectable =
+                    !ToolUsePolicy.isLocked(name) && ToolUsePolicy.isAvailable(name, hostCapabilities);
             pool.add(
                     new ToolPoolEntryBody(
-                            entry.name(),
+                            name,
                             entry.description(),
                             entry.requiredCapabilities(),
                             status,
-                            ToolUsePolicy.selectable(entry.name(), hostCapabilities)));
+                            configState,
+                            selectable));
         }
         return new ToolsBody(
                 pool,
-                snap.enabled(),
+                byName,
                 new YanhuoFacetsBody(
                         snap.yanhuo().chat(), snap.yanhuo().work(), snap.yanhuo().research()),
                 List.copyOf(hostCapabilities.asSet()),

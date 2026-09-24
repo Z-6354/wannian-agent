@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Instant;
+import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,7 @@ class TurnTransitionPersistenceTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
+            connection.createStatement().executeUpdate("DELETE FROM turn_step");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -101,7 +103,7 @@ class TurnTransitionPersistenceTest {
                         MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"冻结\"}", 0);
         FreezeCommitResult frozen =
                 turnCommitter.freezeCommit(
-                        FreezeCommitPlan.of(turnId, revision, "local-primary", now, assistant));
+                        FreezeCommitPlan.of(turnId, revision, "local-primary", now, assistant, List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         assertThat(statusOf(turnId)).isEqualTo(TurnStatus.COMMITTING.name());
         assertThat(revisionOf(turnId)).isEqualTo(4L);
@@ -263,7 +265,7 @@ class TurnTransitionPersistenceTest {
                                 "owner-a",
                                 now.plusSeconds(31),
                                 new CommitTurnPlan.AssistantMessageDraft(
-                                        MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1}", 0)));
+                                        MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1}", 0), List.of(), List.of(), null));
         assertThat(expiredFreeze).isInstanceOf(FreezeCommitResult.Rejected.class);
         assertThat(((FreezeCommitResult.Rejected) expiredFreeze).reasonCode()).isEqualTo("CLAIM_EXPIRED");
         assertThat(statusOf(turnId)).isEqualTo(TurnStatus.RUNNING.name());

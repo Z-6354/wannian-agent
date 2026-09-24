@@ -27,9 +27,34 @@ wannian:
     budget:
       # 下列为首次生成数据目录 wannian.json 中 agentBudget 时的种子；运行期以该文件为准，管理页可改。
       # 环境变量可覆盖种子默认值（仅影响尚未写出的 wannian.json）。
-      max-model-decisions: ${WANNIAN_AGENT_MAX_MODEL_DECISIONS:3}
-      soft-deadline-seconds: ${WANNIAN_AGENT_SOFT_DEADLINE_SECONDS:15}
-      hard-deadline-seconds: ${WANNIAN_AGENT_HARD_DEADLINE_SECONDS:30}
+      # 种子默认：普通决策 10 / 系统工具每工具 5 / 软 60s / 硬 100s；运行期以数据目录 wannian.json 的 agentBudget 为准。
+      max-model-decisions: ${WANNIAN_AGENT_MAX_MODEL_DECISIONS:10}
+      max-system-tool-invocations-per-tool: ${WANNIAN_AGENT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL:5}
+      soft-deadline-seconds: ${WANNIAN_AGENT_SOFT_DEADLINE_SECONDS:60}
+      hard-deadline-seconds: ${WANNIAN_AGENT_HARD_DEADLINE_SECONDS:100}
+  journal:
+    # 0.2.3-L：运行日志 / turn_step；关闭后 Loop 仍可跑，只是不落账本。
+    enabled: ${WANNIAN_JOURNAL_ENABLED:true}
+    jsonl-enabled: ${WANNIAN_JOURNAL_JSONL_ENABLED:true}
+    sqlite-enabled: ${WANNIAN_JOURNAL_SQLITE_ENABLED:true}
+    include-full-messages: ${WANNIAN_JOURNAL_INCLUDE_FULL_MESSAGES:true}
+    max-payload-chars: ${WANNIAN_JOURNAL_MAX_PAYLOAD_CHARS:65536}
+  memory:
+    # 阶段 C：Review tick（毫秒）
+    review:
+      scheduler-enabled: ${WANNIAN_MEMORY_REVIEW_SCHEDULER_ENABLED:true}
+      tick-ms: ${WANNIAN_MEMORY_REVIEW_TICK_MS:60000}
+    # 阶段 D：Assembler 注入限额（kernel MemoryRecallLimits）
+    recall:
+      top-n: ${WANNIAN_MEMORY_RECALL_TOP_N:12}
+      char-budget: ${WANNIAN_MEMORY_RECALL_CHAR_BUDGET:2000}
+    # 阶段 D：弱 B 单 tick 上限
+    tombstone:
+      batch-limit: ${WANNIAN_MEMORY_TOMBSTONE_BATCH_LIMIT:50}
+    # D+：search_memory（MemorySearchLimits）
+    search:
+      default-limit: ${WANNIAN_MEMORY_SEARCH_DEFAULT_LIMIT:5}
+      max-limit: ${WANNIAN_MEMORY_SEARCH_MAX_LIMIT:20}
 
 spring:
   application:

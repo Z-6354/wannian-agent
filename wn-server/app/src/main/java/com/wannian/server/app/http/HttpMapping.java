@@ -6,6 +6,7 @@ import com.wannian.server.api.common.TurnId;
 import com.wannian.server.kernel.conversation.CreateConversationResult;
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.turn.ReceiveTurnResult;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,7 @@ final class HttpMapping {
                                     accepted.replayed(),
                                     null,
                                     null,
+                                    null,
                                     null));
             case ReceiveTurnResult.Conflict conflict ->
                     ResponseEntity.status(HttpStatus.CONFLICT)
@@ -52,16 +54,29 @@ final class HttpMapping {
                                     null,
                                     ErrorCodes.CLIENT_REQUEST_CONFLICT,
                                     conflict.detail(),
+                                    null,
                                     null));
             case ReceiveTurnResult.Rejected rejected ->
                     ResponseEntity.status(statusFor(rejected.reasonCode()))
                             .body(new ReceiveTurnResponse(
-                                    "rejected", null, null, rejected.reasonCode(), rejected.detail(), null));
+                                    "rejected",
+                                    null,
+                                    null,
+                                    rejected.reasonCode(),
+                                    rejected.detail(),
+                                    null,
+                                    null));
         };
     }
 
     static ResponseEntity<ReceiveTurnResponse> accepted(
-            ReceiveTurnResult.Accepted accepted, String reply, String reasonCode, String detail) {
+            ReceiveTurnResult.Accepted accepted,
+            String reply,
+            String reasonCode,
+            String detail,
+            List<ToolCallView> toolCalls) {
+        List<ToolCallView> tools =
+                toolCalls == null || toolCalls.isEmpty() ? null : List.copyOf(toolCalls);
         return ResponseEntity.status(accepted.replayed() ? HttpStatus.OK : HttpStatus.CREATED)
                 .body(new ReceiveTurnResponse(
                         "accepted",
@@ -69,12 +84,13 @@ final class HttpMapping {
                         accepted.replayed(),
                         reasonCode,
                         detail,
-                        reply));
+                        reply,
+                        tools));
     }
 
     static ResponseEntity<ReceiveTurnResponse> rejectedTurn(String reasonCode, String detail) {
         return ResponseEntity.status(statusFor(reasonCode))
-                .body(new ReceiveTurnResponse("rejected", null, null, reasonCode, detail, null));
+                .body(new ReceiveTurnResponse("rejected", null, null, reasonCode, detail, null, null));
     }
 
     static ResponseEntity<CreateConversationResponse> rejectedConversation(String reasonCode, String detail) {

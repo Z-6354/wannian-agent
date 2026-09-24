@@ -96,6 +96,7 @@ class TurnEngineOrchestrationTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
+            connection.createStatement().executeUpdate("DELETE FROM turn_step");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -146,7 +147,7 @@ class TurnEngineOrchestrationTest {
         FreezeCommitResult frozen =
                 turnCommitter.freezeCommit(
                         FreezeCommitPlan.of(
-                                turnId, turn.revision(), "owner-recover", now, assistant));
+                                turnId, turn.revision(), "owner-recover", now, assistant, List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         assertThat(statusOf(turnId)).isEqualTo(TurnStatus.COMMITTING.name());
 

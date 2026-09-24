@@ -16,13 +16,14 @@ class AgentBudgetSettingsTest {
 
     @Test
     void writesSeedThenKeepsExisting() throws Exception {
-        AgentBudgetSettings.Snapshot seed = AgentBudgetSettings.Snapshot.validate(3, 15, 30);
+        AgentBudgetSettings.Snapshot seed = AgentBudgetSettings.Snapshot.validate(3, 5, 15, 30);
         assertThat(AgentBudgetSettings.loadOrCreate(dir.resolve(AgentBudgetSettings.FILE_NAME), seed))
                 .isEqualTo(seed);
         Path file = dir.resolve(AgentBudgetSettings.FILE_NAME);
         assertThat(Files.readString(file))
                 .contains("\"agentBudget\"")
                 .contains("\"maxModelDecisions\" : 3")
+                .contains("\"maxSystemToolInvocationsPerTool\" : 5")
                 .contains("\"softDeadlineSeconds\" : 15")
                 .contains("\"hardDeadlineSeconds\" : 30");
 
@@ -38,9 +39,10 @@ class AgentBudgetSettingsTest {
                   }
                 }
                 """);
+        // 缺省系统工具上限时回落默认 5
         assertThat(AgentBudgetSettings.loadOrCreate(file, seed))
-                .isEqualTo(AgentBudgetSettings.Snapshot.validate(5, 20, 60));
-        AgentBudgetSettings.writeBudget(file, AgentBudgetSettings.Snapshot.validate(5, 20, 60));
+                .isEqualTo(AgentBudgetSettings.Snapshot.validate(5, 5, 20, 60));
+        AgentBudgetSettings.writeBudget(file, AgentBudgetSettings.Snapshot.validate(5, 5, 20, 60));
         assertThat(Files.readString(file)).contains("\"later\" : true");
     }
 
@@ -54,16 +56,17 @@ class AgentBudgetSettingsTest {
                 softDeadlineSeconds=10
                 hardDeadlineSeconds=40
                 """);
-        AgentBudgetSettings.Snapshot seed = AgentBudgetSettings.Snapshot.validate(3, 15, 30);
+        AgentBudgetSettings.Snapshot seed = AgentBudgetSettings.Snapshot.validate(3, 5, 15, 30);
         assertThat(AgentBudgetSettings.loadOrCreate(dir.resolve(AgentBudgetSettings.FILE_NAME), seed))
-                .isEqualTo(AgentBudgetSettings.Snapshot.validate(4, 10, 40));
+                .isEqualTo(AgentBudgetSettings.Snapshot.validate(4, 5, 10, 40));
         assertThat(Files.readString(dir.resolve(AgentBudgetSettings.FILE_NAME)))
-                .contains("\"maxModelDecisions\" : 4");
+                .contains("\"maxModelDecisions\" : 4")
+                .contains("\"maxSystemToolInvocationsPerTool\" : 5");
     }
 
     @Test
     void rejectsHardBeforeSoft() {
-        assertThatThrownBy(() -> AgentBudgetSettings.Snapshot.validate(3, 30, 15))
+        assertThatThrownBy(() -> AgentBudgetSettings.Snapshot.validate(3, 5, 30, 15))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("hardDeadlineSeconds");
     }
@@ -76,7 +79,7 @@ class AgentBudgetSettingsTest {
         assertThatThrownBy(
                         () ->
                                 AgentBudgetSettings.writeBudget(
-                                        file, AgentBudgetSettings.Snapshot.validate(3, 15, 30)))
+                                        file, AgentBudgetSettings.Snapshot.validate(3, 5, 15, 30)))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("损坏");
         assertThat(Files.readString(file)).isEqualTo(corrupt);
@@ -90,7 +93,7 @@ class AgentBudgetSettingsTest {
         assertThatThrownBy(
                         () ->
                                 AgentBudgetSettings.loadOrCreate(
-                                        file, AgentBudgetSettings.Snapshot.validate(3, 15, 30)))
+                                        file, AgentBudgetSettings.Snapshot.validate(3, 5, 15, 30)))
                 .isInstanceOf(IOException.class);
         assertThat(Files.readString(file)).isEqualTo(corrupt);
     }

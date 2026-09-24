@@ -36,7 +36,8 @@ public final class DefaultToolRuntime implements ToolRuntime {
         ToolCatalog.CatalogEntry entry = entryOpt.get();
 
         ToolCallValidator.ValidationResult validation =
-                ToolCallValidator.validate(entry, invocation.argumentsJson());
+                ToolCallValidator.validate(
+                        entry, invocation.argumentsJson());
         if (!validation.ok()) {
             return new ToolExecutionOutcome.Rejected(
                     opId, validation.code(), validation.message());
@@ -66,7 +67,8 @@ public final class DefaultToolRuntime implements ToolRuntime {
                                             opId,
                                             entry.toolName(),
                                             invocation.argumentsJson(),
-                                            context.visibleTools()));
+                                            context.visibleTools(),
+                                            context.pending()));
         } catch (RuntimeException ex) {
             ToolExecutionOutcome failed =
                     new ToolExecutionOutcome.Failed(

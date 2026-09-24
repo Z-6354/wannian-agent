@@ -1,9 +1,9 @@
 # 0.2.4-A · 统一行为账本（立项）
 
-`status`: **已排期 · 未开工**（施工细节开工前再拆）  
+`status`: **下一默认工作 · 加厚未开工**（`turn_step` 核心已由 **0.2.3-L** 交付；见 [k03-l-run-journal.md](./k03-l-run-journal.md)）  
 `version`: **0.2.4** 内部阶段 A（别名 K04-A）  
 `authority`: [roadmap](./roadmap.md) · [实施清单 · 0.2.4](../guide/01-checklist.md) · [04-kernel turn_step](../guide/04-kernel-reference.md)  
-`prerequisite`: **0.2.2** 工具路径可用；**0.2.3** Memory 已交付（本阶段可回填 Memory 写入的账本条目）
+`prerequisite`: **0.2.2** 工具路径可用；**0.2.3** Memory 已交付；**0.2.3-L** 已落表与 MODEL/TOOL/启停写入
 
 ---
 
@@ -50,7 +50,7 @@
 - 替代 ErrorCodes / `SafeErrorLog`（运维错误通道仍独立）
 - 多会话审计 UI / 跨设备同步 / 开放检索产品
 - 把未提交 / 执行中步骤伪造成已完成对用户可见历史
-- 在 0.2.3 开工前抢做本批实现
+- ~~在 0.2.3 开工前抢做本批实现~~ → **已由用户改口**：0.2.3-L 先行窄版；本文件保留加厚与验收全集
 
 ## 5. 验收（立项草案；开工施工单可加细）
 

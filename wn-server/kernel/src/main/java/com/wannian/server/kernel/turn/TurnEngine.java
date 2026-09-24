@@ -11,11 +11,22 @@ import com.wannian.server.kernel.agent.AgentOutcome;
 import com.wannian.server.kernel.agent.ContextAssembler;
 import com.wannian.server.kernel.agent.TurnSource;
 import com.wannian.server.kernel.error.ErrorCodes;
+import com.wannian.server.kernel.journal.JournalActor;
+import com.wannian.server.kernel.journal.JournalJson;
+import com.wannian.server.kernel.journal.JournalKind;
+import com.wannian.server.kernel.journal.JournalSettings;
+import com.wannian.server.kernel.journal.RunJournal;
+import com.wannian.server.kernel.journal.RunJournalEntry;
+import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
+import com.wannian.server.kernel.memory.CompanionIdentity;
+import com.wannian.server.kernel.memory.MemoryStore;
+import com.wannian.server.kernel.memory.TurnMemoryPending;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -41,6 +52,9 @@ public final class TurnEngine {
     private final TurnCommitter turnCommitter;
     private final ContextAssembler assembler;
     private final AgentLoop agentLoop;
+    private final MemoryStore memoryStore;
+    private final RunJournal journal;
+    private final JournalSettings journalSettings;
     private final ConcurrentHashMap<String, ReentrantLock> conversationLocks =
             new ConcurrentHashMap<>();
 
@@ -55,10 +69,40 @@ public final class TurnEngine {
             TurnCommitter turnCommitter,
             ContextAssembler assembler,
             AgentLoop agentLoop) {
+        this(turns, turnCommitter, assembler, agentLoop, null, RunJournal.noop(), JournalSettings.DEFAULT);
+    }
+
+    public TurnEngine(
+            TurnRepository turns,
+            TurnCommitter turnCommitter,
+            ContextAssembler assembler,
+            AgentLoop agentLoop,
+            MemoryStore memoryStore) {
+        this(
+                turns,
+                turnCommitter,
+                assembler,
+                agentLoop,
+                memoryStore,
+                RunJournal.noop(),
+                JournalSettings.DEFAULT);
+    }
+
+    public TurnEngine(
+            TurnRepository turns,
+            TurnCommitter turnCommitter,
+            ContextAssembler assembler,
+            AgentLoop agentLoop,
+            MemoryStore memoryStore,
+            RunJournal journal,
+            JournalSettings journalSettings) {
         this.turns = Objects.requireNonNull(turns, "turns");
         this.turnCommitter = Objects.requireNonNull(turnCommitter, "turnCommitter");
         this.assembler = Objects.requireNonNull(assembler, "assembler");
         this.agentLoop = Objects.requireNonNull(agentLoop, "agentLoop");
+        this.memoryStore = memoryStore;
+        this.journal = Objects.requireNonNull(journal, "journal");
+        this.journalSettings = Objects.requireNonNull(journalSettings, "journalSettings");
     }
 
     /**
@@ -156,6 +200,14 @@ public final class TurnEngine {
 
         turn = turns.find(turn.id()).orElse(turn);
 
+        AtomicInteger journalStep = new AtomicInteger(0);
+        journalUserInput(turn, command.userMessage(), journalStep);
+
+        TurnMemoryPending pending =
+                memoryStore == null
+                        ? new InMemoryTurnMemoryPending()
+                        : new InMemoryTurnMemoryPending(
+                                memoryStore.subjectGenerations(CompanionIdentity.YANHUO));
         AgentInput input =
                 assembler.assemble(
                         new ContextAssembler.AssemblyRequest(
@@ -166,37 +218,113 @@ public final class TurnEngine {
                                 command.userMessage(),
                                 command.systemInstructions(),
                                 ContextAssembler.DEFAULT_RECENT_MESSAGES,
-                                null));
+                                null,
+                                pending));
         AgentOutcome outcome = agentLoop.run(input, command.budget());
 
         turn = turns.find(turn.id()).orElse(turn);
         if (turn.status() != TurnStatus.RUNNING
                 || !claim.executionId().equals(turn.executionId())) {
+            journalFinalize(turn, "STALE", ErrorCodes.STALE_ATTEMPT, journalStep);
             return new ExecuteTurnResult.Held(
                     ErrorCodes.STALE_ATTEMPT, "本轮执行权已失效，不能提交结果");
         }
 
         return switch (outcome) {
-            case AgentOutcome.FinalResponse answer ->
-                    sealReply(turn, claim.executionId(), answer.text());
+            case AgentOutcome.FinalResponse answer -> {
+                ExecuteTurnResult sealed =
+                        sealReply(turn, claim.executionId(), answer.text(), pending);
+                if (sealed instanceof ExecuteTurnResult.Replied) {
+                    journalFinalize(turn, "COMPLETED", null, journalStep);
+                } else if (sealed instanceof ExecuteTurnResult.Held held) {
+                    journalFinalize(turn, "FAILED", held.code(), journalStep);
+                }
+                yield sealed;
+            }
             case AgentOutcome.ControlledFailure failure -> {
                 failAttempt(turn.id(), claim.executionId(), failure.errorCode(), Instant.now());
+                journalFinalize(turn, "FAILED", failure.errorCode(), journalStep);
                 yield new ExecuteTurnResult.Held(failure.errorCode(), failure.safeUserMessage());
             }
-            case AgentOutcome.Cancelled ignored -> cancelAttempt(turn.id(), claim.executionId());
+            case AgentOutcome.Cancelled ignored -> {
+                ExecuteTurnResult cancelled = cancelAttempt(turn.id(), claim.executionId());
+                journalFinalize(turn, "CANCELLED", ErrorCodes.CANCELLED, journalStep);
+                yield cancelled;
+            }
             case AgentOutcome.BackgroundAccepted ignored -> {
                 failAttempt(
                         turn.id(),
                         claim.executionId(),
                         ErrorCodes.BACKGROUND_NOT_ENABLED,
                         Instant.now());
+                journalFinalize(turn, "FAILED", ErrorCodes.BACKGROUND_NOT_ENABLED, journalStep);
                 yield new ExecuteTurnResult.Held(
                         ErrorCodes.BACKGROUND_NOT_ENABLED, "本轮尚未启用后台任务");
             }
         };
     }
 
-    private ExecuteTurnResult sealReply(Turn turn, String executionId, String replyText) {
+    private void journalUserInput(Turn turn, String userMessage, AtomicInteger journalStep) {
+        try {
+            Instant now = Instant.now();
+            boolean full = journalSettings.includeFullMessages();
+            int max = journalSettings.maxPayloadChars();
+            String request =
+                    JournalJson.object(
+                            "inputMessageId",
+                            turn.inputMessageId().asString(),
+                            "text",
+                            full
+                                    ? JournalJson.clip(userMessage, max)
+                                    : Integer.toHexString(userMessage.hashCode()));
+            journal.append(
+                    RunJournalEntry.of(
+                            turn.id().asString(),
+                            turn.conversationId().asString(),
+                            journalStep.incrementAndGet(),
+                            JournalActor.USER,
+                            JournalKind.USER_INPUT,
+                            request,
+                            null,
+                            "SUCCEEDED",
+                            null,
+                            now,
+                            now));
+        } catch (RuntimeException ignored) {
+            // 账本不得打断 Turn
+        }
+    }
+
+    private void journalFinalize(
+            Turn turn, String status, String errorCode, AtomicInteger journalStep) {
+        try {
+            Instant now = Instant.now();
+            String result =
+                    JournalJson.object(
+                            "turnStatus",
+                            status,
+                            "errorCode",
+                            errorCode);
+            journal.append(
+                    RunJournalEntry.of(
+                            turn.id().asString(),
+                            turn.conversationId().asString(),
+                            journalStep.incrementAndGet(),
+                            JournalActor.AGENT,
+                            JournalKind.FINALIZE,
+                            null,
+                            result,
+                            status,
+                            errorCode,
+                            now,
+                            now));
+        } catch (RuntimeException ignored) {
+            // 账本不得打断 Turn
+        }
+    }
+
+    private ExecuteTurnResult sealReply(
+            Turn turn, String executionId, String replyText, TurnMemoryPending pending) {
         MessageId assistantId = MessageId.generate();
         var assistant =
                 new CommitTurnPlan.AssistantMessageDraft(
@@ -205,7 +333,15 @@ public final class TurnEngine {
         long revision = turn.revision();
         FreezeCommitResult frozen =
                 turnCommitter.freezeCommit(
-                        FreezeCommitPlan.of(turn.id(), revision, executionId, now, assistant));
+                        FreezeCommitPlan.of(
+                                turn.id(),
+                                revision,
+                                executionId,
+                                now,
+                                assistant,
+                                List.of(),
+                                pending.snapshotMemories(),
+                                pending.snapshotRelationshipOrNull()));
         if (frozen instanceof FreezeCommitResult.Frozen frozenOk) {
             CommitTurnPlan plan =
                     turnCommitter
@@ -217,7 +353,9 @@ public final class TurnEngine {
                                                     frozenOk.committingRevision(),
                                                     executionId,
                                                     assistant,
-                                                    List.of()));
+                                                    List.of(),
+                                                    pending.snapshotMemories(),
+                                                    pending.snapshotRelationshipOrNull()));
             CommitTurnResult committed = turnCommitter.commit(plan);
             if (!(committed instanceof CommitTurnResult.Committed)) {
                 return mapCommitFailure(committed);

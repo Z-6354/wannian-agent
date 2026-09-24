@@ -29,6 +29,12 @@ public final class ErrorCodes {
     /** 回合不存在。 */
     public static final String TURN_NOT_FOUND = "TURN_NOT_FOUND";
 
+    /** 记忆行不存在或非可操作状态（非 ACTIVE）。 */
+    public static final String MEMORY_NOT_FOUND = "MEMORY_NOT_FOUND";
+
+    /** 同一伴身与 subjectKey 已有 ACTIVE 记忆，不能创建第二条。 */
+    public static final String MEMORY_SUBJECT_CONFLICT = "MEMORY_SUBJECT_CONFLICT";
+
     /** 模型不在供应商本次目录中。 */
     public static final String MODEL_NOT_IN_CATALOG = "MODEL_NOT_IN_CATALOG";
 
@@ -99,7 +105,22 @@ public final class ErrorCodes {
     /** 尚未启用模型。 */
     public static final String MODEL_NOT_ENABLED = "MODEL_NOT_ENABLED";
 
-    /** 模型决策次数或硬截止已耗尽。 */
+    /** 模型决策次数已用尽。 */
+    public static final String BUDGET_DECISIONS_EXHAUSTED = "BUDGET_DECISIONS_EXHAUSTED";
+
+    /** 已到软截止，不再发起新的模型决策。 */
+    public static final String BUDGET_SOFT_DEADLINE = "BUDGET_SOFT_DEADLINE";
+
+    /** 已到硬截止，无法继续调用模型。 */
+    public static final String BUDGET_HARD_DEADLINE = "BUDGET_HARD_DEADLINE";
+
+    /** 单个系统工具本轮调用次数已达上限。 */
+    public static final String BUDGET_SYSTEM_TOOL_EXHAUSTED = "BUDGET_SYSTEM_TOOL_EXHAUSTED";
+
+    /**
+     * 历史统一预算耗尽码（0.2.1）。新路径请用 {@link #BUDGET_DECISIONS_EXHAUSTED} /
+     * {@link #BUDGET_SOFT_DEADLINE} / {@link #BUDGET_HARD_DEADLINE}；本常量仍登记以兼容旧日志与断言。
+     */
     public static final String BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED";
 
     /** 本轮尚未启用工具。 */
@@ -207,6 +228,8 @@ public final class ErrorCodes {
         put(map, ILLEGAL_ARGUMENT, ErrorCategory.VALIDATION, false);
         put(map, CONVERSATION_NOT_FOUND, ErrorCategory.VALIDATION, false);
         put(map, TURN_NOT_FOUND, ErrorCategory.VALIDATION, false);
+        put(map, MEMORY_NOT_FOUND, ErrorCategory.VALIDATION, false);
+        put(map, MEMORY_SUBJECT_CONFLICT, ErrorCategory.CONFLICT, false);
         put(map, MODEL_NOT_IN_CATALOG, ErrorCategory.VALIDATION, false);
         put(map, MODEL_NOT_LISTED, ErrorCategory.VALIDATION, false);
         put(map, VENDOR_NOT_FOUND, ErrorCategory.VALIDATION, false);
@@ -230,6 +253,10 @@ public final class ErrorCodes {
         put(map, UNAUTHENTICATED, ErrorCategory.POLICY_DENIED, false);
         put(map, MANAGE_UNCONFIGURED, ErrorCategory.POLICY_DENIED, false);
         put(map, MODEL_NOT_ENABLED, ErrorCategory.POLICY_DENIED, false);
+        put(map, BUDGET_DECISIONS_EXHAUSTED, ErrorCategory.POLICY_DENIED, false);
+        put(map, BUDGET_SOFT_DEADLINE, ErrorCategory.POLICY_DENIED, false);
+        put(map, BUDGET_HARD_DEADLINE, ErrorCategory.POLICY_DENIED, false);
+        put(map, BUDGET_SYSTEM_TOOL_EXHAUSTED, ErrorCategory.POLICY_DENIED, false);
         put(map, BUDGET_EXHAUSTED, ErrorCategory.POLICY_DENIED, false);
         put(map, TOOLS_NOT_ENABLED, ErrorCategory.POLICY_DENIED, false);
         put(map, BACKGROUND_NOT_ENABLED, ErrorCategory.POLICY_DENIED, false);

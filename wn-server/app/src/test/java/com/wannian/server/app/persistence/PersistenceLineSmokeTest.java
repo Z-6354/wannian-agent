@@ -71,6 +71,7 @@ class PersistenceLineSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
+            connection.createStatement().executeUpdate("DELETE FROM turn_step");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -157,7 +158,7 @@ class PersistenceLineSmokeTest {
                                 "local-primary",
                                 now,
                                 new CommitTurnPlan.AssistantMessageDraft(
-                                        assistantMessageId, MessageRole.ASSISTANT, contentJson, 0)));
+                                        assistantMessageId, MessageRole.ASSISTANT, contentJson, 0), List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         return ((FreezeCommitResult.Frozen) frozen).committingRevision();
     }

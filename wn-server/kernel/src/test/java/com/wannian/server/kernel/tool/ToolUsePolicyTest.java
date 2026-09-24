@@ -67,7 +67,13 @@ class ToolUsePolicyTest {
         List<String> clamped =
                 ToolUsePolicy.clampEnabled(
                         List.of(BuiltinToolNames.POWERSHELL_RESOLVE_5), BOTH_PS);
-        assertThat(clamped).containsExactly(BuiltinToolNames.POWERSHELL_RESOLVE_5);
+        assertThat(clamped).containsExactly(
+                BuiltinToolNames.POWERSHELL_RESOLVE_5,
+                BuiltinToolNames.LIST_TOOLS,
+                BuiltinToolNames.CURRENT_TIME,
+                BuiltinToolNames.REMEMBER_FACT,
+                BuiltinToolNames.UPDATE_RELATIONSHIP,
+                BuiltinToolNames.SEARCH_MEMORY);
     }
 
     @Test
@@ -78,7 +84,13 @@ class ToolUsePolicyTest {
                                 BuiltinToolNames.POWERSHELL_RESOLVE_5,
                                 BuiltinToolNames.POWERSHELL_RESOLVE_7),
                         ONLY_5);
-        assertThat(clamped).containsExactly(BuiltinToolNames.POWERSHELL_RESOLVE_5);
+        assertThat(clamped).containsExactly(
+                BuiltinToolNames.POWERSHELL_RESOLVE_5,
+                BuiltinToolNames.LIST_TOOLS,
+                BuiltinToolNames.CURRENT_TIME,
+                BuiltinToolNames.REMEMBER_FACT,
+                BuiltinToolNames.UPDATE_RELATIONSHIP,
+                BuiltinToolNames.SEARCH_MEMORY);
     }
 
     @Test

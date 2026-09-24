@@ -8,7 +8,7 @@ import java.util.Objects;
  * decide 前的预算 / 取消闸门（供 {@link DefaultAgentLoop} 与单测共用）。
  *
  * <p>软截止：已完成至少一次 decide 后再过 soft → 不再开新 decide；首次 decide 在硬截止前仍允许
- * （「可完成当前步」）。硬截止或次数耗尽 → {@link ErrorCodes#BUDGET_EXHAUSTED}。
+ * （「可完成当前步」）。次数 / 软 / 硬分别映射独立错误码。
  */
 public final class AgentBudgetGate {
 
@@ -16,7 +16,7 @@ public final class AgentBudgetGate {
 
     /**
      * @param budget 本轮预算；不得为 null
-     * @param completedDecisions 本轮已完成的 decide 次数（首次调用前传 0）
+     * @param completedDecisions 本轮已计入预算的 decide 次数（首次调用前传 0；系统工具回合可不计入）
      * @param now 判定时刻；不得为 null
      * @return 应立刻返回的 Outcome；允许继续 decide 时返回 null
      */
@@ -31,22 +31,22 @@ public final class AgentBudgetGate {
         }
         if (completedDecisions >= budget.maxModelDecisions()) {
             return new AgentOutcome.ControlledFailure(
-                    ErrorCodes.BUDGET_EXHAUSTED,
-                    "模型决策次数已用尽",
+                    ErrorCodes.BUDGET_DECISIONS_EXHAUSTED,
+                    "本轮模型决策次数已用尽",
                     false,
                     AgentTrace.of("决策次数耗尽:completed=" + completedDecisions));
         }
         if (!now.isBefore(budget.hardDeadline())) {
             return new AgentOutcome.ControlledFailure(
-                    ErrorCodes.BUDGET_EXHAUSTED,
-                    "已到达硬截止，无法发起模型调用",
+                    ErrorCodes.BUDGET_HARD_DEADLINE,
+                    "已到硬截止，无法继续调用模型",
                     false,
                     AgentTrace.of("硬截止于decide之前"));
         }
         if (completedDecisions > 0 && !now.isBefore(budget.softDeadline())) {
             return new AgentOutcome.ControlledFailure(
-                    ErrorCodes.BUDGET_EXHAUSTED,
-                    "已到达软截止，不再发起新的模型调用",
+                    ErrorCodes.BUDGET_SOFT_DEADLINE,
+                    "已到软截止，不再发起新决策",
                     false,
                     AgentTrace.of("软截止于decide之前:completed=" + completedDecisions));
         }

@@ -3,6 +3,7 @@ package com.wannian.server.app.manage;
 import com.wannian.server.app.manage.ManageBodies.AgentBudgetBody;
 import com.wannian.server.app.manage.ManageBodies.ErrorBody;
 import com.wannian.server.app.manage.ManageBodies.UpdateAgentBudgetRequest;
+import com.wannian.server.kernel.agent.AgentBudget;
 import java.io.IOException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +30,10 @@ public class AgentManageController {
     public AgentBudgetBody getBudget() {
         AgentBudgetSettings.Snapshot snap = budgetSettings.snapshot();
         return new AgentBudgetBody(
-                snap.maxModelDecisions(), snap.softDeadlineSeconds(), snap.hardDeadlineSeconds());
+                snap.maxModelDecisions(),
+                snap.maxSystemToolInvocationsPerTool(),
+                snap.softDeadlineSeconds(),
+                snap.hardDeadlineSeconds());
     }
 
     @PutMapping("/budget")
@@ -38,17 +42,25 @@ public class AgentManageController {
                 || request.maxModelDecisions() == null
                 || request.softDeadlineSeconds() == null
                 || request.hardDeadlineSeconds() == null) {
-            return error(ManageReason.ILLEGAL_ARGUMENT, "maxModelDecisions / softDeadlineSeconds / hardDeadlineSeconds 均必填");
+            return error(
+                    ManageReason.ILLEGAL_ARGUMENT,
+                    "maxModelDecisions / softDeadlineSeconds / hardDeadlineSeconds 均必填");
         }
+        int systemCap =
+                request.maxSystemToolInvocationsPerTool() == null
+                        ? AgentBudget.DEFAULT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL
+                        : request.maxSystemToolInvocationsPerTool();
         try {
             AgentBudgetSettings.Snapshot snap =
                     budgetSettings.update(
                             request.maxModelDecisions(),
+                            systemCap,
                             request.softDeadlineSeconds(),
                             request.hardDeadlineSeconds());
             return ResponseEntity.ok(
                     new AgentBudgetBody(
                             snap.maxModelDecisions(),
+                            snap.maxSystemToolInvocationsPerTool(),
                             snap.softDeadlineSeconds(),
                             snap.hardDeadlineSeconds()));
         } catch (IllegalArgumentException ex) {

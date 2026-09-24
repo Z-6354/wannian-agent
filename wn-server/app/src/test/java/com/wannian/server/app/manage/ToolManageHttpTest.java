@@ -48,7 +48,8 @@ class ToolManageHttpTest {
         JsonNode body = response.getBody();
         assertThat(body.get("pool").isArray()).isTrue();
         assertThat(body.get("pool").size()).isGreaterThanOrEqualTo(6);
-        assertThat(body.get("enabled").isArray()).isTrue();
+        assertThat(body.get("byName").isObject()).isTrue();
+        assertThat(body.get("byName").get("search_memory").asText()).isEqualTo("locked");
         assertThat(body.get("yanhuo").get("chat").isArray()).isTrue();
         assertThat(body.get("hostCapabilities").isArray()).isTrue();
         assertThat(body.get("modelVisiblePreview").get("chat").isArray()).isTrue();
@@ -63,12 +64,13 @@ class ToolManageHttpTest {
     void putToolsDisablesCalculateAndMutexPowershell() {
         Map<String, Object> body =
                 Map.of(
-                        "enabled",
-                        List.of(
-                                "current_time",
-                                "http_read",
-                                "powershell_resolve_5",
-                                "powershell_resolve_7"),
+                        "byName",
+                        Map.of(
+                                "current_time", "locked",
+                                "calculate", "off",
+                                "http_read", "on",
+                                "powershell_resolve_5", "on",
+                                "powershell_resolve_7", "on"),
                         "yanhuo",
                         Map.of(
                                 "chat",
@@ -84,11 +86,12 @@ class ToolManageHttpTest {
                         bearer(TOKEN, body),
                         JsonNode.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        String enabled = response.getBody().get("enabled").toString();
-        assertThat(enabled).doesNotContain("calculate");
+        JsonNode byName = response.getBody().get("byName");
+        assertThat(byName.get("calculate").asText()).isEqualTo("off");
         assertThat(response.getBody().get("yanhuo").get("chat").toString()).contains("current_time");
-        boolean has5 = enabled.contains("powershell_resolve_5");
-        boolean has7 = enabled.contains("powershell_resolve_7");
+        String workPreview = response.getBody().get("modelVisiblePreview").get("work").toString();
+        boolean has5 = workPreview.contains("powershell_resolve_5");
+        boolean has7 = workPreview.contains("powershell_resolve_7");
         assertThat(has5 && has7).as("PS 5/7 must be mutex after clamp").isFalse();
         assertThat(response.getBody().get("modelVisiblePreview").get("chat").toString())
                 .contains("current_time");
@@ -98,8 +101,8 @@ class ToolManageHttpTest {
     void putToolsRejectsFacetOutsideEnabled() {
         Map<String, Object> body =
                 Map.of(
-                        "enabled",
-                        List.of("current_time"),
+                        "byName",
+                        Map.of("current_time", "locked", "calculate", "off"),
                         "yanhuo",
                         Map.of(
                                 "chat",

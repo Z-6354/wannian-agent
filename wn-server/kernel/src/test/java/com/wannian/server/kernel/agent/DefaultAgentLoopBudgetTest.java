@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.kernel.error.ErrorCodes;
+import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ToolCallRequest;
@@ -108,6 +109,7 @@ class DefaultAgentLoopBudgetTest {
     private static AgentInput sampleInput() {
         return new AgentInput(
                 TurnId.generate(),
+                null,
                 TurnSource.USER,
                 "",
                 null,
@@ -116,7 +118,8 @@ class DefaultAgentLoopBudgetTest {
                 List.of(),
                 null,
                 "你是万年，一个有帮助的助手。",
-                null);
+                null,
+                new InMemoryTurnMemoryPending());
     }
 
     private static AgentBudget sampleBudget() {

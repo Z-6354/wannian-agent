@@ -41,19 +41,26 @@ public class AgentBudgetSettings {
 
     public AgentBudgetSettings(
             @Value("${wannian.data-dir:data}") String dataDir,
-            @Value("${wannian.agent.budget.max-model-decisions:3}") int seedMaxModelDecisions,
-            @Value("${wannian.agent.budget.soft-deadline-seconds:15}") int seedSoftDeadlineSeconds,
-            @Value("${wannian.agent.budget.hard-deadline-seconds:30}") int seedHardDeadlineSeconds)
+            @Value("${wannian.agent.budget.max-model-decisions:10}") int seedMaxModelDecisions,
+            @Value("${wannian.agent.budget.max-system-tool-invocations-per-tool:5}")
+                    int seedMaxSystemToolInvocationsPerTool,
+            @Value("${wannian.agent.budget.soft-deadline-seconds:60}") int seedSoftDeadlineSeconds,
+            @Value("${wannian.agent.budget.hard-deadline-seconds:100}") int seedHardDeadlineSeconds)
             throws IOException {
         Path dir = SqliteConfig.resolveDataDir(dataDir);
         Files.createDirectories(dir);
         this.file = dir.resolve(FILE_NAME);
-        Snapshot seed = Snapshot.validate(seedMaxModelDecisions, seedSoftDeadlineSeconds, seedHardDeadlineSeconds);
+        Snapshot seed =
+                Snapshot.validate(
+                        seedMaxModelDecisions,
+                        seedMaxSystemToolInvocationsPerTool,
+                        seedSoftDeadlineSeconds,
+                        seedHardDeadlineSeconds);
         Snapshot loaded = loadOrCreate(file, seed);
         apply(loaded);
     }
 
-    /** 当前内存快照（供管理 API）。一次加锁读出三个预算字段。 */
+    /** 当前内存快照（供管理 API）。一次加锁读出预算字段。 */
     public Snapshot snapshot() {
         lock.lock();
         try {
@@ -70,7 +77,11 @@ public class AgentBudgetSettings {
         Objects.requireNonNull(now, "now");
         Snapshot snap = snapshot();
         return AgentBudget.of(
-                snap.maxModelDecisions(), snap.softDeadlineSeconds(), snap.hardDeadlineSeconds(), now);
+                snap.maxModelDecisions(),
+                snap.maxSystemToolInvocationsPerTool(),
+                snap.softDeadlineSeconds(),
+                snap.hardDeadlineSeconds(),
+                now);
     }
 
     /**
@@ -78,9 +89,18 @@ public class AgentBudgetSettings {
      *
      * @return 写入后的快照
      */
-    public Snapshot update(int maxModelDecisions, int softDeadlineSeconds, int hardDeadlineSeconds)
+    public Snapshot update(
+            int maxModelDecisions,
+            int maxSystemToolInvocationsPerTool,
+            int softDeadlineSeconds,
+            int hardDeadlineSeconds)
             throws IOException {
-        Snapshot next = Snapshot.validate(maxModelDecisions, softDeadlineSeconds, hardDeadlineSeconds);
+        Snapshot next =
+                Snapshot.validate(
+                        maxModelDecisions,
+                        maxSystemToolInvocationsPerTool,
+                        softDeadlineSeconds,
+                        hardDeadlineSeconds);
         lock.lock();
         try {
             writeBudget(file, next);
@@ -133,8 +153,13 @@ public class AgentBudgetSettings {
         if (max == null || soft == null || hard == null || !max.isNumber() || !soft.isNumber() || !hard.isNumber()) {
             return null;
         }
+        int systemCap = AgentBudget.DEFAULT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL;
+        JsonNode system = budget.get("maxSystemToolInvocationsPerTool");
+        if (system != null && system.isNumber()) {
+            systemCap = system.asInt();
+        }
         try {
-            return Snapshot.validate(max.asInt(), soft.asInt(), hard.asInt());
+            return Snapshot.validate(max.asInt(), systemCap, soft.asInt(), hard.asInt());
         } catch (IllegalArgumentException ex) {
             return null;
         }
@@ -145,6 +170,7 @@ public class AgentBudgetSettings {
         ObjectNode root = objectRoot(file);
         ObjectNode budget = root.putObject(BUDGET_KEY);
         budget.put("maxModelDecisions", snapshot.maxModelDecisions());
+        budget.put("maxSystemToolInvocationsPerTool", snapshot.maxSystemToolInvocationsPerTool());
         budget.put("softDeadlineSeconds", snapshot.softDeadlineSeconds());
         budget.put("hardDeadlineSeconds", snapshot.hardDeadlineSeconds());
         Files.writeString(
@@ -190,8 +216,13 @@ public class AgentBudgetSettings {
             return null;
         }
         try {
+            int systemCap = AgentBudget.DEFAULT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL;
+            if (map.containsKey("maxSystemToolInvocationsPerTool")) {
+                systemCap = Integer.parseInt(map.get("maxSystemToolInvocationsPerTool"));
+            }
             return Snapshot.validate(
                     Integer.parseInt(map.get("maxModelDecisions")),
+                    systemCap,
                     Integer.parseInt(map.get("softDeadlineSeconds")),
                     Integer.parseInt(map.get("hardDeadlineSeconds")));
         } catch (IllegalArgumentException ex) {
@@ -204,15 +235,27 @@ public class AgentBudgetSettings {
     }
 
     /**
-     * @param maxModelDecisions 允许的 decide 次数上界；须为正
+     * @param maxModelDecisions 计入预算的 decide 次数上界；须为正
+     * @param maxSystemToolInvocationsPerTool 每个系统工具本轮调用上界；须为正
      * @param softDeadlineSeconds 软截止秒数；须为正
      * @param hardDeadlineSeconds 硬截止秒数；须 ≥ 软截止
      */
-    public record Snapshot(int maxModelDecisions, int softDeadlineSeconds, int hardDeadlineSeconds) {
+    public record Snapshot(
+            int maxModelDecisions,
+            int maxSystemToolInvocationsPerTool,
+            int softDeadlineSeconds,
+            int hardDeadlineSeconds) {
 
-        static Snapshot validate(int maxModelDecisions, int softDeadlineSeconds, int hardDeadlineSeconds) {
+        static Snapshot validate(
+                int maxModelDecisions,
+                int maxSystemToolInvocationsPerTool,
+                int softDeadlineSeconds,
+                int hardDeadlineSeconds) {
             if (maxModelDecisions <= 0) {
                 throw new IllegalArgumentException("maxModelDecisions 须为正");
+            }
+            if (maxSystemToolInvocationsPerTool <= 0) {
+                throw new IllegalArgumentException("maxSystemToolInvocationsPerTool 须为正");
             }
             if (softDeadlineSeconds <= 0) {
                 throw new IllegalArgumentException("softDeadlineSeconds 须为正");
@@ -220,7 +263,11 @@ public class AgentBudgetSettings {
             if (hardDeadlineSeconds < softDeadlineSeconds) {
                 throw new IllegalArgumentException("hardDeadlineSeconds 不得小于 softDeadlineSeconds");
             }
-            return new Snapshot(maxModelDecisions, softDeadlineSeconds, hardDeadlineSeconds);
+            return new Snapshot(
+                    maxModelDecisions,
+                    maxSystemToolInvocationsPerTool,
+                    softDeadlineSeconds,
+                    hardDeadlineSeconds);
         }
     }
 }

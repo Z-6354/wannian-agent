@@ -30,7 +30,8 @@ final class ToolCallValidator {
 
     private ToolCallValidator() {}
 
-    static ValidationResult validate(ToolCatalog.CatalogEntry entry, String argumentsJson) {
+    static ValidationResult validate(
+            ToolCatalog.CatalogEntry entry, String argumentsJson) {
         Map<String, String> fields;
         try {
             fields = ToolJson.parseFlatObject(argumentsJson);
@@ -43,8 +44,76 @@ final class ToolCallValidator {
             case BuiltinToolNames.HTTP_READ -> validateHttpRead(fields);
             case BuiltinToolNames.POWERSHELL_RESOLVE_5, BuiltinToolNames.POWERSHELL_RESOLVE_7 ->
                     validatePowershellResolve(fields);
+            case BuiltinToolNames.REMEMBER_FACT -> validateRememberFact(fields);
+            case BuiltinToolNames.UPDATE_RELATIONSHIP -> validateUpdateRelationship(fields);
+            case BuiltinToolNames.SEARCH_MEMORY -> validateSearchMemory(fields);
             default -> ValidationResult.ok(fields);
         };
+    }
+
+    private static ValidationResult validateSearchMemory(Map<String, String> fields) {
+        for (String key : fields.keySet()) {
+            if (!"query".equals(key) && !"limit".equals(key)) {
+                return ValidationResult.reject("search_memory 仅允许字段 query / limit");
+            }
+        }
+        if (blank(fields.get("query"))) {
+            return ValidationResult.reject("search_memory 缺少非空 query");
+        }
+        String rawLimit = fields.get("limit");
+        if (rawLimit == null || rawLimit.isBlank()) {
+            return ValidationResult.ok(fields);
+        }
+        try {
+            int limit = Integer.parseInt(rawLimit.trim());
+            int max = com.wannian.server.kernel.memory.MemorySearchLimits.HARD_MAX_LIMIT;
+            if (limit < 1 || limit > max) {
+                return ValidationResult.reject("search_memory limit 须在 1.." + max);
+            }
+        } catch (NumberFormatException ex) {
+            return ValidationResult.reject("search_memory limit 须为整数");
+        }
+        return ValidationResult.ok(fields);
+    }
+
+    private static ValidationResult validateRememberFact(Map<String, String> fields) {
+        if (blank(fields.get("claim"))
+                || blank(fields.get("subjectKey"))
+                || blank(fields.get("importance"))
+                || blank(fields.get("contentKind"))) {
+            return ValidationResult.reject("remember_fact 缺少 claim/subjectKey/importance/contentKind");
+        }
+        try {
+            Double.parseDouble(fields.get("importance"));
+        } catch (NumberFormatException ex) {
+            return ValidationResult.reject("importance 须为数字");
+        }
+        try {
+            com.wannian.server.kernel.memory.MemoryAxisNames.parseContentKind(fields.get("contentKind"));
+            if (!blank(fields.get("sourceKind"))) {
+                com.wannian.server.kernel.memory.MemoryAxisNames.parseSourceKind(fields.get("sourceKind"));
+            }
+            if (!blank(fields.get("scope"))) {
+                com.wannian.server.kernel.memory.MemoryAxisNames.parseScope(fields.get("scope"));
+            }
+        } catch (IllegalArgumentException ex) {
+            return ValidationResult.reject(ex.getMessage());
+        }
+        return ValidationResult.ok(fields);
+    }
+
+    private static ValidationResult validateUpdateRelationship(Map<String, String> fields) {
+        if (blank(fields.get("reason"))) {
+            return ValidationResult.reject("update_relationship 缺少 reason");
+        }
+        if (blank(fields.get("preferredAddress")) && blank(fields.get("boundaries"))) {
+            return ValidationResult.reject("须提供 preferredAddress 或 boundaries");
+        }
+        return ValidationResult.ok(fields);
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static ValidationResult validateCurrentTime(Map<String, String> fields) {

@@ -69,7 +69,8 @@ public final class ToolCatalog {
                         trimmedDescription,
                         schemaText.trim(),
                         Set.copyOf(normalizedCaps),
-                        executor);
+                        executor,
+                        registration.countsTowardDecisionBudget());
         CatalogEntry existing = entries.putIfAbsent(name, entry);
         if (existing != null) {
             return new RegisterToolResult.Rejected(
@@ -110,5 +111,17 @@ public final class ToolCatalog {
             String description,
             String parameterSchemaJson,
             Set<String> requiredCapabilities,
-            ToolAdapter executor) {}
+            ToolAdapter executor,
+            boolean countsTowardDecisionBudget) {
+
+        /** 默认计入决策预算。 */
+        public CatalogEntry(
+                String toolName,
+                String description,
+                String parameterSchemaJson,
+                Set<String> requiredCapabilities,
+                ToolAdapter executor) {
+            this(toolName, description, parameterSchemaJson, requiredCapabilities, executor, true);
+        }
+    }
 }

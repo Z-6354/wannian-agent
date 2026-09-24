@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wannian.server.app.persistence.SqliteConfig;
 import com.wannian.server.app.tool.LocalHostCapabilityDetector;
-import com.wannian.server.kernel.tool.BuiltinToolNames;
 import com.wannian.server.kernel.tool.BuiltinToolPool;
 import com.wannian.server.kernel.tool.BuiltinToolRegistrar;
 import com.wannian.server.kernel.tool.FacetId;
@@ -17,13 +16,16 @@ import com.wannian.server.kernel.tool.ToolBindingTable;
 import com.wannian.server.kernel.tool.ToolCatalog;
 import com.wannian.server.kernel.tool.ToolUsePolicy;
 import com.wannian.server.kernel.tool.YanhuoToolBindings;
+import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,9 +34,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * 数据目录 {@code wannian.json} 的 {@code tools} 段：启用进目录名单 + 烟火三模式可见集。
+ * 数据目录 {@code wannian.json} 的 {@code tools} 段：{@code byName} 三态 + 烟火三模式可见集。
  *
- * <p>系统 HostCapability 优先于用户勾选：不可用工具不能启用；PS 5/7 互斥。
+ * <p>系统 HostCapability 优先于用户勾选：不可用工具不能有效启用；PS 5/7 互斥。
+ * 无 {@code byName} 视为无配置（不兼容旧 {@code enabled[]}）。
  */
 @Component
 public class ToolSettings {
@@ -49,13 +52,15 @@ public class ToolSettings {
     private final ToolBindingTable bindingTable;
     private final String httpReadUserAgent;
     private final HostCapabilitySet hostCapabilities;
+    private final SearchMemoryToolAdapter searchMemoryAdapter;
 
     private Snapshot current;
 
     /** 测试与手动装配。 */
     public ToolSettings(String dataDir, ToolCatalog catalog, ToolBindingTable bindingTable)
             throws IOException {
-        this(dataDir, catalog, bindingTable, "wannian-agent", LocalHostCapabilityDetector.detect());
+        this(dataDir, catalog, bindingTable, "wannian-agent", LocalHostCapabilityDetector.detect(),
+                SearchMemoryToolAdapter.unavailable());
     }
 
     /** 测试可注入假主机能力。 */
@@ -65,7 +70,8 @@ public class ToolSettings {
             ToolBindingTable bindingTable,
             HostCapabilitySet hostCapabilities)
             throws IOException {
-        this(dataDir, catalog, bindingTable, "wannian-agent", hostCapabilities);
+        this(dataDir, catalog, bindingTable, "wannian-agent", hostCapabilities,
+                SearchMemoryToolAdapter.unavailable());
     }
 
     @Autowired
@@ -74,7 +80,8 @@ public class ToolSettings {
             ToolCatalog catalog,
             ToolBindingTable bindingTable,
             @Value("${wannian.http-read.user-agent:wannian-agent}") String httpReadUserAgent,
-            HostCapabilitySet hostCapabilitySet)
+            HostCapabilitySet hostCapabilitySet,
+            SearchMemoryToolAdapter searchMemoryAdapter)
             throws IOException {
         Path dir = SqliteConfig.resolveDataDir(dataDir);
         Files.createDirectories(dir);
@@ -82,6 +89,7 @@ public class ToolSettings {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.bindingTable = Objects.requireNonNull(bindingTable, "bindingTable");
         this.hostCapabilities = Objects.requireNonNull(hostCapabilitySet, "hostCapabilitySet");
+        this.searchMemoryAdapter = Objects.requireNonNull(searchMemoryAdapter, "searchMemoryAdapter");
         String ua = httpReadUserAgent == null ? "" : httpReadUserAgent.trim();
         this.httpReadUserAgent = ua.isEmpty() ? "wannian-agent" : ua;
         Snapshot seed = Snapshot.defaults(hostCapabilities);
@@ -103,8 +111,8 @@ public class ToolSettings {
         }
     }
 
-    public Snapshot update(List<String> enabled, FacetLists yanhuo) throws IOException {
-        Snapshot next = Snapshot.validate(enabled, yanhuo, hostCapabilities, false);
+    public Snapshot update(Map<String, String> byName, FacetLists yanhuo) throws IOException {
+        Snapshot next = Snapshot.validate(byName, yanhuo, hostCapabilities, false);
         lock.lock();
         try {
             writeTools(file, next);
@@ -122,7 +130,10 @@ public class ToolSettings {
 
     private void applyToRuntime(Snapshot snapshot) {
         BuiltinToolRegistrar.registerEnabled(
-                catalog, new LinkedHashSet<>(snapshot.enabled()), httpReadUserAgent);
+                catalog,
+                new LinkedHashSet<>(snapshot.enabled()),
+                httpReadUserAgent,
+                searchMemoryAdapter);
         YanhuoToolBindings.applyTo(
                 bindingTable, snapshot.yanhuo().chat(), snapshot.yanhuo().work(), snapshot.yanhuo().research());
     }
@@ -141,6 +152,9 @@ public class ToolSettings {
         return seed;
     }
 
+    /**
+     * 读取 tools 段。无 {@code byName} 对象 → 返回 null（走 defaults 重写；不读旧 {@code enabled[]}）。
+     */
     static Snapshot readTools(Path file, HostCapabilitySet host) throws IOException {
         JsonNode root;
         try {
@@ -155,64 +169,34 @@ public class ToolSettings {
         if (tools == null || !tools.isObject()) {
             return null;
         }
+        JsonNode byNameNode = tools.get("byName");
+        if (byNameNode == null || !byNameNode.isObject()) {
+            return null;
+        }
         try {
-            List<String> enabled =
-                    ensureListTools(migrateLegacyPowershellNames(readStringList(tools.get("enabled"))));
+            Map<String, String> byName = readByName(byNameNode);
             JsonNode yanhuo = tools.get("yanhuo");
             if (yanhuo == null || !yanhuo.isObject()) {
                 return null;
             }
             FacetLists facets =
                     new FacetLists(
-                            ensureListTools(
-                                    migrateLegacyPowershellNames(readStringList(yanhuo.get("chat")))),
-                            ensureListTools(
-                                    migrateLegacyPowershellNames(readStringList(yanhuo.get("work")))),
-                            ensureListTools(
-                                    migrateLegacyPowershellNames(
-                                            readStringList(yanhuo.get("research")))));
-            return Snapshot.validate(enabled, facets, host, true);
+                            readStringList(yanhuo.get("chat")),
+                            readStringList(yanhuo.get("work")),
+                            readStringList(yanhuo.get("research")));
+            return Snapshot.validate(byName, facets, host, true);
         } catch (IllegalArgumentException ex) {
             return null;
         }
-    }
-
-    /** 旧单一 id → 展开为 _5+_7，再由 {@link ToolUsePolicy} 按本机互斥钳制。 */
-    static List<String> migrateLegacyPowershellNames(List<String> names) {
-        LinkedHashSet<String> out = new LinkedHashSet<>();
-        boolean sawLegacy = false;
-        for (String name : names) {
-            if (BuiltinToolNames.POWERSHELL_RESOLVE_LEGACY.equals(name)) {
-                sawLegacy = true;
-                continue;
-            }
-            out.add(name);
-        }
-        if (sawLegacy) {
-            out.add(BuiltinToolNames.POWERSHELL_RESOLVE_5);
-            out.add(BuiltinToolNames.POWERSHELL_RESOLVE_7);
-        }
-        return List.copyOf(out);
-    }
-
-    /** 配置缺 list_tools 时补进名单头部（加载路径；用户仍可之后关掉）。 */
-    static List<String> ensureListTools(List<String> names) {
-        if (names.contains(BuiltinToolNames.LIST_TOOLS)) {
-            return names;
-        }
-        LinkedHashSet<String> out = new LinkedHashSet<>();
-        out.add(BuiltinToolNames.LIST_TOOLS);
-        out.addAll(names);
-        return List.copyOf(out);
     }
 
     static void writeTools(Path file, Snapshot snapshot) throws IOException {
         Objects.requireNonNull(snapshot, "snapshot");
         ObjectNode root = objectRoot(file);
         ObjectNode tools = root.putObject(TOOLS_KEY);
-        ArrayNode enabled = tools.putArray("enabled");
-        for (String name : snapshot.enabled()) {
-            enabled.add(name);
+        ObjectNode byName = tools.putObject("byName");
+        for (Map.Entry<String, String> entry : snapshot.byName().entrySet()) {
+            byName.put(entry.getKey(), entry.getValue());
         }
         ObjectNode yanhuo = tools.putObject("yanhuo");
         writeStringList(yanhuo, "chat", snapshot.yanhuo().chat());
@@ -222,6 +206,20 @@ public class ToolSettings {
                 file,
                 MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
+    }
+
+    private static Map<String, String> readByName(JsonNode node) {
+        LinkedHashMap<String, String> out = new LinkedHashMap<>();
+        var fields = node.fields();
+        while (fields.hasNext()) {
+            var entry = fields.next();
+            JsonNode value = entry.getValue();
+            if (value == null || !value.isTextual()) {
+                throw new IllegalArgumentException("byName 值须为字符串");
+            }
+            out.put(entry.getKey(), value.asText());
+        }
+        return Map.copyOf(out);
     }
 
     private static void writeStringList(ObjectNode parent, String key, List<String> values) {
@@ -271,18 +269,28 @@ public class ToolSettings {
         }
     }
 
-    public record Snapshot(List<String> enabled, FacetLists yanhuo) {
+    /**
+     * @param byName 池内每名的存盘态（{@code locked}/{@code on}/{@code off}）
+     * @param enabled 本机有效开启名（由 byName + host 派生，供 {@code registerEnabled}）
+     * @param yanhuo 三模式可见集（须含锁死名）
+     */
+    public record Snapshot(Map<String, String> byName, List<String> enabled, FacetLists yanhuo) {
         public Snapshot {
+            Objects.requireNonNull(byName, "byName");
             Objects.requireNonNull(enabled, "enabled");
             Objects.requireNonNull(yanhuo, "yanhuo");
+            byName = Map.copyOf(byName);
             enabled = List.copyOf(enabled);
         }
 
         static Snapshot defaults(HostCapabilitySet host) {
             Objects.requireNonNull(host, "host");
-            List<String> enabled = ToolUsePolicy.defaultEnabled(host);
+            Map<String, String> byName =
+                    ToolUsePolicy.normalizeByName(ToolUsePolicy.defaultByName(), host);
+            List<String> enabled = ToolUsePolicy.enabledFromByName(byName, host);
             ToolBindingTable seed = YanhuoToolBindings.create();
             return new Snapshot(
+                    byName,
                     enabled,
                     new FacetLists(
                             ToolUsePolicy.defaultFacet(
@@ -297,39 +305,36 @@ public class ToolSettings {
         }
 
         static Snapshot validate(
-                List<String> enabledRaw, FacetLists yanhuoRaw, HostCapabilitySet host) {
-            return validate(enabledRaw, yanhuoRaw, host, false);
+                Map<String, String> byNameRaw, FacetLists yanhuoRaw, HostCapabilitySet host) {
+            return validate(byNameRaw, yanhuoRaw, host, false);
         }
 
         static Snapshot validate(
-                List<String> enabledRaw,
+                Map<String, String> byNameRaw,
                 FacetLists yanhuoRaw,
                 HostCapabilitySet host,
                 boolean lenientFacets) {
-            Objects.requireNonNull(enabledRaw, "enabled");
+            Objects.requireNonNull(byNameRaw, "byName");
             Objects.requireNonNull(yanhuoRaw, "yanhuo");
             Objects.requireNonNull(host, "host");
-            for (String raw : enabledRaw) {
-                if (raw == null || raw.isBlank()) {
-                    throw new IllegalArgumentException("enabled 不得含空白名");
-                }
-                if (!BuiltinToolPool.contains(raw.trim())) {
-                    throw new IllegalArgumentException("不在内置池: " + raw.trim());
-                }
-            }
-            List<String> enabled = ToolUsePolicy.clampEnabled(enabledRaw, host);
+            Map<String, String> byName = ToolUsePolicy.normalizeByName(byNameRaw, host);
+            List<String> enabled = ToolUsePolicy.enabledFromByName(byName, host);
             Set<String> enabledSet = Set.copyOf(enabled);
             FacetLists yanhuo =
                     new FacetLists(
-                            normalizeFacet("chat", yanhuoRaw.chat(), enabledSet, lenientFacets),
-                            normalizeFacet("work", yanhuoRaw.work(), enabledSet, lenientFacets),
+                            normalizeFacet("chat", yanhuoRaw.chat(), enabledSet, host, lenientFacets),
+                            normalizeFacet("work", yanhuoRaw.work(), enabledSet, host, lenientFacets),
                             normalizeFacet(
-                                    "research", yanhuoRaw.research(), enabledSet, lenientFacets));
-            return new Snapshot(enabled, yanhuo);
+                                    "research", yanhuoRaw.research(), enabledSet, host, lenientFacets));
+            return new Snapshot(byName, enabled, yanhuo);
         }
 
         private static List<String> normalizeFacet(
-                String facet, List<String> names, Set<String> enabled, boolean lenient) {
+                String facet,
+                List<String> names,
+                Set<String> enabled,
+                HostCapabilitySet host,
+                boolean lenient) {
             LinkedHashSet<String> out = new LinkedHashSet<>();
             for (String raw : names) {
                 if (raw == null || raw.isBlank()) {
@@ -347,7 +352,8 @@ public class ToolSettings {
                 }
                 out.add(name);
             }
-            return List.copyOf(out);
+            // 锁死名强制并入（本机可用且已在 enabled）
+            return ToolUsePolicy.clampFacet(List.copyOf(out), enabled, host);
         }
     }
 }

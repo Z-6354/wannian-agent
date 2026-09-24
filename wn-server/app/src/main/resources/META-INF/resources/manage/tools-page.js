@@ -10,6 +10,8 @@ const STATUS_LABEL = {
 const PS5 = "powershell_resolve_5";
 const PS7 = "powershell_resolve_7";
 
+const LOCKED_NAMES = ["list_tools", "current_time", "remember_fact", "update_relationship", "search_memory"];
+
 export function mountToolsPage(view) {
   view.main.replaceChildren();
   view.actions.replaceChildren();
@@ -28,7 +30,7 @@ export function mountToolsPage(view) {
   const hint = document.createElement("p");
   hint.className = "muted";
   hint.textContent =
-    "三态：使用 / 不使用 / 不能使用。不能使用由本机环境决定，不可勾选。PowerShell 5 与 7 本机皆可用时互斥，默认优先 7。下方「本机模型可见」为各模式求交预览。";
+    "核心工具锁定不可关；可选工具可开/关；不能使用由本机环境决定。PowerShell 5 与 7 本机皆可用时互斥，默认优先 7。下方「本机模型可见」为各模式求交预览。";
 
   const hostLine = document.createElement("p");
   hostLine.className = "muted";
@@ -49,7 +51,7 @@ export function mountToolsPage(view) {
   const enabledBox = document.createElement("fieldset");
   enabledBox.className = "stack";
   const enabledLegend = document.createElement("legend");
-  enabledLegend.textContent = "工具列表（使用=进目录）";
+  enabledLegend.textContent = "工具列表（locked=核心锁定；on=使用；off=不使用）";
   enabledBox.append(enabledLegend);
 
   const facetsRow = document.createElement("div");
@@ -67,7 +69,7 @@ export function mountToolsPage(view) {
   form.append(enabledBox, facetsRow, saveBtn);
   view.main.append(title, hint, hostLine, previewBox, form);
 
-  /** @type {{ name: string, description: string, status?: string, selectable?: boolean }[]} */
+  /** @type {{ name: string, description: string, status?: string, configState?: string, selectable?: boolean }[]} */
   let pool = [];
   /** @type {Record<string, HTMLInputElement>} */
   const enabledChecks = {};
@@ -77,15 +79,14 @@ export function mountToolsPage(view) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     saveBtn.disabled = true;
-    const enabled = pool
-      .map((p) => p.name)
-      .filter((n) => enabledChecks[n] && !enabledChecks[n].disabled && enabledChecks[n].checked);
+    const byName = buildByName();
+    const enabledNames = Object.keys(byName).filter((n) => byName[n] === "locked" || byName[n] === "on");
     const body = {
-      enabled,
+      byName,
       yanhuo: {
-        chat: selected(facetChecks.chat, enabled),
-        work: selected(facetChecks.work, enabled),
-        research: selected(facetChecks.research, enabled),
+        chat: selectedFacet(facetChecks.chat, enabledNames),
+        work: selectedFacet(facetChecks.work, enabledNames),
+        research: selectedFacet(facetChecks.research, enabledNames),
       },
     };
     const result = await saveTools(body);
@@ -110,6 +111,30 @@ export function mountToolsPage(view) {
     clearBanner(view.banner);
   }
 
+  function buildByName() {
+    /** @type {Record<string, string>} */
+    const byName = {};
+    for (const item of pool) {
+      const name = item.name;
+      if (isLocked(item) || LOCKED_NAMES.includes(name)) {
+        byName[name] = "locked";
+        continue;
+      }
+      const input = enabledChecks[name];
+      if (input && !input.disabled) {
+        byName[name] = input.checked ? "on" : "off";
+      } else {
+        // 不可用：保留服务端态，默认 off
+        const prev = item.configState === "on" ? "on" : "off";
+        byName[name] = prev === "locked" ? "off" : prev;
+      }
+    }
+    for (const name of LOCKED_NAMES) {
+      byName[name] = "locked";
+    }
+    return byName;
+  }
+
   function paint(body) {
     pool = Array.isArray(body?.pool) ? body.pool : [];
     const caps = Array.isArray(body?.hostCapabilities) ? body.hostCapabilities.join(", ") : "";
@@ -130,17 +155,14 @@ export function mountToolsPage(view) {
       input.type = "checkbox";
       input.name = "enabled-" + item.name;
       input.value = item.name;
-      const selectable = item.selectable !== false && item.status !== "UNAVAILABLE";
+      const locked = isLocked(item);
+      const selectable = !locked && item.selectable !== false && item.status !== "UNAVAILABLE";
       input.disabled = !selectable;
-      const statusKey = item.status || (selectable ? "NOT_USING" : "UNAVAILABLE");
+      const statusKey = item.status || (selectable || locked ? "NOT_USING" : "UNAVAILABLE");
       const text = document.createElement("span");
+      const stateTag = locked ? "核心锁定" : STATUS_LABEL[statusKey] || statusKey;
       text.textContent =
-        "[" +
-        (STATUS_LABEL[statusKey] || statusKey) +
-        "] " +
-        item.name +
-        " — " +
-        (item.description || "");
+        "[" + stateTag + "] " + item.name + " — " + (item.description || "");
       label.append(input, text);
       enabledBox.append(label);
       enabledChecks[item.name] = input;
@@ -154,18 +176,26 @@ export function mountToolsPage(view) {
     rebuildFacet(workBox, "work");
     rebuildFacet(researchBox, "research");
 
-    const enabledSet = new Set(Array.isArray(body?.enabled) ? body.enabled : []);
-    for (const name of Object.keys(enabledChecks)) {
-      const input = enabledChecks[name];
+    const byName = body?.byName && typeof body.byName === "object" ? body.byName : {};
+    for (const item of pool) {
+      const input = enabledChecks[item.name];
+      if (!input) continue;
+      if (isLocked(item)) {
+        input.checked = true;
+        input.disabled = true;
+        continue;
+      }
       if (input.disabled) {
         input.checked = false;
       } else {
-        input.checked = enabledSet.has(name);
+        const state = byName[item.name] || item.configState || "off";
+        input.checked = state === "on" || state === "locked";
       }
     }
     applyFacet(body?.yanhuo?.chat, facetChecks.chat);
     applyFacet(body?.yanhuo?.work, facetChecks.work);
     applyFacet(body?.yanhuo?.research, facetChecks.research);
+    forceLockedFacets();
     syncFacetDisabled();
   }
 
@@ -190,15 +220,35 @@ export function mountToolsPage(view) {
       input.name = facet + "-" + item.name;
       input.value = item.name;
       const text = document.createElement("span");
-      text.textContent = item.name;
+      text.textContent = item.name + (isLocked(item) ? "（核心锁定）" : "");
       label.append(input, text);
       box.root.append(label);
       box.checks[item.name] = input;
     }
   }
 
+  function forceLockedFacets() {
+    for (const name of LOCKED_NAMES) {
+      for (const facet of ["chat", "work", "research"]) {
+        const input = facetChecks[facet][name];
+        if (!input) continue;
+        input.checked = true;
+        input.disabled = true;
+      }
+    }
+  }
+
   function syncFacetDisabled() {
     for (const name of Object.keys(enabledChecks)) {
+      if (LOCKED_NAMES.includes(name)) {
+        for (const facet of ["chat", "work", "research"]) {
+          const input = facetChecks[facet][name];
+          if (!input) continue;
+          input.checked = true;
+          input.disabled = true;
+        }
+        continue;
+      }
       const on = !!enabledChecks[name]?.checked && !enabledChecks[name].disabled;
       for (const facet of ["chat", "work", "research"]) {
         const input = facetChecks[facet][name];
@@ -208,6 +258,10 @@ export function mountToolsPage(view) {
       }
     }
   }
+}
+
+function isLocked(item) {
+  return item?.configState === "locked" || LOCKED_NAMES.includes(item?.name);
 }
 
 function facetFieldset(name, title) {
@@ -226,7 +280,18 @@ function applyFacet(names, checks) {
   }
 }
 
-function selected(checks, enabled) {
-  const enabledSet = new Set(enabled);
-  return Object.keys(checks).filter((n) => enabledSet.has(n) && checks[n].checked);
+/** 锁死名始终计入提交列表。 */
+function selectedFacet(checks, enabledNames) {
+  const enabledSet = new Set(enabledNames);
+  const out = [];
+  for (const name of Object.keys(checks)) {
+    if (LOCKED_NAMES.includes(name)) {
+      out.push(name);
+      continue;
+    }
+    if (enabledSet.has(name) && checks[name].checked) {
+      out.push(name);
+    }
+  }
+  return out;
 }

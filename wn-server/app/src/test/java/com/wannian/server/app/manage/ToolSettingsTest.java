@@ -11,14 +11,17 @@ import com.wannian.server.kernel.tool.HostCapabilitySet;
 import com.wannian.server.kernel.tool.RoleId;
 import com.wannian.server.kernel.tool.ToolBindingTable;
 import com.wannian.server.kernel.tool.ToolCatalog;
+import com.wannian.server.kernel.tool.ToolUsePolicy;
 import com.wannian.server.kernel.tool.ToolVisibilityResolver;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** ToolSettings 校验与热重建。 */
+/** ToolSettings byName 三态与热重建。 */
 class ToolSettingsTest {
 
     private static final HostCapabilitySet RICH_HOST =
@@ -41,16 +44,22 @@ class ToolSettingsTest {
         assertThat(settings.snapshot().enabled())
                 .contains(BuiltinToolNames.POWERSHELL_RESOLVE_7)
                 .doesNotContain(BuiltinToolNames.POWERSHELL_RESOLVE_5);
+        assertThat(settings.snapshot().byName().get(BuiltinToolNames.LIST_TOOLS)).isEqualTo("locked");
+        assertThat(settings.snapshot().byName().get(BuiltinToolNames.REMEMBER_FACT)).isEqualTo("locked");
         assertThat(catalog.findByName(BuiltinToolNames.CURRENT_TIME)).isPresent();
-        assertThat(Files.readString(tempDir.resolve("wannian.json"))).contains("\"tools\"");
+        assertThat(Files.readString(tempDir.resolve("wannian.json")))
+                .contains("\"byName\"")
+                .doesNotContain("\"enabled\"");
     }
 
     @Test
     void facetCannotReferenceDisabledTool() {
+        Map<String, String> byName = new LinkedHashMap<>(ToolUsePolicy.defaultByName());
+        byName.put(BuiltinToolNames.CALCULATE, "off");
         assertThatThrownBy(
                         () ->
                                 ToolSettings.Snapshot.validate(
-                                        List.of(BuiltinToolNames.CURRENT_TIME),
+                                        byName,
                                         new ToolSettings.FacetLists(
                                                 List.of(BuiltinToolNames.CALCULATE),
                                                 List.of(),
@@ -66,7 +75,7 @@ class ToolSettingsTest {
         assertThatThrownBy(
                         () ->
                                 ToolSettings.Snapshot.validate(
-                                        List.of("no_such_tool"),
+                                        Map.of("no_such_tool", "on"),
                                         new ToolSettings.FacetLists(List.of(), List.of(), List.of()),
                                         RICH_HOST,
                                         false))
@@ -80,43 +89,50 @@ class ToolSettingsTest {
         ToolBindingTable table = new ToolBindingTable();
         ToolSettings settings = new ToolSettings(tempDir.toString(), catalog, table, RICH_HOST);
 
-        settings.update(
-                List.of(BuiltinToolNames.CURRENT_TIME),
-                new ToolSettings.FacetLists(
-                        List.of(BuiltinToolNames.CURRENT_TIME),
-                        List.of(BuiltinToolNames.CURRENT_TIME),
-                        List.of(BuiltinToolNames.CURRENT_TIME)));
+        Map<String, String> byName = new LinkedHashMap<>(settings.snapshot().byName());
+        byName.put(BuiltinToolNames.CALCULATE, "off");
+        byName.put(BuiltinToolNames.HTTP_READ, "off");
+        byName.put(BuiltinToolNames.POWERSHELL_RESOLVE_5, "off");
+        byName.put(BuiltinToolNames.POWERSHELL_RESOLVE_7, "off");
+        List<String> lockedFacet =
+                List.of(
+                        BuiltinToolNames.LIST_TOOLS,
+                        BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP);
+        settings.update(byName, new ToolSettings.FacetLists(lockedFacet, lockedFacet, lockedFacet));
 
         assertThat(catalog.findByName(BuiltinToolNames.CALCULATE)).isEmpty();
         ToolVisibilityResolver resolver = new ToolVisibilityResolver(catalog, table);
         assertThat(
                         resolver
-                                .resolve(RoleId.YANHUO, FacetId.CHAT, HostCapabilitySet.empty())
+                                .resolve(RoleId.YANHUO, FacetId.CHAT, RICH_HOST)
                                 .descriptors())
                 .extracting(d -> d.name())
-                .containsExactly(BuiltinToolNames.CURRENT_TIME);
+                .contains(
+                        BuiltinToolNames.LIST_TOOLS,
+                        BuiltinToolNames.CURRENT_TIME,
+                        BuiltinToolNames.REMEMBER_FACT,
+                        BuiltinToolNames.UPDATE_RELATIONSHIP)
+                .doesNotContain(BuiltinToolNames.CALCULATE);
     }
 
     @Test
-    void migrateLegacyPowershellResolveExpandsThenMutex() {
-        assertThat(
-                        ToolSettings.migrateLegacyPowershellNames(
-                                List.of("current_time", "powershell_resolve", "http_read")))
-                .contains(
-                        "current_time",
-                        "http_read",
-                        BuiltinToolNames.POWERSHELL_RESOLVE_5,
-                        BuiltinToolNames.POWERSHELL_RESOLVE_7);
-        var snap =
-                ToolSettings.Snapshot.validate(
-                        ToolSettings.migrateLegacyPowershellNames(
-                                List.of("current_time", "powershell_resolve")),
-                        new ToolSettings.FacetLists(List.of("current_time"), List.of(), List.of()),
-                        RICH_HOST,
-                        true);
-        assertThat(snap.enabled())
-                .contains(BuiltinToolNames.POWERSHELL_RESOLVE_7)
-                .doesNotContain(BuiltinToolNames.POWERSHELL_RESOLVE_5);
+    void lockedNamesCannotBeTurnedOff() throws Exception {
+        ToolCatalog catalog = new ToolCatalog();
+        ToolBindingTable table = new ToolBindingTable();
+        ToolSettings settings = new ToolSettings(tempDir.toString(), catalog, table, RICH_HOST);
+
+        Map<String, String> byName = new LinkedHashMap<>(settings.snapshot().byName());
+        byName.put(BuiltinToolNames.LIST_TOOLS, "off");
+        byName.put(BuiltinToolNames.REMEMBER_FACT, "off");
+        List<String> facets = settings.snapshot().yanhuo().chat();
+        settings.update(
+                byName,
+                new ToolSettings.FacetLists(facets, facets, facets));
+
+        assertThat(settings.snapshot().byName().get(BuiltinToolNames.LIST_TOOLS)).isEqualTo("locked");
+        assertThat(settings.snapshot().enabled()).contains(BuiltinToolNames.REMEMBER_FACT);
     }
 
     @Test

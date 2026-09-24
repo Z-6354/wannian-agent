@@ -7,6 +7,13 @@ import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
 import com.wannian.server.api.turn.TurnStatus;
+import com.wannian.server.kernel.memory.ApprovedMemoryChange;
+import com.wannian.server.kernel.memory.CompanionIdentity;
+import com.wannian.server.kernel.memory.ContentKind;
+import com.wannian.server.kernel.memory.MemoryScope;
+import com.wannian.server.kernel.memory.MemoryCommand;
+import com.wannian.server.kernel.memory.MemoryLifecycle;
+import com.wannian.server.kernel.memory.SourceKind;
 import com.wannian.server.kernel.turn.CommitTurnPlan;
 import com.wannian.server.kernel.turn.CommitTurnResult;
 import com.wannian.server.kernel.turn.FreezeCommitPlan;
@@ -50,6 +57,9 @@ class TurnCommitterAtomicityTest {
     @Autowired
     private TurnCommitter turnCommitter;
 
+    @Autowired
+    private MemoryCommand memoryCommand;
+
     private ConversationId conversationId;
     private MessageId userMessageId;
     private TurnId turnId;
@@ -79,9 +89,13 @@ class TurnCommitterAtomicityTest {
     }
 
     private static void clearBusinessTables(Connection connection) throws Exception {
+        connection.createStatement().executeUpdate("DROP TRIGGER IF EXISTS fail_memory_insert");
         connection.createStatement().executeUpdate("DELETE FROM outbox_event");
+        connection.createStatement().executeUpdate("DELETE FROM memory_subject_generation");
+        connection.createStatement().executeUpdate("DELETE FROM memory_record");
         connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
-        connection.createStatement().executeUpdate("DELETE FROM turn");
+        connection.createStatement().executeUpdate("DELETE FROM turn_step");
+            connection.createStatement().executeUpdate("DELETE FROM turn");
         connection.createStatement().executeUpdate("DELETE FROM message");
         connection.createStatement().executeUpdate("DELETE FROM conversation");
     }
@@ -97,7 +111,9 @@ class TurnCommitterAtomicityTest {
                                 "exec-seed",
                                 Instant.parse("2026-09-18T12:00:00Z"),
                                 assistant,
-                                additional));
+                                additional,
+                                List.of(),
+                                null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         return ((FreezeCommitResult.Frozen) frozen).committingRevision();
     }
@@ -120,7 +136,7 @@ class TurnCommitterAtomicityTest {
                                 1L));
         long committingRevision = freezeReady(assistant, events);
         CommitTurnPlan plan =
-                CommitTurnPlan.completeTurn(turnId, committingRevision, "exec-seed", assistant, events);
+                CommitTurnPlan.completeTurn(turnId, committingRevision, "exec-seed", assistant, events, List.of(), null);
 
         CommitTurnResult result = turnCommitter.commit(plan);
 
@@ -149,7 +165,7 @@ class TurnCommitterAtomicityTest {
                         MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1}", 2);
         long committingRevision = freezeReady(assistant, List.of());
         CommitTurnPlan plan =
-                CommitTurnPlan.completeTurn(turnId, 99L, "exec-seed", assistant, List.of());
+                CommitTurnPlan.completeTurn(turnId, 99L, "exec-seed", assistant, List.of(), List.of(), null);
 
         CommitTurnResult result = turnCommitter.commit(plan);
 
@@ -162,6 +178,138 @@ class TurnCommitterAtomicityTest {
             assertThat(count(connection, "SELECT COUNT(*) FROM outbox_event", null)).isZero();
             assertThat(scalarLong(connection, "SELECT revision FROM turn WHERE id = ?", turnId.asString()))
                     .isEqualTo(committingRevision);
+        }
+    }
+
+    @Test
+    void memoryWriteFailureRollsBackAssistantOutboxAndMemoryAfterFrozenPlan() throws Exception {
+        MessageId assistantId = MessageId.generate();
+        var assistant = new CommitTurnPlan.AssistantMessageDraft(
+                assistantId, MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"记下了\"}", 2);
+        var memory = new ApprovedMemoryChange(
+                CompanionIdentity.YANHUO,
+                "pref.tea",
+                "用户喜欢龙井",
+                ContentKind.USER_PREFERENCE,
+                SourceKind.EXPLICIT,
+                MemoryScope.COMPANION,
+                0.8,
+                null,
+                ApprovedMemoryChange.PROPOSE_TOOL_REMEMBER)
+                .withExpectedGeneration(0);
+        FreezeCommitResult frozen = turnCommitter.freezeCommit(
+                FreezeCommitPlan.of(turnId, 1L, "exec-seed", Instant.parse("2026-09-18T12:00:00Z"),
+                        assistant, List.of(), List.of(memory), null));
+        assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
+        long committingRevision = ((FreezeCommitResult.Frozen) frozen).committingRevision();
+
+        try (Connection connection = dataSource.getConnection()) {
+            connection.createStatement().execute(
+                    "CREATE TRIGGER fail_memory_insert BEFORE INSERT ON memory_record "
+                            + "BEGIN SELECT RAISE(ABORT, 'injected memory failure'); END");
+        }
+        CommitTurnResult result = turnCommitter.commit(CommitTurnPlan.completeTurn(
+                turnId, committingRevision, "exec-seed", assistant, List.of(), List.of(memory), null));
+
+        assertThat(result).isNotInstanceOf(CommitTurnResult.Committed.class);
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(count(connection, "SELECT COUNT(*) FROM message WHERE id = ?", assistantId.asString()))
+                    .isZero();
+            assertThat(count(connection, "SELECT COUNT(*) FROM memory_record", null)).isZero();
+            assertThat(count(connection, "SELECT COUNT(*) FROM outbox_event", null)).isZero();
+            assertThat(scalar(connection, "SELECT status FROM turn WHERE id = ?", turnId.asString()))
+                    .isEqualTo(TurnStatus.COMMITTING.name());
+        }
+    }
+
+    @Test
+    void staleHotTurnMemoryMutationIsSkippedWhileTurnStillCommits() throws Exception {
+        var initial = (MemoryCommand.CommandResult.Applied) memoryCommand.applyReview(
+                new ApprovedMemoryChange(
+                        CompanionIdentity.YANHUO,
+                        "pref.tea",
+                        "用户喜欢龙井",
+                        ContentKind.USER_PREFERENCE,
+                        SourceKind.EXPLICIT,
+                        MemoryScope.COMPANION,
+                        0.8,
+                        null,
+                        ApprovedMemoryChange.PROPOSE_LLM_REVIEW)
+                        .withExpectedGeneration(0));
+        long observedGeneration;
+        try (Connection connection = dataSource.getConnection();
+                var ps = connection.prepareStatement(
+                        "SELECT generation FROM memory_subject_generation "
+                                + "WHERE companion_identity_id = ? AND subject_key = ?")) {
+            ps.setString(1, CompanionIdentity.YANHUO.value());
+            ps.setString(2, "pref.tea");
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).isTrue();
+                observedGeneration = rs.getLong(1);
+            }
+        }
+        var staleTurnMemory = new ApprovedMemoryChange(
+                CompanionIdentity.YANHUO,
+                "pref.tea",
+                "旧 Turn 中的记忆草案",
+                ContentKind.USER_PREFERENCE,
+                SourceKind.EXPLICIT,
+                MemoryScope.COMPANION,
+                0.8,
+                null,
+                ApprovedMemoryChange.PROPOSE_TOOL_REMEMBER,
+                observedGeneration);
+        MessageId assistantId = MessageId.generate();
+        var assistant = new CommitTurnPlan.AssistantMessageDraft(
+                assistantId, MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"收到\"}", 2);
+        FreezeCommitResult frozen = turnCommitter.freezeCommit(
+                FreezeCommitPlan.of(
+                        turnId,
+                        1L,
+                        "exec-seed",
+                        Instant.parse("2026-09-18T12:00:00Z"),
+                        assistant,
+                        List.of(),
+                        List.of(staleTurnMemory),
+                        null));
+        long committingRevision = ((FreezeCommitResult.Frozen) frozen).committingRevision();
+
+        assertThat(memoryCommand.correct(
+                        initial.memoryId(),
+                        1L,
+                        new ApprovedMemoryChange(
+                                CompanionIdentity.YANHUO,
+                                "pref.tea",
+                                "人工更正后的记忆",
+                                ContentKind.USER_PREFERENCE,
+                                SourceKind.EXPLICIT,
+                                MemoryScope.COMPANION,
+                                0.9,
+                                null,
+                                ApprovedMemoryChange.PROPOSE_HTTP_CORRECT)))
+                .isInstanceOf(MemoryCommand.CommandResult.Applied.class);
+
+        CommitTurnResult committed = turnCommitter.commit(CommitTurnPlan.completeTurn(
+                turnId,
+                committingRevision,
+                "exec-seed",
+                assistant,
+                List.of(),
+                List.of(staleTurnMemory),
+                null));
+
+        assertThat(committed).isInstanceOf(CommitTurnResult.Committed.class);
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(count(
+                            connection,
+                            "SELECT COUNT(*) FROM memory_record WHERE status = '"
+                                    + MemoryLifecycle.ACTIVE.name()
+                                    + "' AND content_json LIKE '%旧 Turn 中的记忆草案%'",
+                            null))
+                    .isZero();
+            assertThat(count(
+                            connection, "SELECT COUNT(*) FROM message WHERE id = ?", assistantId.asString()))
+                    .isEqualTo(1);
         }
     }
 
@@ -183,7 +331,7 @@ class TurnCommitterAtomicityTest {
                                         turnId.asString(),
                                         "TurnCompleted",
                                         "{}",
-                                        1L)));
+                                        1L)), List.of(), null);
 
         CommitTurnResult result = turnCommitter.commit(plan);
 
@@ -214,9 +362,9 @@ class TurnCommitterAtomicityTest {
                         new CommitTurnPlan.AssistantMessageDraft(
                                 assistantId, MessageRole.ASSISTANT, "{\"v\":1}", 2),
                         List.of(),
-                        List.of("fake-memory"),
+                        List.of(),
                         null,
-                        null);
+                        "fake-task");
 
         CommitTurnResult result = turnCommitter.commit(plan);
 
@@ -248,7 +396,7 @@ class TurnCommitterAtomicityTest {
                             MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1}", 2);
             long committingRevision = freezeReady(assistant, List.of());
             CommitTurnPlan plan =
-                    CommitTurnPlan.completeTurn(turnId, committingRevision, "exec-seed", assistant, List.of());
+                    CommitTurnPlan.completeTurn(turnId, committingRevision, "exec-seed", assistant, List.of(), List.of(), null);
 
             CommitTurnResult failed = turnCommitter.commit(plan);
             assertThat(failed).isInstanceOf(CommitTurnResult.Rejected.class);
@@ -280,7 +428,7 @@ class TurnCommitterAtomicityTest {
         CommitTurnResult result =
                 turnCommitter.commit(
                         CommitTurnPlan.completeTurn(
-                                turnId, committingRevision, "someone-else", assistant, List.of()));
+                                turnId, committingRevision, "someone-else", assistant, List.of(), List.of(), null));
         assertThat(result).isInstanceOf(CommitTurnResult.Rejected.class);
         assertThat(((CommitTurnResult.Rejected) result).reasonCode()).isEqualTo("OWNER_MISMATCH");
         try (Connection connection = dataSource.getConnection()) {
@@ -309,7 +457,7 @@ class TurnCommitterAtomicityTest {
                                                 "other-turn",
                                                 "TurnCompleted",
                                                 "{}",
-                                                9L))));
+                                                9L)), List.of(), null));
         assertThat(result).isInstanceOf(CommitTurnResult.Rejected.class);
         assertThat(((CommitTurnResult.Rejected) result).reasonCode()).isEqualTo("ILLEGAL_ARGUMENT");
     }
@@ -324,7 +472,7 @@ class TurnCommitterAtomicityTest {
         assertThat(
                         turnCommitter.commit(
                                 CommitTurnPlan.completeTurn(
-                                        turnId, committingRevision, "exec-seed", assistant, List.of())))
+                                        turnId, committingRevision, "exec-seed", assistant, List.of(), List.of(), null)))
                 .isInstanceOf(CommitTurnResult.Committed.class);
 
         CommitTurnResult replay =
@@ -335,7 +483,7 @@ class TurnCommitterAtomicityTest {
                                 "exec-seed",
                                 new CommitTurnPlan.AssistantMessageDraft(
                                         MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"第二次\"}", 3),
-                                List.of()));
+                                List.of(), List.of(), null));
         assertThat(replay).isInstanceOf(CommitTurnResult.Committed.class);
         assertThat(((CommitTurnResult.Committed) replay).newTurnRevision()).isEqualTo(committingRevision + 1);
         try (Connection connection = dataSource.getConnection()) {
@@ -381,7 +529,7 @@ class TurnCommitterAtomicityTest {
         assertThat(
                         turnCommitter.commit(
                                 CommitTurnPlan.completeTurn(
-                                        turnId, firstRevision, "exec-seed", firstAssistant, List.of())))
+                                        turnId, firstRevision, "exec-seed", firstAssistant, List.of(), List.of(), null)))
                 .isInstanceOf(CommitTurnResult.Committed.class);
         long cursor;
         try (Connection connection = dataSource.getConnection()) {
@@ -392,13 +540,13 @@ class TurnCommitterAtomicityTest {
                         MessageId.generate(), MessageRole.ASSISTANT, "{\"v\":1,\"text\":\"A\"}", 2);
         FreezeCommitResult laterFrozen =
                 turnCommitter.freezeCommit(
-                        FreezeCommitPlan.of(later, 1L, "exec-seed", now, laterAssistant));
+                        FreezeCommitPlan.of(later, 1L, "exec-seed", now, laterAssistant, List.of(), List.of(), null));
         assertThat(laterFrozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         long laterRevision = ((FreezeCommitResult.Frozen) laterFrozen).committingRevision();
         assertThat(
                         turnCommitter.commit(
                                 CommitTurnPlan.completeTurn(
-                                        later, laterRevision, "exec-seed", laterAssistant, List.of())))
+                                        later, laterRevision, "exec-seed", laterAssistant, List.of(), List.of(), null)))
                 .isInstanceOf(CommitTurnResult.Committed.class);
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement ps =

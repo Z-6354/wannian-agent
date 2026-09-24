@@ -1,4 +1,4 @@
-import { createConversation, sendTurn } from "/chat/api.js?v=20260920p";
+import { createConversation, sendTurn } from "/chat/api.js?v=20260924b";
 import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260920p";
 
 const STORAGE_KEY = "wannian.chat.conversationId";
@@ -92,6 +92,16 @@ async function submit() {
         turnId: sent.turnId || "",
         replayed: sent.replayed,
       });
+      for (const tool of sent.toolCalls || []) {
+        state.messages.push({
+          role: "tool",
+          label: tool.name,
+          text: formatToolBody(tool),
+          turnId: sent.turnId || "",
+          tool,
+          replayed: false,
+        });
+      }
       if (sent.reply) {
         state.messages.push({
           role: "assistant",
@@ -145,6 +155,67 @@ function rememberConversation(id) {
   }
 }
 
+function formatToolBody(tool) {
+  const lines = [];
+  const when = formatToolTime(tool.startedAt, tool.finishedAt);
+  if (when) {
+    lines.push("时间 " + when);
+  }
+  if (tool.status) {
+    lines.push("状态 " + tool.status + (tool.errorCode ? " · " + tool.errorCode : ""));
+  }
+  lines.push("参数");
+  lines.push(prettyJson(tool.argumentsJson));
+  return lines.join("\n");
+}
+
+function formatToolTime(startedAt, finishedAt) {
+  const start = formatInstant(startedAt);
+  if (!start) {
+    return "";
+  }
+  const end = formatInstant(finishedAt);
+  if (!end || end === start) {
+    return start;
+  }
+  return start + " → " + end;
+}
+
+function formatInstant(iso) {
+  if (!iso) {
+    return "";
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  const pad = (n) => String(n).padStart(2, "0");
+  return (
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate()) +
+    " " +
+    pad(date.getHours()) +
+    ":" +
+    pad(date.getMinutes()) +
+    ":" +
+    pad(date.getSeconds())
+  );
+}
+
+function prettyJson(raw) {
+  if (!raw) {
+    return "{}";
+  }
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch (error) {
+    return raw;
+  }
+}
+
 function render() {
   statusLine.textContent = state.conversationId
     ? "当前会话 " + state.conversationId
@@ -178,10 +249,14 @@ function render() {
     item.dataset.role = message.role;
     const role = document.createElement("p");
     role.className = "chat-role";
-    const label = message.label || message.role;
-    role.textContent = message.replayed ? label + " · 重复提交" : label;
+    if (message.role === "tool") {
+      role.textContent = "工具 · " + (message.label || "tool");
+    } else {
+      const label = message.label || message.role;
+      role.textContent = message.replayed ? label + " · 重复提交" : label;
+    }
     const body = document.createElement("p");
-    body.className = "chat-text";
+    body.className = message.role === "tool" ? "chat-text chat-tool-text" : "chat-text";
     body.textContent = message.text;
     item.append(role, body);
     list.append(item);

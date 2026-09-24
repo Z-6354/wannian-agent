@@ -47,7 +47,8 @@ public final class ToolVisibilityResolver {
                     new ToolDescriptor(
                             catalogEntry.toolName(),
                             catalogEntry.description(),
-                            catalogEntry.parameterSchemaJson()));
+                            catalogEntry.parameterSchemaJson(),
+                            catalogEntry.countsTowardDecisionBudget()));
         }
         return new ToolVisibility(binding.profileId(), roleId, facetId, descriptors);
     }

@@ -19,7 +19,7 @@ class AgentBudgetGateTest {
 
         assertThat(blocked).isInstanceOf(AgentOutcome.ControlledFailure.class);
         AgentOutcome.ControlledFailure failure = (AgentOutcome.ControlledFailure) blocked;
-        assertThat(failure.errorCode()).isEqualTo(ErrorCodes.BUDGET_EXHAUSTED);
+        assertThat(failure.errorCode()).isEqualTo(ErrorCodes.BUDGET_DECISIONS_EXHAUSTED);
         assertThat(failure.safeUserMessage()).contains("决策次数");
     }
 
@@ -34,7 +34,7 @@ class AgentBudgetGateTest {
         AgentOutcome blocked = AgentBudgetGate.beforeDecide(budget, 1, T0);
         assertThat(blocked).isInstanceOf(AgentOutcome.ControlledFailure.class);
         assertThat(((AgentOutcome.ControlledFailure) blocked).errorCode())
-                .isEqualTo(ErrorCodes.BUDGET_EXHAUSTED);
+                .isEqualTo(ErrorCodes.BUDGET_SOFT_DEADLINE);
         assertThat(((AgentOutcome.ControlledFailure) blocked).safeUserMessage()).contains("软截止");
     }
 
@@ -45,6 +45,8 @@ class AgentBudgetGateTest {
 
         AgentOutcome blocked = AgentBudgetGate.beforeDecide(budget, 0, T0);
         assertThat(blocked).isInstanceOf(AgentOutcome.ControlledFailure.class);
+        assertThat(((AgentOutcome.ControlledFailure) blocked).errorCode())
+                .isEqualTo(ErrorCodes.BUDGET_HARD_DEADLINE);
         assertThat(((AgentOutcome.ControlledFailure) blocked).safeUserMessage()).contains("硬截止");
     }
 

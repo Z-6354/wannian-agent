@@ -85,6 +85,7 @@ class ConsistencyBackupTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
+            connection.createStatement().executeUpdate("DELETE FROM turn_step");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -118,11 +119,11 @@ class ConsistencyBackupTest {
         BackupSnapshot snapshot = consistencyBackup.createSnapshot(restoreDir);
         Path liveDb = tempDataDir.resolve("wannian.db").toAbsolutePath().normalize();
         assertThat(snapshot.backupFile().toAbsolutePath().normalize()).isNotEqualTo(liveDb);
-        assertThat(snapshot.schemaVersion()).isEqualTo("004");
+        assertThat(snapshot.schemaVersion()).isEqualTo("013");
         assertThat(snapshot.applicationBuildId()).isEqualTo("unknown");
         assertThat(snapshot.databaseDigest()).isEqualTo(sha256(snapshot.backupFile()));
         String metadata = Files.readString(restoreDir.resolve("wannian-backup.json"));
-        assertThat(metadata).contains("\"schemaVersion\":\"004\"");
+        assertThat(metadata).contains("\"schemaVersion\":\"013\"");
         assertThat(metadata).contains("\"source\":\"wannian-auto-snapshot\"");
         assertThat(metadata).contains("\"status\":\"complete\"");
         assertThat(metadata).contains("\"applicationBuildId\":\"unknown\"");
@@ -132,7 +133,7 @@ class ConsistencyBackupTest {
                 DriverManager.getConnection("jdbc:sqlite:" + snapshot.backupFile().toAbsolutePath())) {
             assertThat(scalar(restored, "PRAGMA integrity_check")).isEqualTo("ok");
             assertThat(scalar(restored, "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"))
-                    .isEqualTo("004");
+                    .isEqualTo("013");
             assertThat(count(restored, "SELECT COUNT(*) FROM conversation")).isEqualTo(1);
             assertThat(scalar(restored, "SELECT title FROM conversation WHERE id = '" + conversationId.asString() + "'"))
                     .isEqualTo("会话1");
@@ -246,7 +247,7 @@ class ConsistencyBackupTest {
                                 "local-primary",
                                 now,
                                 new CommitTurnPlan.AssistantMessageDraft(
-                                        assistantMessageId, MessageRole.ASSISTANT, contentJson, 0)));
+                                        assistantMessageId, MessageRole.ASSISTANT, contentJson, 0), List.of(), List.of(), null));
         assertThat(frozen).isInstanceOf(FreezeCommitResult.Frozen.class);
         return ((FreezeCommitResult.Frozen) frozen).committingRevision();
     }
