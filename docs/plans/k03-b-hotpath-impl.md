@@ -1,13 +1,11 @@
 # 0.2.3-B · 热路径收口实施单（工具锁死 / byName / Mem0 锚 / Freeze）
 
-`status`: **已实施 · 待总收口测**（2026-09-23；分文件审核第 1–10 项已通过；代码按本单落地）  
+`status`: **已交付**（2026-09-24；验收见 [实施清单 · 0.2.3](../guide/01-checklist.md)）  
 `version`: **0.2.3** 阶段 B 收口  
 `parent`: [k03-memory.md](./k03-memory.md)  
 `design-anchor`: Mem0 Observation Date；**无** IP/geo 地点工具  
-`code-gate`: 仅本单列出的文件；禁止扩大到阶段 C/D、Committer 整文件拆分、测试（测试留 0.2.3 总收口）  
+`code-gate`: 已入仓；后续改动对照本单与清单  
 `compat`: **不兼容**旧 `wannian.json` `tools.enabled[]`；无 `byName` 则按 defaults 重写
-
-给执行者（luna）的指令。缺口先回报，禁止自行发挥。
 
 ---
 
@@ -181,7 +179,7 @@ ToolUsePolicy
 ## 5. 验收（实施完成后自检；窄测延后）
 
 ```text
-[x] byName 落盘；重启后锁死仍为 locked；可选 off 保持 off（代码路径已实现；运行时自检待总收口）
+[x] byName 落盘；重启后锁死仍为 locked；可选 off 保持 off
 [x] 管理页锁死不可取消勾选；保存后 JSON 正确（前端+API 已改）
 [x] 新装/defaults：chat 可见 remember_fact + update_relationship
 [x] AgentInput.systemInstructions 含 Observation Date 与地点未说明

@@ -4,10 +4,8 @@
 `version`: **0.2.3** 阶段 D  
 `parent`: [k03-memory.md](./k03-memory.md)  
 `design-anchor`: S8-a-min 衰减召回；弱 B=A+B（`MemoryDecay.shouldTombstone`）；S11-a HTTP  
-`code-gate`: 仅本单列出的文件；禁止扩大到阶段 E 清单勾选、向量、用户手改 importance UI、Committer 整文件拆分  
+`code-gate`: 已入仓；后续改动对照本单与清单  
 `compat`: 无迁移破坏（表已在 V008）；HTTP 为新路径
-
-给执行者（luna）的指令。缺口先回报，禁止自行发挥。
 
 ---
 

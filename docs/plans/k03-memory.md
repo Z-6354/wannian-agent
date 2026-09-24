@@ -5,22 +5,15 @@
 `design`: [memory-system-0.2.3.md](../research/memory-system-0.2.3.md) §4 + **§4.1 R1 增补** — 冲突以本施工单为准  
 `b-impl`: [k03-b-hotpath-impl.md](./k03-b-hotpath-impl.md) — 热路径（实现与代码审、全量自动化完成）  
 `d-impl`: [k03-d-recall-tombstone-http.md](./k03-d-recall-tombstone-http.md) — 召回 A / 弱 B / HTTP（实现与代码审、全量自动化完成）  
-`prerequisite`: **0.2.1 / 0.2.2 已交付**；0.2.3 A–D/D+ 实现和代码审已完成，V010 已加入  
-`build-policy`: **Maven 在线构建；本地仓库固定指向 `C:\Users\han\.m2\repository`，避免沙箱用户 home 改变 Maven 默认仓库路径。**  
-`code-gate`: 阶段 D 以 `k03-d-recall-tombstone-http` **生产文件**清单为准；须分文件审核通过后再写。协作门见 [version-stage-workflow.md](./version-stage-workflow.md)（普通阶段不交付测文件；测+真人归版本末段）。
+`prerequisite`: **0.2.1 / 0.2.2 / 0.2.3 已交付**  
+`build-policy`: **Maven 走仓内 settings；本地仓库建议 `C:\Users\han\.m2\repository`。**  
+`code-gate`: 已入仓；后续改动对照本单不变量与 [实施清单 · 0.2.3](../guide/01-checklist.md)。
 
-### Astra 审查后续修复（2026-09-24）
+### 收口纪要（2026-09-24）
 
-- 用每个伴身/主题的持久 generation 对热 Turn、Review、HTTP correct/forget 和 tombstone 做并发围栏；旧冻结计划中的无代次记忆变更会跳过，Turn 本身仍可完成。同一 Review 批次同主题的不同草案全部跳过，完全重复的草案仍幂等去重。
-- Review 在 claim 时记录实际活动水位；扫描按成功任务的观察水位判断新内容。V012 清除 V009 无法证明的历史入队水位，升级后允许保守补审。
-- Recall touch 改为受 SQLite 参数上限约束的批量 UPDATE；生产默认 Review LLM 改成无状态空实现，Fake 移入测试源集；工具结果按 JSON 结构脱敏并保持截断后的 JSON 合法。
-- 定时 Review ticker 增加配置开关：生产默认启用，测试源集默认关闭，避免定时任务在临时数据库目录回收后继续运行。
-- HTTP 记忆 GET 投影补齐更正表单所需的 content/source/scope/path 字段，避免客户端仅靠用户重新选择或猜测原值。
-- 本轮新增专项回归测试；构建已恢复在线模式；根因是 Maven 进程用户 home 为 `C:\Users\CodexSandboxOffline`，默认仓库与已有缓存 `C:\Users\han\.m2\repository` 不同。设置 `MAVEN_OPTS=-Dmaven.repo.local=C:\Users\han\.m2\repository` 后全量测试通过：kernel 90 + app 165 = 255 项，0 failures/errors/skips。运行中修复 MemoryHttpTest wildcard 泛型断言及 ConsistencyBackupTest 的旧 V010 版本断言（当前 V012）；`git diff --check` 通过。
-- 2026-09-24 本机 live：预算种子改为 10/60/100；系统工具独立上限与枚举可见后，记忆写入/召回可用；随版本收口勾选完成。
-- 2026-09-24 预算种子改为 **决策 10 / 软 60s / 硬 100s**（`application.yml` + 运行期 `wannian.json`）。系统工具不计决策轮与预算错误码分化已实施，见 [k03-l-run-journal.md](./k03-l-run-journal.md) §6。
-
-给执行者（luna）的指令。关键设计已钉死；缺口先回报，禁止自行扩大范围。
+- generation CAS、Review 水位 V012、批量 recall touch、空 Review LLM（生产）、系统工具每工具上限 5、`remember_fact` 枚举可见与失败回传、`/chat/` 工具调用投影。
+- 预算种子：决策 10 / 软 60s / 硬 100s；见 [k03-l-run-journal.md](./k03-l-run-journal.md) §6。
+- 自动化与真人路径已随清单勾选完成。
 
 ---
 
@@ -113,8 +106,8 @@ score = w_r × decay + w_i × importance       // w_r=0.4, w_i=0.6；importance�
 
 ### 已验证
 
-- `wn-server` 当前无 memory/relationship 生产包（已回退 0.2.2）。  
-- 0.2.2 已有：`TurnEngine`、`ToolRuntime`、`ContextAssembler`、`SqliteTurnCommitter`、`FreezeCommitPlan`、`CommitTurnPlan`。  
+- `wn-server` 已交付 memory / relationship 生产包（kernel + app SQLite / HTTP / tools；V008–V013）。  
+- 0.2.2 基座：`TurnEngine`、`ToolRuntime`、`ContextAssembler`、`SqliteTurnCommitter`、`FreezeCommitPlan`、`CommitTurnPlan`。  
 - 设计选定见设计文 §4；R1 增补见 §4.1 / 本单 §0.1。
 
 ### 已定（实施不得偏离）
@@ -132,19 +125,18 @@ score = w_r × decay + w_i × importance       // w_r=0.4, w_i=0.6；importance�
 | Task | `taskDraft` 非空仍 `UNSUPPORTED_EXTENSION` |
 | 2C2G | 不嵌第二本地大模型进程；Review 与回话 ModelPort **可分 bean**；错峰优先 idle；弱 B **零 LLM** |
 
-### 待实施时写死（小参数；挡 Freeze / 召回 / 弱 B 接线）
+### 参数写死（交付后改须改类 + 单测）
 
 - [x] 空闲检测：会话 `last_activity_at` + 定时扫（建议 ≥1min tick）  
-- [ ] 密钥词表/模式最终列表（见 §3.3）  
-- [x] Review 与 tool 同 subject 去重（建议：同 claim 规范化相等则跳过）  
-- [x] tool 正式名：**`remember_fact`** / **`update_relationship`**（用户推进阶段 B 时写死）  
-- [x] `importance`：Draft/JSON 缺字段在进 Shape 前拒；Shape 内越界钳制 \[0,1\]（用户选 A：无夹具词）  
-- [x] `MemoryDecay` 常数已钉：HL=30、w_r=0.4、w_i=0.6；弱 B=A+B（ε=0.15/minAge=7 **或** importance<0.35/age>14）（改须改类+单测）  
-- [x] 召回 Top-N 与字数预算（见 k03-d：TOP_N=12 / CHAR_BUDGET=2000）  
-- [x] 时间锚时区 `Asia/Shanghai` + Mem0 Observation Date（宿主注入；见 k03-b）  
-- [x] 地点锚本批：固定「未说明」；不做 IP；会话元数据/近讯抽地名 → 更后  
- 
-- [x] 弱 B 调度：与 IdleScanner **同 tick 末尾**（见 k03-d）
+- [x] 密钥判定：`SecretOnlyMemoryPolicy`（词表可后续加厚，见 §3.3）  
+- [x] Review 与 tool 同 subject 去重（同 claim 规范化相等则跳过）  
+- [x] tool 正式名：**`remember_fact`** / **`update_relationship`** / **`search_memory`**  
+- [x] `importance`：缺字段拒；Shape 内越界钳制 \[0,1\]  
+- [x] `MemoryDecay`：HL=30、w_r=0.4、w_i=0.6；弱 B=A+B  
+- [x] 召回 Top-N=12 / CHAR_BUDGET=2000  
+- [x] 时间锚时区 `Asia/Shanghai` + Observation Date  
+- [x] 地点锚本批：固定「未说明」  
+- [x] 弱 B 调度：与 IdleScanner 同 tick 末尾  
 
 ---
 
