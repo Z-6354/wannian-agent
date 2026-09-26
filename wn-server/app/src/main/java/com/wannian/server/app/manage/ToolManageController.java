@@ -96,6 +96,13 @@ public class ToolManageController {
                             configState,
                             selectable));
         }
+        for (var registration : toolSettings.extensionToolRegistrations()) {
+            String name=registration.toolName();
+            String state=byName.getOrDefault(name,"off");
+            boolean available=hostCapabilities.containsAll(registration.requiredCapabilities());
+            String status=!available?ToolUsePolicy.STATUS_UNAVAILABLE:enabled.contains(name)?ToolUsePolicy.STATUS_IN_USE:ToolUsePolicy.STATUS_NOT_USING;
+            pool.add(new ToolPoolEntryBody(name,registration.description(),List.copyOf(registration.requiredCapabilities()),status,state,available));
+        }
         return new ToolsBody(
                 pool,
                 byName,

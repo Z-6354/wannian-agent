@@ -28,7 +28,7 @@ import java.util.Objects;
  * <p><b>行为（D+ 写死）</b>
  *
  * <ul>
- *   <li>范围：构造时绑定的伴身（烟火为 {@link CompanionIdentity#YANHUO}）+ {@link
+ *   <li>范围：构造时绑定的伴身（杜小洛的兼容存储 ID 为 {@link CompanionIdentity#YANHUO}）+ {@link
  *       MemoryStore#listActive}。
  *   <li>匹配：{@code claim} 或 {@code subjectKey} 含 query（大小写不敏感）；空白 query →
  *       {@code TOOL_INVALID_ARGUMENTS}。
@@ -108,7 +108,8 @@ public final class SearchMemoryToolAdapter implements ToolAdapter {
             Instant now = clock.instant();
             String needle = query.toLowerCase(Locale.ROOT);
             List<Scored> matched = new ArrayList<>();
-            for (StoredMemoryRecord row : store.listActive(companion)) {
+            CompanionIdentity turnCompanion = request.pending() == null ? companion : request.pending().companionIdentity();
+            for (StoredMemoryRecord row : store.listActive(turnCompanion)) {
                 String claim = row.claim() == null ? "" : row.claim();
                 String subject = row.subjectKey() == null ? "" : row.subjectKey();
                 if (!claim.toLowerCase(Locale.ROOT).contains(needle)

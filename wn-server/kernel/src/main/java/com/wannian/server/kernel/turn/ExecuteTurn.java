@@ -4,6 +4,7 @@ import com.wannian.server.api.common.TurnId;
 import com.wannian.server.kernel.agent.AgentBudget;
 import java.time.Duration;
 import java.util.Objects;
+import com.wannian.server.kernel.persona.PersonaTurnSnapshot;
 
 /**
  * 执行一次已接收 USER 回合的不可变参数。
@@ -21,7 +22,12 @@ public record ExecuteTurn(
         String userMessage,
         String systemInstructions,
         AgentBudget budget,
-        Duration claimLease) {
+        Duration claimLease,
+        PersonaTurnSnapshot personaSnapshot) {
+
+    public ExecuteTurn(TurnId turnId, String userMessage, String systemInstructions, AgentBudget budget, Duration claimLease) {
+        this(turnId, userMessage, systemInstructions, budget, claimLease, null);
+    }
 
     public ExecuteTurn {
         Objects.requireNonNull(turnId, "turnId");

@@ -2,7 +2,7 @@
 
 `status`: **selections-complete + R1** — 2026-09-23；§4 已齐；§4.1 覆盖 S8/S10/S12（importance / 衰减 / 弱 B / claim 规范化）  
 `purpose`: 分层 S0–S12；**每选项写明对标哪个 Agent 的哪个模块**（抄什么 / 不抄什么）；无内容启发式与正则抽记；你逐层选定后再写施工单。  
-`code`: **0.2.3 已按 [k03-memory.md](../plans/k03-memory.md) R1 交付**；旧半成品不得复活。  
+`code`: **0.2.3 已按 [k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md) R1 交付**；旧半成品不得复活。  
 `authority`: [memory.md](./memory.md) · [06](../guide/06-memory.md) · [业界调研](../../../../docs/architecture/research-2026-09-17-agent-memory-patterns.md) · k03 §0.1
 
 **归因约定：** 「对标」= 行为/模块形状来自该系统；「本仓改造」= 钉死不照搬的部分（尤其写库缝）。
@@ -1030,7 +1030,7 @@ S12: S12-weak-B【R1 覆盖原 S12-x】确定性扫墓（score+minAge → FORGOT
 
 ### 4.1 R1 增补（用户 2026-09-23 · 覆盖 S8-defer / S12-x）
 
-施工正文：[k03-memory.md](../plans/k03-memory.md) §0.1。
+施工正文：[k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md) §0.1。
 
 | 项 | 锁定 |
 |----|------|
@@ -1068,7 +1068,7 @@ S12: S12-weak-B【R1 覆盖原 S12-x】确定性扫墓（score+minAge → FORGOT
 
 ---
 
-下一动作：按 [k03-memory.md](../plans/k03-memory.md) R1 分文件审阅实施（阶段 A→E）。
+下一动作：按 [k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md) R1 分文件审阅实施（阶段 A→E）。
 
 ### S1-C 解耦与 2C2G / 多节点（已定方向）
 

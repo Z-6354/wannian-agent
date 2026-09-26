@@ -3,7 +3,7 @@ package com.wannian.server.kernel.tool;
 import java.util.List;
 import java.util.Objects;
 
-/** 本批烟火三模式绑定（世界树等后挂，只加表项）。默认数据，真源看用户 JSON。 */
+/** 本批杜小洛三模式绑定（历史类名与 role id 保持 Yanhuo/yanhuo）；世界树等后挂，只加表项。默认数据，真源看用户 JSON。 */
 public final class YanhuoToolBindings {
 
     private YanhuoToolBindings() {}
@@ -21,6 +21,7 @@ public final class YanhuoToolBindings {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE);
         List<String> withHost =
                 List.of(
@@ -29,6 +30,7 @@ public final class YanhuoToolBindings {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.HTTP_READ,
                         BuiltinToolNames.POWERSHELL_RESOLVE_5,
@@ -43,7 +45,7 @@ public final class YanhuoToolBindings {
         return table;
     }
 
-    /** 清空并写入烟火三模式（供热重载）。 */
+    /** 清空并写入杜小洛三模式（供热重载）。 */
     public static void applyTo(
             ToolBindingTable table, List<String> chat, List<String> work, List<String> research) {
         Objects.requireNonNull(table, "table");

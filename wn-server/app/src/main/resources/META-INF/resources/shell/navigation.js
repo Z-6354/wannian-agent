@@ -3,12 +3,13 @@ export const APP_GROUPS = [
   { id: "system", label: "系统" },
 ];
 
+/** 单页壳：挂在 /，用 hash 切换主体（/#chat、/#vendors…），侧栏不卸载。 */
 export const APP_NAV = [
-  { id: "chat", href: "/chat/", label: "对话", icon: "◎", group: "agents" },
-  { id: "vendors", href: "/manage/#vendors", label: "供应商", icon: "◇", group: "agents" },
-  { id: "models", href: "/manage/#models", label: "模型", icon: "▦", group: "agents" },
-  { id: "tools", href: "/manage/#tools", label: "工具", icon: "⚒", group: "agents" },
-  { id: "system", href: "/manage/#system", label: "系统", icon: "⚙", group: "system" },
+  { id: "chat", href: "/#chat", label: "对话", icon: "◎", group: "agents" },
+  { id: "vendors", href: "/#vendors", label: "供应商", icon: "◇", group: "agents" },
+  { id: "models", href: "/#models", label: "模型", icon: "▦", group: "agents" },
+  { id: "tools", href: "/#tools", label: "工具", icon: "⚒", group: "agents" },
+  { id: "system", href: "/#system", label: "系统", icon: "⚙", group: "system" },
 ];
 
 export function renderAppNavigation(nav, currentId) {
@@ -54,7 +55,7 @@ export function installMobileNavigation() {
   toggle.addEventListener("click", () => setOpen(!shell.classList.contains("nav-open")));
   backdrop.addEventListener("click", () => setOpen(false));
   sidebar.addEventListener("click", (event) => {
-    if (event.target.closest(".nav-link")) setOpen(false);
+    if (event.target.closest(".nav-link, [data-mobile-nav-close] button")) setOpen(false);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && shell.classList.contains("nav-open")) setOpen(false);

@@ -52,7 +52,7 @@ public class SqliteMemoryReviewScheduler implements MemoryReviewScheduler {
                                         ? activityWatermark
                                         : loadActivityWatermark(connection, cid)
                                 : null;
-                if (hasDuplicate(connection, cid, trigger, watermark)) {
+                if (hasDuplicate(connection, cid, companionIdentity.value(), trigger, watermark)) {
                     connection.commit();
                     return;
                 }
@@ -81,6 +81,7 @@ public class SqliteMemoryReviewScheduler implements MemoryReviewScheduler {
     private static boolean hasDuplicate(
             Connection connection,
             String conversationId,
+            String companionId,
             Trigger trigger,
             String activityWatermark)
             throws SQLException {
@@ -92,13 +93,14 @@ public class SqliteMemoryReviewScheduler implements MemoryReviewScheduler {
                 connection.prepareStatement(
                         """
                         SELECT 1 FROM memory_review_job
-                        WHERE conversation_id = ? AND trigger = ? %s
+                        WHERE conversation_id = ? AND companion_id = ? AND trigger = ? %s
                         LIMIT 1
                         """.formatted(statusFilter))) {
             ps.setString(1, conversationId);
-            ps.setString(2, trigger.name());
+            ps.setString(2, companionId);
+            ps.setString(3, trigger.name());
             if (trigger == Trigger.IDLE && activityWatermark != null) {
-                ps.setString(3, activityWatermark);
+                ps.setString(4, activityWatermark);
             }
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();

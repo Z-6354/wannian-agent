@@ -36,14 +36,19 @@ public class MemoryReviewTurnHooks {
      * 回合已成功 COMPLETED 后调用；异常只记日志，不抛给聊天路径。
      */
     public void afterTurnCompleted(ConversationId conversationId) {
+        afterTurnCompleted(conversationId, CompanionIdentity.YANHUO);
+    }
+
+    public void afterTurnCompleted(ConversationId conversationId, CompanionIdentity companion) {
         Objects.requireNonNull(conversationId, "conversationId");
+        Objects.requireNonNull(companion, "companion");
         try {
             long completedUserTurns = countCompletedTurns(conversationId.asString());
             if (completedUserTurns > 0
                     && completedUserTurns % MemoryReviewConstants.INTERVAL_USER_TURNS == 0) {
                 scheduler.enqueue(
                         conversationId.asString(),
-                        CompanionIdentity.YANHUO,
+                        companion,
                         MemoryReviewScheduler.Trigger.INTERVAL);
             }
         } catch (RuntimeException ex) {

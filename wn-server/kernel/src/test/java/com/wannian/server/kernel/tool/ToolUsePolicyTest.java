@@ -73,7 +73,8 @@ class ToolUsePolicyTest {
                 BuiltinToolNames.CURRENT_TIME,
                 BuiltinToolNames.REMEMBER_FACT,
                 BuiltinToolNames.UPDATE_RELATIONSHIP,
-                BuiltinToolNames.SEARCH_MEMORY);
+                BuiltinToolNames.SEARCH_MEMORY,
+                BuiltinToolNames.LOAD_SKILL);
     }
 
     @Test
@@ -90,7 +91,8 @@ class ToolUsePolicyTest {
                 BuiltinToolNames.CURRENT_TIME,
                 BuiltinToolNames.REMEMBER_FACT,
                 BuiltinToolNames.UPDATE_RELATIONSHIP,
-                BuiltinToolNames.SEARCH_MEMORY);
+                BuiltinToolNames.SEARCH_MEMORY,
+                BuiltinToolNames.LOAD_SKILL);
     }
 
     @Test

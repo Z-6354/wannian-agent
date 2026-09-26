@@ -65,6 +65,27 @@
   --brand-mark-ink: #f5f5f2;
   --brand-mark-border: #4a4a4a;
 
+  --bubble-user: #ededeb;
+  --bubble-assistant: transparent;
+  --link: #171717;
+  --scrollbar-thumb: #d8d8d2;
+  --scrollbar-thumb-hover: #ababab;
+  --elevation-stroke-color: #ababab;
+  --brand-mark-rotate: 0deg;
+  --interactive-hover: #ecece8;
+  --interactive-active: #e6e6e1;
+  --send: #171717;
+  --send-hover: #333333;
+  --send-foreground: #ffffff;
+  --tooltip-bg: #111111;
+  --tooltip-ink: #f5f5f2;
+  --toast-bg: #111111;
+  --toast-ink: #f5f5f2;
+  --menu-bg: #ffffff;
+  --code-bg: #f8f8f5;
+  --code-banner-bg: #ecece8;
+  --skeleton: rgb(17 17 17 / 6%);
+
   --theme-glow: none;
   --theme-glow-opacity: 0;
   --theme-noise-opacity: 0;

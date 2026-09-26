@@ -26,6 +26,18 @@ public final class ErrorCodes {
     /** 会话不存在。 */
     public static final String CONVERSATION_NOT_FOUND = "CONVERSATION_NOT_FOUND";
 
+    /** 会话非 ACTIVE，拒绝接收新 Turn。 */
+    public static final String CONVERSATION_NOT_ACTIVE = "CONVERSATION_NOT_ACTIVE";
+
+    /** 会话仍有进行中/排队 Turn，拒绝归档或移入回收站。 */
+    public static final String CONVERSATION_BUSY = "CONVERSATION_BUSY";
+
+    /** 标题清洗后为空或非法。 */
+    public static final String INVALID_TITLE = "INVALID_TITLE";
+
+    /** 操作要求会话在回收站，但当前不是。 */
+    public static final String NOT_TRASHED = "NOT_TRASHED";
+
     /** 回合不存在。 */
     public static final String TURN_NOT_FOUND = "TURN_NOT_FOUND";
 
@@ -146,6 +158,9 @@ public final class ErrorCodes {
     /** 数据库忙 / 锁竞争，可有界重试。 */
     public static final String RETRYABLE_BUSY = "RETRYABLE_BUSY";
 
+    /** 同一会话 SSE 订阅数已达上限（多标签页）。 */
+    public static final String SSE_SUBSCRIBER_LIMIT = "SSE_SUBSCRIBER_LIMIT";
+
     /** 模型调用超时或已过截止时间。 */
     public static final String MODEL_TIMEOUT = "MODEL_TIMEOUT";
 
@@ -168,6 +183,9 @@ public final class ErrorCodes {
 
     /** 取消落库失败。 */
     public static final String CANCEL_FAILED = "CANCEL_FAILED";
+
+    /** 当前状态不允许停止（例如 COMMITTING）。 */
+    public static final String STOP_NOT_ALLOWED = "STOP_NOT_ALLOWED";
 
     /** COMMITTING 缺少可恢复完成计划。 */
     public static final String MISSING_COMMIT_PLAN = "MISSING_COMMIT_PLAN";
@@ -227,6 +245,10 @@ public final class ErrorCodes {
         Map<String, Meta> map = new LinkedHashMap<>();
         put(map, ILLEGAL_ARGUMENT, ErrorCategory.VALIDATION, false);
         put(map, CONVERSATION_NOT_FOUND, ErrorCategory.VALIDATION, false);
+        put(map, CONVERSATION_NOT_ACTIVE, ErrorCategory.VALIDATION, false);
+        put(map, CONVERSATION_BUSY, ErrorCategory.CONFLICT, false);
+        put(map, INVALID_TITLE, ErrorCategory.VALIDATION, false);
+        put(map, NOT_TRASHED, ErrorCategory.VALIDATION, false);
         put(map, TURN_NOT_FOUND, ErrorCategory.VALIDATION, false);
         put(map, MEMORY_NOT_FOUND, ErrorCategory.VALIDATION, false);
         put(map, MEMORY_SUBJECT_CONFLICT, ErrorCategory.CONFLICT, false);
@@ -266,6 +288,7 @@ public final class ErrorCodes {
         put(map, DEPENDENCY_UNAVAILABLE, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, PERSISTENCE_FAILED, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, RETRYABLE_BUSY, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
+        put(map, SSE_SUBSCRIBER_LIMIT, ErrorCategory.CONFLICT, false);
         put(map, MODEL_TIMEOUT, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, MODEL_RATE_LIMITED, ErrorCategory.DEPENDENCY_UNAVAILABLE, true);
         put(map, TOOL_UNAVAILABLE, ErrorCategory.DEPENDENCY_UNAVAILABLE, false);
@@ -275,6 +298,7 @@ public final class ErrorCodes {
         put(map, START_FAILED, ErrorCategory.EXECUTION_FAILED, true);
         put(map, COMMIT_FAILED, ErrorCategory.EXECUTION_FAILED, true);
         put(map, CANCEL_FAILED, ErrorCategory.EXECUTION_FAILED, true);
+        put(map, STOP_NOT_ALLOWED, ErrorCategory.CONFLICT, false);
         put(map, MISSING_COMMIT_PLAN, ErrorCategory.EXECUTION_FAILED, false);
         put(map, EMPTY_FINAL_ANSWER, ErrorCategory.EXECUTION_FAILED, false);
         put(map, INVALID_MODEL_OUTPUT, ErrorCategory.EXECUTION_FAILED, false);

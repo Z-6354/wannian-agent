@@ -27,22 +27,27 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SqliteConfig {
 
-    /** SQLite 忙等待上限（毫秒）；禁止无限重试 SQLITE_BUSY。 */
-    private static final int BUSY_TIMEOUT_MS = 5_000;
-
-    /**
-     * 组装单文件 SQLite DataSource。
-     *
-     * @param dataDir {@code wannian.data-dir}，须在 target/ 之外
-     * @return 已配置 PRAGMA 的 DataSource
-     */
     @Bean
     ConversationTitlePolicy conversationTitlePolicy() {
         return new SequentialConversationTitlePolicy();
     }
 
+    /**
+     * 组装单文件 SQLite DataSource。
+     *
+     * <p>busy 等待毫秒来自 {@code wannian.sqlite.busy-timeout-ms}，禁止在代码写死业务默认。
+     *
+     * @param dataDir {@code wannian.data-dir}，须在 target/ 之外
+     * @return 已配置 PRAGMA 的 DataSource
+     */
     @Bean
-    DataSource dataSource(@Value("${wannian.data-dir}") String dataDir) throws IOException {
+    DataSource dataSource(
+            @Value("${wannian.data-dir}") String dataDir,
+            @Value("${wannian.sqlite.busy-timeout-ms:5000}") int busyTimeoutMs)
+            throws IOException {
+        if (busyTimeoutMs < 1) {
+            throw new IllegalArgumentException("wannian.sqlite.busy-timeout-ms 须 ≥ 1");
+        }
         Path dir = resolveDataDir(dataDir);
         assertNotUnderTarget(dir);
         Files.createDirectories(dir);
@@ -51,7 +56,7 @@ public class SqliteConfig {
         SQLiteConfig sqliteConfig = new SQLiteConfig();
         sqliteConfig.enforceForeignKeys(true);
         sqliteConfig.setJournalMode(SQLiteConfig.JournalMode.WAL);
-        sqliteConfig.setBusyTimeout(BUSY_TIMEOUT_MS);
+        sqliteConfig.setBusyTimeout(busyTimeoutMs);
 
         SQLiteDataSource dataSource = new SQLiteDataSource(sqliteConfig);
         dataSource.setUrl("jdbc:sqlite:" + dbFile);

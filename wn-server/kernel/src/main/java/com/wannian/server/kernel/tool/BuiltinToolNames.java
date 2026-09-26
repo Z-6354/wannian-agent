@@ -32,5 +32,12 @@ public final class BuiltinToolNames {
      */
     public static final String SEARCH_MEMORY = "search_memory";
 
+    /**
+     * 按 id 读取已授权 Skill 的 SKILL.md 正文（只读；不执行脚本）。
+     *
+     * <p>0.2.4-P：正文不进常驻 system；仅索引摘要常驻。
+     */
+    public static final String LOAD_SKILL = "load_skill";
+
     private BuiltinToolNames() {}
 }

@@ -159,10 +159,12 @@ class ToolRuntimePhase1Test {
                         java.util.Set.of(),
                         request -> new ToolAdapterResult.Succeeded(observation)));
         ToolRuntime sanitizerRuntime = new DefaultToolRuntime(catalog);
+        ToolExecutionContext sanitizerContext = new ToolExecutionContext("op-sanitize", "turn-1", "attempt-1",
+                List.of(new ToolDescriptor("sanitizer_test", "test", "{}")), null);
 
         ToolExecutionOutcome outcome =
                 sanitizerRuntime.execute(
-                        new ToolInvocation("c1", "sanitizer_test", "{}"), ctx("op-sanitize"));
+                        new ToolInvocation("c1", "sanitizer_test", "{}"), sanitizerContext);
 
         assertThat(outcome).isInstanceOf(ToolExecutionOutcome.Succeeded.class);
         String cleaned = ((ToolExecutionOutcome.Succeeded) outcome).observationJson();
@@ -247,6 +249,9 @@ class ToolRuntimePhase1Test {
     }
 
     private static ToolExecutionContext ctx(String operationId) {
-        return ToolExecutionContext.basic(operationId, "turn-1", "attempt-1", List.of(), null);
+        List<ToolDescriptor> visible=BuiltinToolPool.allNames().stream()
+                .map(name->new ToolDescriptor(name,name,"{}"))
+                .toList();
+        return ToolExecutionContext.basic(operationId, "turn-1", "attempt-1", visible, null);
     }
 }

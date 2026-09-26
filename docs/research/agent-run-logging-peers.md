@@ -1,7 +1,7 @@
 # Agent Run / Session Logging · 同业调研
 
 `date`: **2026-09-24**  
-`purpose`: 为 **wannian-agent 0.2.3-L**（行为/debug 日志）提供可落地的同业证据；对齐后续 **0.2.4-A `turn_step` 统一行为账本**（[`k04-behavior-journal.md`](../plans/k04-behavior-journal.md)），但不替代 ErrorCodes / SafeErrorLog 运维通道。
+`purpose`: 为 **wannian-agent 0.2.3-L**（行为/debug 日志）提供可落地的同业证据；对齐后续 **0.2.4-A `turn_step` 统一行为账本**（[`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md)），但不替代 ErrorCodes / SafeErrorLog 运维通道。
 
 **用户诉求（本调研输入）：** 每次模型调用的完整内容、每次工具调用的完整细节、进程启动/关闭事件；可查询、可复盘，与运维错误日志分离。
 
@@ -190,7 +190,7 @@
 
 | 已有/计划 | 本阶段用法 |
 |-----------|------------|
-| [`k04-behavior-journal.md`](../plans/k04-behavior-journal.md) **`turn_step`** | 0.2.3-L **提前落地核心形状**（表 + 单一写入路径），避免 log.info 冒充审计；字段对齐 [`04-kernel-reference.md` §turn_step](../guide/04-kernel-reference.md)：`turn_id`, `step_no`, `kind`, `request_json`, `result_json`, `status`, `started_at`, `finished_at`。 |
+| [`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md) **`turn_step`** | 0.2.3-L **提前落地核心形状**（表 + 单一写入路径），避免 log.info 冒充审计；字段对齐 [`04-kernel-reference.md` §turn_step](../guide/04-kernel-reference.md)：`turn_id`, `step_no`, `kind`, `request_json`, `result_json`, `status`, `started_at`, `finished_at`。 |
 | **ErrorCodes / SafeErrorLog** | **禁止**把运维错误当 `turn_step`；失败 Turn 可在 step 上记 `error_code` **引用** ErrorCodes，不复制 SafeErrorLog 栈文本。 |
 | **AgentTrace** | 仅内存投影/UI；**不得**成唯一真相源（k04 验收项）。 |
 | **Message / Turn** | 继续表「提交后的对话事实」；`turn_step` 表「如何走到那里」（含中间 MODEL/TOOL）。 |
@@ -253,7 +253,7 @@
 | spring-agent events | https://github.com/NewWaveAI/spring-agent/blob/main/docs/END_TO_END.md |
 | enrichme audit | https://github.com/enrichmeai/ai-coding-agent |
 | Quarkus LangChain4j observability | https://docs.quarkiverse.io/quarkus-langchain4j/dev/observability.html |
-| wannian k04 行为账本 | [`../plans/k04-behavior-journal.md`](../plans/k04-behavior-journal.md) |
+| wannian k04 行为账本 | [`../plans/archive/0.2.4/k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md) |
 | wannian turn_step  schema | [`../guide/04-kernel-reference.md`](../guide/04-kernel-reference.md) |
 
 ---

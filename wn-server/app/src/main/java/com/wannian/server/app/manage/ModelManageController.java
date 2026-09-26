@@ -1,11 +1,13 @@
 package com.wannian.server.app.manage;
 
 import com.wannian.server.app.manage.ManageBodies.AddListedRequest;
+import com.wannian.server.app.manage.ManageBodies.ConnectVendorRequest;
 import com.wannian.server.app.manage.ManageBodies.EnableRequest;
 import com.wannian.server.app.manage.ManageBodies.EnabledBody;
 import com.wannian.server.app.manage.ManageBodies.ErrorBody;
 import com.wannian.server.app.manage.ManageBodies.ListedBody;
 import com.wannian.server.app.manage.ManageBodies.ModelListBody;
+import com.wannian.server.app.manage.ManageBodies.PresetBody;
 import com.wannian.server.app.manage.ManageBodies.ProbeRequest;
 import com.wannian.server.app.manage.ManageBodies.ProbeResponse;
 import com.wannian.server.app.manage.ManageBodies.UpsertVendorRequest;
@@ -55,6 +57,22 @@ public class ModelManageController {
     @GetMapping("/vendors")
     public List<ManageBodies.VendorBody> listVendors() {
         return store.list();
+    }
+
+    @GetMapping("/presets")
+    public List<PresetBody> listPresets() {
+        return store.listPresets();
+    }
+
+    @PutMapping("/vendors/{id}/connect")
+    public ResponseEntity<?> connectVendor(
+            @PathVariable String id, @RequestBody(required = false) ConnectVendorRequest request) {
+        return switch (store.connect(id, request)) {
+            case SaveResult.Saved saved ->
+                    ResponseEntity.status(saved.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                            .body(saved.vendor());
+            case SaveResult.Rejected rejected -> error(rejected.code(), rejected.detail());
+        };
     }
 
     @PutMapping("/vendors/{id}")

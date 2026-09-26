@@ -17,6 +17,7 @@ class ErrorCodesTest {
                         "REVISION_CONFLICT",
                         "PERSISTENCE_FAILED",
                         "RETRYABLE_BUSY",
+                        "SSE_SUBSCRIBER_LIMIT",
                         "OWNER_MISMATCH",
                         "CLAIM_EXPIRED",
                         "MANAGE_UNCONFIGURED",

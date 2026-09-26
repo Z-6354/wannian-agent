@@ -96,6 +96,33 @@ public class SqliteMemoryStore implements MemoryStore {
     }
 
     @Override
+    public List<CompanionIdentity> companionsWithActiveMemories() {
+        String sql =
+                """
+                SELECT DISTINCT companion_identity_id
+                FROM memory_record
+                WHERE status = ?
+                ORDER BY companion_identity_id
+                """;
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, MemoryLifecycle.ACTIVE.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                List<CompanionIdentity> out = new ArrayList<>();
+                while (rs.next()) {
+                    out.add(new CompanionIdentity(rs.getString(1)));
+                }
+                if (out.isEmpty()) {
+                    return List.of(CompanionIdentity.YANHUO);
+                }
+                return List.copyOf(out);
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("读取活跃伴身列表失败", ex);
+        }
+    }
+
+    @Override
     public Map<String, Long> subjectGenerations(CompanionIdentity companionIdentity) {
         Objects.requireNonNull(companionIdentity, "companionIdentity");
         try (Connection connection = dataSource.getConnection();

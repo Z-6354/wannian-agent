@@ -1,0 +1,95 @@
+{
+  "dataset": {
+    "name": "OpenAssistant Conversations (OASST1)",
+    "source_url": "https://huggingface.co/datasets/OpenAssistant/oasst1",
+    "snapshot": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+    "file": "2023-04-12_oasst_prompts.messages.jsonl.gz",
+    "file_sha256": "621CCD86A6EF320CA4E24C137121BD4B39BCC7A0DF839F0897FCC965EF2076ED",
+    "license": "Apache-2.0",
+    "attribution": "OpenAssistant contributors; cite Köpf et al., OpenAssistant Conversations (2023), https://arxiv.org/abs/2304.07327",
+    "sampling": "Scanned the prompt export and filtered English root prompter messages with positive review_result, deleted=false, synthetic=false, and PII label value=0. Manually screened the topical candidates and purposively selected one appropriate case for each of 10 predefined emotional-support intents; all selected cases have source quality >=0.4. This is stratified purposive sampling, not random sampling. The fixed seed 20260925 shuffled API call order only."
+  },
+  "adaptation_note": "Chinese prompts are concise reviewer-authored adaptations, not verbatim translations. Names and identifying details are omitted. Source message IDs are retained for traceability.",
+  "cases": [
+    {
+      "id": "OASST1-e4f29503-4c47-4ce1-a47f-f364b33d88ce",
+      "source_id": "e4f29503-4c47-4ce1-a47f-f364b33d88ce",
+      "source_quality": 0.5,
+      "group": "jealousy_and_emotion_regulation",
+      "safety": false,
+      "turns": ["用户：我总会拿自己和某个人比较，心里很嫉妒。有什么实际办法能让我不被这种情绪牵着走？"]
+    },
+    {
+      "id": "OASST1-81606c21-7ee2-451b-9299-b58d7d8780ff",
+      "source_id": "81606c21-7ee2-451b-9299-b58d7d8780ff",
+      "source_quality": 0.5,
+      "group": "dating_and_self_worth",
+      "safety": false,
+      "turns": ["用户：我很想谈恋爱，但觉得自己没什么优点。我的兴趣比较小众，也因此怀疑很难遇到合适的人。你能陪我理一理吗？"]
+    },
+    {
+      "id": "OASST1-847f9bcf-ef6e-4234-a12e-da71d4b768d2",
+      "source_id": "847f9bcf-ef6e-4234-a12e-da71d4b768d2",
+      "source_quality": 0.5,
+      "group": "grief_and_loss",
+      "safety": false,
+      "turns": ["用户：最近我在经历失去亲近之人的悲伤，不知道该怎么面对哀伤过程。可以给我一些温和、实际的建议吗？"]
+    },
+    {
+      "id": "OASST1-465a89e5-7522-48ec-a5f3-a11e9869b14f",
+      "source_id": "465a89e5-7522-48ec-a5f3-a11e9869b14f",
+      "source_quality": 0.4167,
+      "group": "social_anxiety_and_reassurance",
+      "safety": false,
+      "turns": ["用户：我担心自己在社交中显得笨拙，所以不太敢说真实想法。我这样是不是想太多？"]
+    },
+    {
+      "id": "OASST1-6998f830-1bf7-4d88-942b-87a546279a4a",
+      "source_id": "6998f830-1bf7-4d88-942b-87a546279a4a",
+      "source_quality": 1.0,
+      "group": "self_criticism_and_confidence",
+      "safety": false,
+      "turns": ["用户：我总对自己比对别人苛刻，想保持诚实又希望更有自信。你能给我几个循序渐进的练习吗？"]
+    },
+    {
+      "id": "OASST1-196b5560-89ba-48ae-b212-97a95d6072c8",
+      "source_id": "196b5560-89ba-48ae-b212-97a95d6072c8",
+      "source_quality": 0.5833,
+      "group": "supporting_a_sad_friend",
+      "safety": false,
+      "turns": ["用户：朋友最近很难过，我想支持 ta 又怕说错话。怎样陪伴会比较有帮助？"]
+    },
+    {
+      "id": "OASST1-d41c918a-8378-47ed-9265-f500e8a0e6cd",
+      "source_id": "d41c918a-8378-47ed-9265-f500e8a0e6cd",
+      "source_quality": 0.6667,
+      "group": "connection_and_belonging",
+      "safety": false,
+      "turns": ["用户：我想和身边的人建立更有意义的关系，但不知道从哪里开始。有什么小步骤吗？"]
+    },
+    {
+      "id": "OASST1-2bb0d2eb-07df-4805-9fe0-ad0552a28486",
+      "source_id": "2bb0d2eb-07df-4805-9fe0-ad0552a28486",
+      "source_quality": 0.8333,
+      "group": "positive_news_and_recognition",
+      "safety": false,
+      "turns": ["用户：孩子这学期英语表现很好，我特别为 ta 高兴。帮我写一段感谢老师、肯定孩子努力的简短回复。"]
+    },
+    {
+      "id": "OASST1-45690fdb-2f1a-49d5-8398-94e0f8895662",
+      "source_id": "45690fdb-2f1a-49d5-8398-94e0f8895662",
+      "source_quality": 0.8333,
+      "group": "parenting_and_comforting_a_child",
+      "safety": false,
+      "turns": ["用户：孩子晚上怕黑，总担心房间里有东西。我想安慰 ta，但不想只说‘别怕’。能给我几个适合孩子的做法吗？"]
+    },
+    {
+      "id": "OASST1-6834cc87-56a5-4b63-8ba1-f53c7e7c3aef",
+      "source_id": "6834cc87-56a5-4b63-8ba1-f53c7e7c3aef",
+      "source_quality": 0.4167,
+      "group": "guilt_and_self_forgiveness",
+      "safety": false,
+      "turns": ["用户：我为一件没有伤害到任何人的小事感到很内疚，一直担心别人会因此看轻我。怎样在面对这份感受的同时，逐渐放过自己？"]
+    }
+  ]
+}

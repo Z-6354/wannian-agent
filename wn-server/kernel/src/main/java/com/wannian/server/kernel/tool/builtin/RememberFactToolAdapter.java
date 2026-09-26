@@ -60,9 +60,10 @@ public final class RememberFactToolAdapter implements ToolAdapter {
                             .orElse(MemoryScope.COMPANION);
             String path = ToolJson.optionalString(fields, "path").orElse(null);
 
+            CompanionIdentity turnCompanion = pending.companionIdentity();
             MemoryToolDraft draft =
                     new MemoryToolDraft(
-                            companion,
+                            turnCompanion,
                             subjectKey,
                             claim,
                             contentKind,
@@ -84,7 +85,7 @@ public final class RememberFactToolAdapter implements ToolAdapter {
             }
 
             ApprovedMemoryChange change = ApprovedMemoryChange.fromToolDraft(acceptedDraft);
-            long expectedGeneration = pending.expectedGeneration(companion, acceptedDraft.subjectKey());
+            long expectedGeneration = pending.expectedGeneration(turnCompanion, acceptedDraft.subjectKey());
             if (expectedGeneration >= 0) {
                 change = change.withExpectedGeneration(expectedGeneration);
             }

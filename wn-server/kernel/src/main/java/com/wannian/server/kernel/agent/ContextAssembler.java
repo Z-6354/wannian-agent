@@ -14,6 +14,7 @@ import com.wannian.server.kernel.memory.StoredMemoryRecord;
 import com.wannian.server.kernel.memory.TurnMemoryPending;
 import com.wannian.server.kernel.relationship.RelationshipStore;
 import com.wannian.server.kernel.relationship.StoredRelationshipState;
+import com.wannian.server.kernel.persona.PersonaTurnSnapshot;
 import com.wannian.server.kernel.tool.FacetId;
 import com.wannian.server.kernel.tool.HostCapabilitySet;
 import com.wannian.server.kernel.tool.RoleId;
@@ -35,7 +36,7 @@ import java.util.Objects;
  * <p>只读 {@link ConversationStore}，不改原文。当前用户句单独放入 {@code userMessage}，
  * 不重复进 {@code conversationExcerpt}。
  *
- * <p>0.2.2：可选注入 {@link ToolVisibilityResolver}，默认烟火 + 聊天面相可见工具。
+ * <p>0.2.2：可选注入 {@link ToolVisibilityResolver}，默认杜小洛 + 聊天面相可见工具；兼容角色 ID `yanhuo`。
  *
  * <p>0.2.3-B：注入 Mem0 式 Observation Date（{@link #OBSERVATION_ZONE}）与地点「未说明」锚块。
  *
@@ -53,6 +54,7 @@ public final class ContextAssembler {
 
     private static final System.Logger LOG = System.getLogger(ContextAssembler.class.getName());
 
+    /** 近讯条数默认（仅测试 / 未注入配置时）；生产请用 {@code wannian.context.recent-message-limit}。 */
     public static final int DEFAULT_RECENT_MESSAGES = 20;
     public static final ZoneId OBSERVATION_ZONE = ZoneId.of("Asia/Shanghai");
 
@@ -165,14 +167,18 @@ public final class ContextAssembler {
                 conversations.listRecentMessages(
                         request.conversationId(), request.recentMessageLimit() + 1);
         String excerpt =
-                formatExcerpt(recent, request.currentUserMessageId(), request.recentMessageLimit());
+                formatExcerpt(
+                        recent,
+                        request.currentUserMessageId(),
+                        request.recentMessageLimit(),
+                        request.excludeLastAssistant());
 
         List<ToolDescriptor> tools = List.of();
         String profileId = null;
         if (visibilityResolver != null) {
             FacetId facet = request.facetId() == null ? FacetId.CHAT : request.facetId();
             ToolVisibility visibility =
-                    visibilityResolver.resolve(defaultRoleId, facet, hostCapabilities);
+                    visibilityResolver.resolve(request.personaSnapshot()==null?defaultRoleId:request.personaSnapshot().toolRoleId(), facet, hostCapabilities);
             tools = visibility.descriptors();
             profileId = visibility.profileId();
         }
@@ -181,8 +187,14 @@ public final class ContextAssembler {
                 mergeSystemInstructions(request.systemInstructions(), observationAnchorBlock());
 
         Instant now = Instant.now(clock);
-        String memoryContext = buildMemoryContext(now);
-        String relationshipSnapshot = buildRelationshipSnapshot();
+        CompanionIdentity identity = request.personaSnapshot()==null?CompanionIdentity.YANHUO:request.personaSnapshot().companionIdentity();
+        String memoryContext = buildMemoryContext(now, identity);
+        String relationshipSnapshot = buildRelationshipSnapshot(identity);
+
+        String userMessage = request.userMessage();
+        if (request.excludeLastAssistant()) {
+            userMessage = enrichRewriteUserMessage(recent, request.currentUserMessageId(), userMessage);
+        }
 
         return new AgentInput(
                 request.turnId(),
@@ -191,7 +203,7 @@ public final class ContextAssembler {
                 excerpt,
                 memoryContext,
                 relationshipSnapshot,
-                request.userMessage(),
+                userMessage,
                 tools,
                 profileId,
                 systemInstructions,
@@ -200,31 +212,49 @@ public final class ContextAssembler {
     }
 
     /**
+     * 「换一种说法」：把上一轮用户原问拼进当前 user 句，便于模型重答而非空转。
+     */
+    static String enrichRewriteUserMessage(
+            List<ConversationMessage> recent, MessageId currentUserMessageId, String rewriteMarker) {
+        String prevUser = null;
+        for (ConversationMessage message : recent) {
+            if (message.messageId().equals(currentUserMessageId)) {
+                continue;
+            }
+            if (message.role() == MessageRole.USER) {
+                prevUser = textOf(message.contentJson());
+            }
+        }
+        if (prevUser == null || prevUser.isBlank()) {
+            return rewriteMarker;
+        }
+        return "换一种说法。原问题：「"
+                + prevUser.strip()
+                + "」。请用更自然、更短的句子重答原问题；近讯已去掉你上一句助手回复，勿复读客服腔。";
+    }
+
+    /**
      * 按配置 Top-N 召回后拼装记忆块；失败或全跳过 → null。
      *
      * <p>D+：单条会超 {@code charBudget} 时跳过该条继续后续，避免一条过长堵死其后短高分条。
      */
-    private String buildMemoryContext(Instant now) {
+    private String buildMemoryContext(Instant now, CompanionIdentity identity) {
         if (memoryRecall == null) {
             return null;
         }
         try {
             List<StoredMemoryRecord> top =
                     memoryRecall.recallTop(
-                            CompanionIdentity.YANHUO, now, recallLimits.topN());
+                            identity, now, recallLimits.topN());
             if (top.isEmpty()) {
                 return null;
             }
-            StringBuilder out = new StringBuilder("记忆（按相关性）：");
+            StringBuilder out =
+                    new StringBuilder("你可能还记得（随口带一句，别念成档案）：");
             List<String> touched = new ArrayList<>();
             int charBudget = recallLimits.charBudget();
             for (StoredMemoryRecord row : top) {
-                String line =
-                        "\n- "
-                                + row.claim()
-                                + "（importance="
-                                + formatImportance(row.importance())
-                                + "）";
+                String line = "\n- " + row.claim();
                 if (out.length() + line.length() > charBudget) {
                     // D+：超预算跳过本条继续试后续（OpenClaw 式），避免单条过长堵死其后短高分条
                     continue;
@@ -254,13 +284,13 @@ public final class ContextAssembler {
     /**
      * 读伴身关系快照；无行、空白 {@code toPromptText}、或读库失败 → null。
      */
-    private String buildRelationshipSnapshot() {
+    private String buildRelationshipSnapshot(CompanionIdentity identity) {
         if (relationshipStore == null) {
             return null;
         }
         try {
             return relationshipStore
-                    .findByCompanion(CompanionIdentity.YANHUO)
+                    .findByCompanion(identity)
                     .map(StoredRelationshipState::toPromptText)
                     .filter(text -> text != null && !text.isBlank())
                     .orElse(null);
@@ -268,13 +298,6 @@ public final class ContextAssembler {
             LOG.log(System.Logger.Level.WARNING, () -> "关系快照读取失败: " + ex.getMessage());
             return null;
         }
-    }
-
-    private static String formatImportance(double importance) {
-        if (importance == (long) importance) {
-            return Long.toString((long) importance);
-        }
-        return Double.toString(importance);
     }
 
     String observationAnchorBlock() {
@@ -298,6 +321,17 @@ public final class ContextAssembler {
 
     static String formatExcerpt(
             List<ConversationMessage> recent, MessageId currentUserMessageId, int limit) {
+        return formatExcerpt(recent, currentUserMessageId, limit, false);
+    }
+
+    /**
+     * @param excludeLastAssistant 为 true 时去掉近讯中最后一条助手句（换一种说法，防助手腔污染）
+     */
+    static String formatExcerpt(
+            List<ConversationMessage> recent,
+            MessageId currentUserMessageId,
+            int limit,
+            boolean excludeLastAssistant) {
         Objects.requireNonNull(recent, "recent");
         Objects.requireNonNull(currentUserMessageId, "currentUserMessageId");
         if (limit <= 0) {
@@ -309,14 +343,30 @@ public final class ContextAssembler {
                 history.add(message);
             }
         }
+        if (excludeLastAssistant) {
+            for (int i = history.size() - 1; i >= 0; i--) {
+                if (history.get(i).role() == MessageRole.ASSISTANT) {
+                    history.remove(i);
+                    break;
+                }
+            }
+        }
         int from = Math.max(0, history.size() - limit);
         StringBuilder excerpt = new StringBuilder();
+        boolean sawAssistant = false;
         for (int i = from; i < history.size(); i++) {
             if (excerpt.length() > 0) {
                 excerpt.append('\n');
             }
             ConversationMessage message = history.get(i);
+            if (message.role() == MessageRole.ASSISTANT) {
+                sawAssistant = true;
+            }
             excerpt.append(label(message.role())).append(textOf(message.contentJson()));
+        }
+        if (sawAssistant && excerpt.length() > 0) {
+            excerpt.append(
+                    "\n（近讯里的杜小洛句只供事实衔接；本轮用自然短句，勿临摹客服式结构。）");
         }
         return excerpt.toString();
     }
@@ -324,7 +374,7 @@ public final class ContextAssembler {
     private static String label(MessageRole role) {
         return switch (role) {
             case USER -> "用户: ";
-            case ASSISTANT -> "助手: ";
+            case ASSISTANT -> "杜小洛: ";
         };
     }
 
@@ -426,7 +476,15 @@ public final class ContextAssembler {
             String systemInstructions,
             int recentMessageLimit,
             FacetId facetId,
-            TurnMemoryPending pending) {
+            TurnMemoryPending pending,
+            boolean excludeLastAssistant,
+            PersonaTurnSnapshot personaSnapshot) {
+
+        public AssemblyRequest(ConversationId conversationId, TurnId turnId, TurnSource turnSource,
+                MessageId currentUserMessageId, String userMessage, String systemInstructions,
+                int recentMessageLimit, FacetId facetId, TurnMemoryPending pending, boolean excludeLastAssistant) {
+            this(conversationId,turnId,turnSource,currentUserMessageId,userMessage,systemInstructions,recentMessageLimit,facetId,pending,excludeLastAssistant,null);
+        }
 
         public AssemblyRequest {
             Objects.requireNonNull(conversationId, "conversationId");
@@ -457,7 +515,8 @@ public final class ContextAssembler {
                     systemInstructions,
                     DEFAULT_RECENT_MESSAGES,
                     FacetId.CHAT,
-                    pending);
+                    pending,
+                    false);
         }
 
         public static AssemblyRequest of(
@@ -477,7 +536,8 @@ public final class ContextAssembler {
                     systemInstructions,
                     DEFAULT_RECENT_MESSAGES,
                     facetId,
-                    pending);
+                    pending,
+                    false);
         }
     }
 }

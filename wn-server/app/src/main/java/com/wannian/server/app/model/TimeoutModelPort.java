@@ -7,6 +7,7 @@ import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
+import com.wannian.server.kernel.model.ModelStreamObserver;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -21,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** 按 context.deadline 与固定上限截断内层调用；共享线程池，超时尽量中断内层。 */
+/** 按 context.deadline 与固定上限截断内层调用；共享线程池，超时尽量中断内层（含流式）。 */
 public final class TimeoutModelPort implements ModelPort {
 
     private static final Logger LOG = LoggerFactory.getLogger(TimeoutModelPort.class);
@@ -51,7 +52,13 @@ public final class TimeoutModelPort implements ModelPort {
 
     @Override
     public ModelOutcome decide(ModelRequest request, ModelCallContext context) {
-        if (context != null && context.cancelled()) {
+        return decide(request, context, ModelStreamObserver.NOOP);
+    }
+
+    @Override
+    public ModelOutcome decide(
+            ModelRequest request, ModelCallContext context, ModelStreamObserver observer) {
+        if (context != null && context.isCancelledNow()) {
             return new ModelOutcome.Failure(ErrorCodes.CANCELLED, "调用已取消", false);
         }
         Duration limit = hardLimit;
@@ -66,7 +73,9 @@ public final class TimeoutModelPort implements ModelPort {
         }
         Instant started = Instant.now();
         String correlationId = context == null ? null : context.traceId();
-        Future<ModelOutcome> future = SHARED.submit(() -> inner.decide(request, context));
+        ModelStreamObserver sink = observer == null ? ModelStreamObserver.NOOP : observer;
+        Future<ModelOutcome> future =
+                SHARED.submit(() -> inner.decide(request, context, sink));
         try {
             return future.get(limit.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException ex) {

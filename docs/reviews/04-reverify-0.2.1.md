@@ -2,7 +2,7 @@
 
 审查日期：2026-09-22。对象：相对 [03-audit-0.2.1](./03-audit-0.2.1.md) 登记缺陷后的**修复工作树**。  
 性质：**另建版本报告**；**不改写** 03 / 01 / 02 旧稿正文。  
-对照：[施工单收口段](../plans/k01-agent-loop.md)、[插话 followup](../research/in-flight-user-message.md)。
+对照：[施工单收口段](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)、[插话 followup](../research/in-flight-user-message.md)。
 
 Git HEAD（已提交基线仍同 03）：`e98252d603fd8754c93145aa6a75dc09095c9a5f`。修复仍主要在**未提交工作树**。
 

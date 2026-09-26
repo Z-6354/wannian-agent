@@ -1,6 +1,6 @@
 # 05 · Agent Loop 工作簿
 
-本工作簿属于 **v0.2 / 0.2.1 单核 harness**，不是 v0.1。验收以 [0.2.1 施工单](../plans/k01-agent-loop.md) 为准：Loop 行为用真实模型，不用 Fake 当通过证据。
+本工作簿属于 **v0.2 / 0.2.1 单核 harness**，不是 v0.1。验收以 [0.2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 为准：Loop 行为用真实模型，不用 Fake 当通过证据。
 
 ## 1. 你要亲自完成什么
 

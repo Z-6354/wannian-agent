@@ -8,6 +8,11 @@ import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
 import com.wannian.server.api.turn.TurnStatus;
+import com.wannian.server.app.journal.SqliteTurnStepJournal;
+import com.wannian.server.kernel.journal.JournalActor;
+import com.wannian.server.kernel.journal.JournalJson;
+import com.wannian.server.kernel.journal.JournalKind;
+import com.wannian.server.kernel.journal.RunJournalEntry;
 import com.wannian.server.kernel.turn.CommitTurnPlan;
 import com.wannian.server.kernel.turn.CommitTurnResult;
 import com.wannian.server.kernel.turn.FreezeCommitPlan;
@@ -21,10 +26,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,12 +41,17 @@ import org.springframework.stereotype.Component;
  * 进入 {@code COMMITTING} 必须经 {@link #freezeCommit}，与可恢复计划同事务写入。
  * 一次成功完成必有一条能定位该 Turn 与助手消息的 {@code TurnCompleted} 事件。
  * 已经进入 {@code COMMITTING} 后，lease 过期不再拒绝提交；错误的 executionId 则整笔拒绝。
+ *
+ * <p>0.2.4-A：实际 Memory 落库后，在同一事务内写入正式 {@code MEMORY_WRITE} 步骤；
+ * 失败回滚整笔（含 Message / Turn / Outbox / Memory）。
  */
 @Component
 public class SqliteTurnCommitter implements TurnCommitter {
 
     static final String TURN_COMPLETED = "TurnCompleted";
+    static final String MESSAGE_COMMITTED = "MessageCommitted";
     private static final String AGGREGATE_TURN = "turn";
+    private static final String AGGREGATE_MESSAGE = "message";
     /** 唯一键竞争或 SQLITE_BUSY 的总等待上限。到点返回可重试忙，不假装成功。 */
     private static final long IDEMPOTENCY_WAIT_BUDGET_MS = 200L;
     private static final long RETRY_PAUSE_MS = 15L;
@@ -50,10 +62,19 @@ public class SqliteTurnCommitter implements TurnCommitter {
     private final SqliteFrozenPlanStore frozenPlanStore;
     private final SqliteMemoryCommitWriter memoryWriter;
     private final SqliteRelationshipCommitWriter relationshipWriter;
+    private final SqliteTurnStepJournal turnStepJournal;
 
+    /** 测试 / 无 Spring 注入 journal 时：自建与 DataSource 绑定的 journal。 */
     public SqliteTurnCommitter(DataSource dataSource, ObjectMapper objectMapper) {
+        this(dataSource, objectMapper, new SqliteTurnStepJournal(dataSource));
+    }
+
+    @Autowired
+    public SqliteTurnCommitter(
+            DataSource dataSource, ObjectMapper objectMapper, SqliteTurnStepJournal turnStepJournal) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.turnStepJournal = Objects.requireNonNull(turnStepJournal, "turnStepJournal");
         this.frozenPlanStore = new SqliteFrozenPlanStore(objectMapper);
         this.memoryWriter = new SqliteMemoryCommitWriter(objectMapper);
         this.relationshipWriter = new SqliteRelationshipCommitWriter(objectMapper);
@@ -220,10 +241,16 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
     private ReceiveTurnResult receiveInTransaction(Connection connection, ReceiveTurnPlan plan)
             throws SQLException {
-        if (!conversationExists(connection, plan.conversationId().asString())) {
+        ConversationGate gate = loadConversationGate(connection, plan.conversationId().asString());
+        if (gate == null) {
             return new ReceiveTurnResult.Rejected(
                     ErrorCodes.CONVERSATION_NOT_FOUND,
                     "会话不存在，请先创建会话: " + plan.conversationId().asString());
+        }
+        if (!"ACTIVE".equals(gate.status())) {
+            return new ReceiveTurnResult.Rejected(
+                    ErrorCodes.CONVERSATION_NOT_ACTIVE,
+                    "会话状态为 " + gate.status() + "，不能接收新消息");
         }
 
         ExistingTurn existing = findByClientRequestId(connection, plan.clientRequestId());
@@ -239,7 +266,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         if (settled != null) {
             return settled;
         }
-        insertUserMessage(connection, plan, sequenceNo, now);
+        insertUserMessage(connection, plan, sequenceNo, now, gate);
         insertReceivedTurn(connection, plan, now);
         return new ReceiveTurnResult.Accepted(plan.turnId(), false);
     }
@@ -356,7 +383,17 @@ public class SqliteTurnCommitter implements TurnCommitter {
 
         String now = Instant.now().toString();
         int sequenceNo = allocateMessageSequence(connection, turn.conversationId());
-        insertAssistantMessage(connection, plan, turn.conversationId(), turnId, sequenceNo, now);
+        ConversationGate gate = loadConversationGate(connection, turn.conversationId());
+        insertAssistantMessage(
+                connection,
+                plan,
+                turn.conversationId(),
+                turnId,
+                sequenceNo,
+                now,
+                gate == null
+                        ? new ConversationGate("ACTIVE", "")
+                        : gate);
         long newRevision = turn.revision() + 1;
         int updated =
                 completeTurn(
@@ -375,11 +412,82 @@ public class SqliteTurnCommitter implements TurnCommitter {
         insertRequiredCompletion(connection, plan, turn.conversationId(), now);
         insertAdditionalEvents(connection, plan, now);
         Instant writeAt = Instant.parse(now);
-        memoryWriter.applyAll(connection, turnId, writeAt, plan.approvedMemoryChanges());
+        List<SqliteMemoryCommitWriter.AppliedMemoryWrite> appliedMemories =
+                memoryWriter.applyAll(connection, turnId, writeAt, plan.approvedMemoryChanges());
+        insertMemoryWriteSteps(
+                connection, turnId, turn.conversationId(), writeAt, appliedMemories);
         relationshipWriter.apply(connection, turnId, writeAt, plan.approvedRelationshipChange());
         touchConversationActivity(connection, turn.conversationId(), now);
         frozenPlanStore.delete(connection, turnId);
         return new CommitTurnResult.Committed(turnId, newRevision);
+    }
+
+    /**
+     * 正式 MEMORY_WRITE：仅对应实际落库结果；稳定 id={@code mw:{turnId}:{memoryRecordId}}。
+     * 与 Message/Turn/Outbox/Memory 同事务；插入失败抛 SQLException 触发回滚。
+     */
+    private void insertMemoryWriteSteps(
+            Connection connection,
+            TurnId turnId,
+            String conversationId,
+            Instant writeAt,
+            List<SqliteMemoryCommitWriter.AppliedMemoryWrite> applied)
+            throws SQLException {
+        if (applied.isEmpty()) {
+            return;
+        }
+        String turnIdText = turnId.asString();
+        for (SqliteMemoryCommitWriter.AppliedMemoryWrite one : applied) {
+            String stepId = memoryWriteStepId(turnIdText, one.memoryRecordId());
+            String requestJson =
+                    JournalJson.object(
+                            "v",
+                            "1",
+                            "proposeId",
+                            one.proposeId(),
+                            "contentKind",
+                            one.contentKind().name(),
+                            "scope",
+                            one.scope().name());
+            String resultJson =
+                    one.supersedesId() == null
+                            ? JournalJson.object(
+                                    "v",
+                                    "1",
+                                    "memoryRecordId",
+                                    one.memoryRecordId(),
+                                    "status",
+                                    "SUCCEEDED")
+                            : JournalJson.object(
+                                    "v",
+                                    "1",
+                                    "memoryRecordId",
+                                    one.memoryRecordId(),
+                                    "supersedesId",
+                                    one.supersedesId(),
+                                    "status",
+                                    "SUCCEEDED");
+            RunJournalEntry draft =
+                    new RunJournalEntry(
+                            stepId,
+                            turnIdText,
+                            conversationId,
+                            0,
+                            JournalActor.SYSTEM,
+                            JournalKind.MEMORY_WRITE,
+                            requestJson,
+                            resultJson,
+                            "SUCCEEDED",
+                            null,
+                            writeAt,
+                            writeAt);
+            turnStepJournal.insertInTransaction(connection, draft);
+        }
+    }
+
+    /** 稳定幂等键：COMMITTING 重试不重复插行。 */
+    static String memoryWriteStepId(String turnId, String memoryRecordId) {
+        return "mw:" + turnId + ":" + memoryRecordId;
     }
 
     /** 完成回合同事务刷新会话活动时间（IdleScanner 用）。 */
@@ -458,6 +566,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
     private void insertRequiredCompletion(
             Connection connection, CommitTurnPlan plan, String conversationId, String now)
             throws SQLException {
+        insertMessageCommitted(connection, plan, conversationId, now);
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("v", 1);
         payload.put("turnId", plan.turnId().asString());
@@ -478,6 +587,70 @@ public class SqliteTurnCommitter implements TurnCommitter {
                 payloadJson,
                 allocateOutboxSequence(connection),
                 now);
+    }
+
+    private void insertMessageCommitted(
+            Connection connection, CommitTurnPlan plan, String conversationId, String now)
+            throws SQLException {
+        var assistant = plan.assistantMessage();
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("v", 1);
+        payload.put("conversationId", conversationId);
+        payload.put("turnId", plan.turnId().asString());
+        payload.put("messageId", assistant.messageId().asString());
+        payload.put("role", assistant.role().name());
+        payload.put("textPreview", previewText(assistant.contentJson()));
+        String payloadJson;
+        try {
+            payloadJson = objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            throw new SQLException("无法序列化 MessageCommitted", ex);
+        }
+        insertOutbox(
+                connection,
+                UUID.randomUUID().toString(),
+                AGGREGATE_MESSAGE,
+                assistant.messageId().asString(),
+                MESSAGE_COMMITTED,
+                payloadJson,
+                allocateOutboxSequence(connection),
+                now);
+    }
+
+    private static String previewText(String contentJson) {
+        if (contentJson == null || contentJson.isBlank()) {
+            return "";
+        }
+        int key = contentJson.indexOf("\"text\"");
+        if (key < 0) {
+            return clip(contentJson, 120);
+        }
+        int colon = contentJson.indexOf(':', key);
+        int firstQuote = contentJson.indexOf('"', colon + 1);
+        if (firstQuote < 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = firstQuote + 1; i < contentJson.length(); i++) {
+            char c = contentJson.charAt(i);
+            if (c == '\\' && i + 1 < contentJson.length()) {
+                sb.append(contentJson.charAt(i + 1));
+                i++;
+                continue;
+            }
+            if (c == '"') {
+                break;
+            }
+            sb.append(c);
+        }
+        return clip(sb.toString(), 120);
+    }
+
+    private static String clip(String text, int max) {
+        if (text.length() <= max) {
+            return text;
+        }
+        return text.substring(0, max) + "…";
     }
 
     private void insertAdditionalEvents(Connection connection, CommitTurnPlan plan, String now)
@@ -535,16 +708,27 @@ public class SqliteTurnCommitter implements TurnCommitter {
         }
     }
 
-    private static boolean conversationExists(Connection connection, String conversationId)
+    private static ConversationGate loadConversationGate(Connection connection, String conversationId)
             throws SQLException {
         try (PreparedStatement ps =
-                connection.prepareStatement("SELECT 1 FROM conversation WHERE id = ?")) {
+                connection.prepareStatement(
+                        "SELECT status, title FROM conversation WHERE id = ?")) {
             ps.setString(1, conversationId);
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
+                if (!rs.next()) {
+                    return null;
+                }
+                String title = rs.getString("title");
+                return new ConversationGate(rs.getString("status"), title == null ? "" : title);
             }
         }
     }
+
+    private static String extractMessageText(String contentJson) {
+        return SqliteConversationStore.extractText(contentJson);
+    }
+
+    private record ConversationGate(String status, String title) {}
 
     private static ExistingTurn findByClientRequestId(Connection connection, String clientRequestId)
             throws SQLException {
@@ -620,7 +804,12 @@ public class SqliteTurnCommitter implements TurnCommitter {
     }
 
     private static void insertUserMessage(
-            Connection connection, ReceiveTurnPlan plan, int sequenceNo, String now) throws SQLException {
+            Connection connection,
+            ReceiveTurnPlan plan,
+            int sequenceNo,
+            String now,
+            ConversationGate gate)
+            throws SQLException {
         var draft = plan.userMessage();
         String sql =
                 """
@@ -638,6 +827,13 @@ public class SqliteTurnCommitter implements TurnCommitter {
             ps.setString(7, now);
             ps.executeUpdate();
         }
+        ConversationSearchSync.upsertMessageRow(
+                connection,
+                plan.conversationId().asString(),
+                draft.messageId().asString(),
+                gate.status(),
+                gate.title(),
+                extractMessageText(draft.contentJson()));
     }
 
     private static void insertReceivedTurn(Connection connection, ReceiveTurnPlan plan, String now)
@@ -737,7 +933,8 @@ public class SqliteTurnCommitter implements TurnCommitter {
             String conversationId,
             TurnId turnId,
             int sequenceNo,
-            String now)
+            String now,
+            ConversationGate gate)
             throws SQLException {
         var draft = plan.assistantMessage();
         String sql =
@@ -756,6 +953,13 @@ public class SqliteTurnCommitter implements TurnCommitter {
             ps.setString(7, now);
             ps.executeUpdate();
         }
+        ConversationSearchSync.upsertMessageRow(
+                connection,
+                conversationId,
+                draft.messageId().asString(),
+                gate.status(),
+                gate.title(),
+                extractMessageText(draft.contentJson()));
     }
 
     private static int completeTurn(

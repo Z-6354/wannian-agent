@@ -16,10 +16,23 @@ public final class ManageBodies {
             String protocol,
             String baseUrl,
             String apiKeyEnv,
-            long revision) {}
+            long revision,
+            boolean hasSecret,
+            boolean builtin) {}
 
     public record UpsertVendorRequest(
             String displayName, String protocol, String baseUrl, String apiKeyEnv, Long expectedRevision) {}
+
+    /** 连接内置 Preset：只提交密钥。 */
+    public record ConnectVendorRequest(String apiKey, Long expectedRevision) {}
+
+    public record PresetBody(
+            String id,
+            String displayName,
+            String protocol,
+            String baseUrl,
+            boolean connected,
+            boolean hasSecret) {}
 
     public record ModelEntryBody(String id, String displayName) {}
 

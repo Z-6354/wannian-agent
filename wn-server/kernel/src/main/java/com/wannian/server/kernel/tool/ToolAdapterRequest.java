@@ -15,7 +15,12 @@ public record ToolAdapterRequest(
         String toolName,
         String argumentsJson,
         List<ToolDescriptor> visibleTools,
-        TurnMemoryPending pending) {
+        TurnMemoryPending pending,
+        ToolInvocationContext context) {
+
+    public ToolAdapterRequest(String operationId,String toolName,String argumentsJson,List<ToolDescriptor> visibleTools,TurnMemoryPending pending) {
+        this(operationId,toolName,argumentsJson,visibleTools,pending,null);
+    }
 
     public ToolAdapterRequest {
         Objects.requireNonNull(operationId, "operationId");
@@ -33,5 +38,10 @@ public record ToolAdapterRequest(
             List<ToolDescriptor> visibleTools,
             TurnMemoryPending pending) {
         return new ToolAdapterRequest(operationId, toolName, argumentsJson, visibleTools, pending);
+    }
+
+    public static ToolAdapterRequest basic(String operationId,String toolName,String argumentsJson,
+            List<ToolDescriptor> visibleTools,TurnMemoryPending pending,ToolInvocationContext context) {
+        return new ToolAdapterRequest(operationId,toolName,argumentsJson,visibleTools,pending,context);
     }
 }

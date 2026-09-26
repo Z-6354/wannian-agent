@@ -29,17 +29,14 @@ class ManagePageTest {
     private TestRestTemplate restTemplate;
 
     @Test
-    void manageRootReturnsShell() {
+    void manageRootRedirectsToUnifiedShell() {
         ResponseEntity<String> response = restTemplate.getForEntity("/manage/", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("id=\"manage-nav\"");
-        assertThat(response.getBody()).contains("/ui/tokens.css");
-        assertThat(response.getBody()).contains("/ui/themes/paper.css");
-        assertThat(response.getBody()).contains("/ui/components.css");
-        assertThat(response.getBody()).contains("/ui/layouts/app-shell.css");
-        assertThat(response.getBody()).contains("/ui/layouts/console.css");
+        assertThat(response.getBody()).contains("location.replace(\"/\" + hash)");
+        assertThat(response.getBody()).contains("href=\"/#vendors\"");
         assertThat(response.getBody()).doesNotContain("/manage/manage.css");
+        assertThat(response.getBody()).doesNotContain("id=\"manage-nav\"");
     }
 
     @Test
@@ -55,7 +52,10 @@ class ManagePageTest {
         assertThat(tokens.getBody()).contains("--radius:", "--space-4:");
         assertThat(tokens.getBody()).doesNotContain("--accent:", "--sidebar-width");
         assertThat(theme.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(theme.getBody()).contains("--bg: #ebe3d6", "--accent: #342d28", "--ink: #342d28");
+        assertThat(theme.getBody()).contains(
+                "--bg: rgb(255, 255, 255)",
+                "--accent: rgb(15, 17, 21)",
+                "--ink: rgb(15, 17, 21)");
         assertThat(hermes.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(hermes.getBody()).contains("--bg: #041c1c", "--accent: #ffe6cb");
         assertThat(tokens.getBody()).doesNotContain("--sidebar-width");
@@ -76,13 +76,14 @@ class ManagePageTest {
         ResponseEntity<String> response = restTemplate.getForEntity("/shell/navigation.js", String.class);
 
         assertThat(compatibility.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(compatibility.getBody()).contains("MANAGE_NAV", "APP_NAV", "/shell/navigation.js?v=20260920p");
+        assertThat(compatibility.getBody()).contains("MANAGE_NAV", "APP_NAV", "/shell/navigation.js?v=20260925c");
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("APP_NAV");
         assertThat(response.getBody()).contains("系统");
         assertThat(response.getBody()).contains("label: \"供应商\"");
         assertThat(response.getBody()).contains("label: \"模型\"");
-        assertThat(response.getBody()).contains("href: \"/chat/\"");
+        assertThat(response.getBody()).contains("href: \"/#chat\"");
+        assertThat(response.getBody()).contains("href: \"/#vendors\"");
     }
 
     @Test
@@ -108,12 +109,16 @@ class ManagePageTest {
 
     @Test
     void interactionModulesKeepAccessibilitySemantics() {
+        ResponseEntity<String> dialog = restTemplate.getForEntity("/shell/dialog.js", String.class);
         ResponseEntity<String> vendors = restTemplate.getForEntity("/manage/vendors-page.js", String.class);
         ResponseEntity<String> models = restTemplate.getForEntity("/manage/models-page.js", String.class);
 
-        assertThat(vendors.getBody())
+        assertThat(dialog.getBody())
                 .contains("aria-describedby", "dialog-close", "event.key === \"Tab\"")
-                .contains("role\", \"alert", "aria-live\", \"assertive");
+                .contains("dialog-mask", "inert", "alertdialog")
+                .contains("export function openDialog", "export function confirmDialog", "export function promptDialog");
+        assertThat(vendors.getBody())
+                .contains("/shell/dialog.js", "openDialog", "role\", \"alert", "aria-live\", \"assertive");
         assertThat(models.getBody())
                 .contains("createElement(\"thead\")", "createElement(\"tbody\")")
                 .contains("[\"选择\", \"供应商\"", "\"当前使用\", \"操作\"");
@@ -132,7 +137,7 @@ class ManagePageTest {
 
         assertThat(vendors.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(vendors.getBody())
-                .contains("export async function mountVendorsPage(view)", "saveVendor", "deleteVendor")
+                .contains("export async function mountVendorsPage(view)", "connectVendor", "deleteVendor")
                 .doesNotContain("enableModel", "listModels");
 
         assertThat(models.getStatusCode()).isEqualTo(HttpStatus.OK);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import com.wannian.server.app.manage.StubModelCatalog;
+import com.wannian.server.app.manage.VendorCredentialAccess;
 import com.wannian.server.app.manage.VendorRecord;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelMessage;
@@ -36,11 +37,13 @@ class OpenAiCompatibleModelAdapterTest {
                     hits.incrementAndGet();
                     byte[] body =
                             """
-                            {"choices":[{"message":{"role":"assistant","content":"你好世界"}}],
-                             "usage":{"prompt_tokens":3,"completion_tokens":2}}
+                            data: {"choices":[{"delta":{"content":"你好世界"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}
+
+                            data: [DONE]
+
                             """
                                     .getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
                     exchange.sendResponseHeaders(200, body.length);
                     exchange.getResponseBody().write(body);
                     exchange.close();
@@ -64,7 +67,7 @@ class OpenAiCompatibleModelAdapterTest {
                         "gpt-test",
                         HttpClient.newHttpClient(),
                         new ObjectMapper(),
-                        Map.of("KEY", "secret")::get);
+                        VendorCredentialAccess.envOnly(Map.of("KEY", "secret")::get));
 
         ModelOutcome outcome =
                 adapter.decide(
@@ -88,11 +91,13 @@ class OpenAiCompatibleModelAdapterTest {
                     captured.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                     byte[] body =
                             """
-                            {"choices":[{"message":{"role":"assistant","content":"ok"}}],
-                             "usage":{"prompt_tokens":1,"completion_tokens":1}}
+                            data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}
+
+                            data: [DONE]
+
                             """
                                     .getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
                     exchange.sendResponseHeaders(200, body.length);
                     exchange.getResponseBody().write(body);
                     exchange.close();
@@ -104,7 +109,7 @@ class OpenAiCompatibleModelAdapterTest {
                         "gpt-test",
                         HttpClient.newHttpClient(),
                         new ObjectMapper(),
-                        Map.of("KEY", "secret")::get);
+                        VendorCredentialAccess.envOnly(Map.of("KEY", "secret")::get));
 
         ModelOutcome outcome =
                 adapter.decide(
@@ -149,7 +154,7 @@ class OpenAiCompatibleModelAdapterTest {
                         "gpt-test",
                         HttpClient.newHttpClient(),
                         new ObjectMapper(),
-                        Map.of("KEY", "secret")::get);
+                        VendorCredentialAccess.envOnly(Map.of("KEY", "secret")::get));
 
         ModelOutcome outcome =
                 adapter.decide(
@@ -160,5 +165,48 @@ class OpenAiCompatibleModelAdapterTest {
         assertThat(((ModelOutcome.Failure) outcome).detail())
                 .contains("HTTP 422")
                 .contains("tool_call_id");
+    }
+
+    @Test
+    void responsesProtocolStreamsFinalAnswer() throws Exception {
+        server.createContext(
+                "/v1/responses",
+                exchange -> {
+                    hits.incrementAndGet();
+                    byte[] body =
+                            """
+                            event: response.output_text.delta
+                            data: {"type":"response.output_text.delta","delta":"早"}
+
+                            event: response.output_text.delta
+                            data: {"type":"response.output_text.delta","delta":"安"}
+
+                            event: response.completed
+                            data: {"type":"response.completed","response":{"usage":{"input_tokens":2,"output_tokens":2}}}
+
+                            """
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                    exchange.close();
+                });
+
+        OpenAiCompatibleModelAdapter adapter =
+                new OpenAiCompatibleModelAdapter(
+                        new VendorRecord(
+                                "v1", StubModelCatalog.PROTOCOL_RESPONSES, baseUrl, "KEY"),
+                        "gpt-6-luna",
+                        HttpClient.newHttpClient(),
+                        new ObjectMapper(),
+                        VendorCredentialAccess.envOnly(Map.of("KEY", "secret")::get));
+
+        ModelOutcome outcome =
+                adapter.decide(
+                        new ModelRequest(List.of(new ModelMessage("user", "hi"))),
+                        new ModelCallContext("t1", 1, Instant.now().plusSeconds(30), false, "trace"));
+
+        assertThat(outcome).isInstanceOf(ModelOutcome.FinalAnswer.class);
+        assertThat(((ModelOutcome.FinalAnswer) outcome).text()).isEqualTo("早安");
     }
 }

@@ -31,7 +31,7 @@ class TurnToolCallProjectorTest {
                                         turnId,
                                         2,
                                         JournalKind.TOOL_CALL,
-                                        "{\"name\":\"remember_fact\",\"argumentsJson\":\"{\\\"claim\\\":\\\"x\\\"}\"}",
+                                        "{\"name\":\"remember_fact\",\"argumentsJson\":\"{\\\"claim\\\":\\\"secret-claim\\\",\\\"subjectKey\\\":\\\"pref.tea\\\",\\\"contentKind\\\":\\\"USER_FACT\\\",\\\"importance\\\":\\\"0.7\\\"}\"}",
                                         t0,
                                         t1),
                                 entry(
@@ -47,10 +47,14 @@ class TurnToolCallProjectorTest {
 
         assertThat(views).hasSize(2);
         assertThat(views.get(0).name()).isEqualTo("remember_fact");
-        assertThat(views.get(0).argumentsJson()).contains("claim");
+        assertThat(views.get(0).argumentsJson()).contains("pref.tea");
+        assertThat(views.get(0).argumentsJson()).contains("USER_FACT");
+        assertThat(views.get(0).argumentsJson()).doesNotContain("secret-claim");
         assertThat(views.get(0).startedAt()).isEqualTo(t0.toString());
         assertThat(views.get(0).finishedAt()).isEqualTo(t1.toString());
         assertThat(views.get(1).name()).isEqualTo("search_memory");
+        assertThat(views.get(1).argumentsJson()).doesNotContain("寒若");
+        assertThat(views.get(1).argumentsJson()).contains("hidden");
     }
 
     @Test

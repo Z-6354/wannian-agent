@@ -23,6 +23,11 @@ wannian:
     # live（默认）：真实 OpenAI 兼容调用，读供应商 apiKeyEnv。真人实机 / 产品路径验收必须用 live。
     # fake：仅单测与管理页无模型冒烟；禁止当作实机或 Loop/工具收口证据。见 guide/07-testing.md §1.1。
     mode: ${WANNIAN_MODEL_MODE:live}
+    # 陪伴向默认采样（减轻助手腔模板句）；可按环境覆盖。工作/科研分档后可再扩。
+    sampling:
+      temperature: ${WANNIAN_MODEL_TEMPERATURE:0.85}
+      top-p: ${WANNIAN_MODEL_TOP_P:0.95}
+      presence-penalty: ${WANNIAN_MODEL_PRESENCE_PENALTY:0.35}
   agent:
     budget:
       # 下列为首次生成数据目录 wannian.json 中 agentBudget 时的种子；运行期以该文件为准，管理页可改。
@@ -44,7 +49,7 @@ wannian:
     review:
       scheduler-enabled: ${WANNIAN_MEMORY_REVIEW_SCHEDULER_ENABLED:true}
       tick-ms: ${WANNIAN_MEMORY_REVIEW_TICK_MS:60000}
-    # 阶段 D：Assembler 注入限额（kernel MemoryRecallLimits）
+    # 阶段 D：Assembler 注入限额（kernel MemoryRecallLimits；改预算只动 yml）
     recall:
       top-n: ${WANNIAN_MEMORY_RECALL_TOP_N:12}
       char-budget: ${WANNIAN_MEMORY_RECALL_CHAR_BUDGET:2000}
@@ -55,11 +60,48 @@ wannian:
     search:
       default-limit: ${WANNIAN_MEMORY_SEARCH_DEFAULT_LIMIT:5}
       max-limit: ${WANNIAN_MEMORY_SEARCH_MAX_LIMIT:20}
+  # —— 上下文装配（禁止在 Java 再写死业务默认；改这里或环境变量）——
+  # 说明见 docs/guide/09-configuration.md。相对 gpt-6-luna / DeepSeek ~1M token，下列为产品护栏，非模型硬顶。
+  context:
+    # 近讯条数（用户+助手合计进 excerpt 的上限）；不含本轮用户句。
+    recent-message-limit: ${WANNIAN_CONTEXT_RECENT_MESSAGE_LIMIT:20}
+  # 0.2.4-P：可编辑提示词与 Skill 截断（kernel 只吃已截断文本）
+  prompt:
+    # 每层 SOUL/VOICE/IDENTITY/USER/SAFETY 独立字符上限；超长硬切尾部。
+    layer-char-budget: ${WANNIAN_PROMPT_LAYER_CHAR_BUDGET:4000}
+  skill:
+    index-max-entries: ${WANNIAN_SKILL_INDEX_MAX_ENTRIES:16}
+    index-desc-chars: ${WANNIAN_SKILL_INDEX_DESC_CHARS:160}
+    index-char-budget: ${WANNIAN_SKILL_INDEX_CHAR_BUDGET:3000}
+    body-char-budget: ${WANNIAN_SKILL_BODY_CHAR_BUDGET:8000}
+    # 空 = 盘上安全 id 全部授权；逗号分隔白名单则仅这些 id 进索引/load_skill
+    allowed-ids: ${WANNIAN_SKILL_ALLOWED_IDS:}
+  # 人物导入 / 默认 overlay 长度护栏
+  persona:
+    overlay-layer-char-budget: ${WANNIAN_PERSONA_OVERLAY_LAYER_CHAR_BUDGET:1000}
+    overlay-total-char-budget: ${WANNIAN_PERSONA_OVERLAY_TOTAL_CHAR_BUDGET:1600}
+    import-window-chars: ${WANNIAN_PERSONA_IMPORT_WINDOW_CHARS:3000}
+  # SQLite 忙等待（毫秒）；禁止无限 SQLITE_BUSY 重试
+  sqlite:
+    busy-timeout-ms: ${WANNIAN_SQLITE_BUSY_TIMEOUT_MS:5000}
+  # 0.2.4-G：空会话清理 + 闲置自动归档（评估器可切换 llm|heuristic）
+  conversation:
+    idle-archive-days: ${WANNIAN_CONVERSATION_IDLE_ARCHIVE_DAYS:7}
+    archive-schedule: ${WANNIAN_CONVERSATION_ARCHIVE_SCHEDULE:DAILY}
+    archive-weekday: ${WANNIAN_CONVERSATION_ARCHIVE_WEEKDAY:1}
+    archive-at-hour: ${WANNIAN_CONVERSATION_ARCHIVE_AT_HOUR:0}
+    archive-at-minute: ${WANNIAN_CONVERSATION_ARCHIVE_AT_MINUTE:0}
+    archive-batch-limit: ${WANNIAN_CONVERSATION_ARCHIVE_BATCH_LIMIT:20}
+    archive-evaluator: ${WANNIAN_CONVERSATION_ARCHIVE_EVALUATOR:llm}
 
 spring:
   application:
     # 进程与日志中的应用名；探活 JSON 的 service 字段刻意为 wn-server，二者可并存。
     name: wn-server
+  mvc:
+    # SSE 长连接：须 ≥ SseEmitter 超时；勿用 0（部分容器/重派路径会立刻 ERROR）
+    async:
+      request-timeout: 30m
   datasource:
     # 说明性 URL（与 SqliteConfig 一致）；驱动类供文档与排障对照。
     url: jdbc:sqlite:${wannian.data-dir}/wannian.db

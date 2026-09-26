@@ -36,7 +36,9 @@ class ContextAssemblerTest {
 
         String excerpt = ContextAssembler.formatExcerpt(recent, current, 20);
 
-        assertThat(excerpt).isEqualTo("用户:   上一句\n\n助手: 好");
+        assertThat(excerpt)
+                .isEqualTo(
+                        "用户:   上一句\n\n杜小洛: 好\n（近讯里的杜小洛句只供事实衔接；本轮用自然短句，勿临摹客服式结构。）");
     }
 
     @Test
@@ -50,7 +52,8 @@ class ContextAssemblerTest {
                         message(b, MessageRole.ASSISTANT, "新", 2),
                         message(current, MessageRole.USER, "当前", 3));
 
-        assertThat(ContextAssembler.formatExcerpt(recent, current, 1)).isEqualTo("助手: 新");
+        assertThat(ContextAssembler.formatExcerpt(recent, current, 1))
+                .isEqualTo("杜小洛: 新\n（近讯里的杜小洛句只供事实衔接；本轮用自然短句，勿临摹客服式结构。）");
     }
 
     @Test
@@ -72,14 +75,15 @@ class ContextAssemblerTest {
                                 com.wannian.server.api.common.TurnId.generate(),
                                 current,
                                 "问",
-                                "你是烟火",
+                                "你是杜小洛",
                                 new com.wannian.server.kernel.memory.InMemoryTurnMemoryPending()));
 
         assertThat(store.requestedLimit).isEqualTo(ContextAssembler.DEFAULT_RECENT_MESSAGES + 1);
-        assertThat(input.conversationExcerpt()).isEqualTo("助手: 早");
+        assertThat(input.conversationExcerpt())
+                .isEqualTo("杜小洛: 早\n（近讯里的杜小洛句只供事实衔接；本轮用自然短句，勿临摹客服式结构。）");
         assertThat(input.userMessage()).isEqualTo("问");
         assertThat(input.systemInstructions())
-                .contains("你是烟火", "观察日（Observation Date）", "地点：未说明");
+                .contains("你是杜小洛", "观察日（Observation Date）", "地点：未说明");
         assertThat(input.memoryContext()).isNull();
         assertThat(input.relationshipSnapshot()).isNull();
         assertThat(input.worldContext()).isNull();

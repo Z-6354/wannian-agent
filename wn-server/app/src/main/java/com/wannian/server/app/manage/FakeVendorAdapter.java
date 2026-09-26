@@ -11,8 +11,9 @@ public class FakeVendorAdapter implements VendorAdapter {
 
     @Override
     public ListModelsOutcome listModels(VendorRecord vendor) {
-        if (vendor == null || !StubModelCatalog.PROTOCOL.equals(vendor.protocol())) {
-            return new ListModelsOutcome.Rejected(ManageReason.PROTOCOL_UNSUPPORTED, "当前只接受 openai-compatible");
+        if (vendor == null || !StubModelCatalog.isSupportedProtocol(vendor.protocol())) {
+            return new ListModelsOutcome.Rejected(
+                    ManageReason.PROTOCOL_UNSUPPORTED, "当前只接受 openai-compatible 或 openai-responses");
         }
         List<ModelCatalogEntry> entries =
                 StubModelCatalog.entries().stream()

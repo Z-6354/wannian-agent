@@ -2,7 +2,7 @@
 
 `status`: **reference** — 2026-09-20（同日修订：按「一循环 + 模块」重梳）  
 `purpose`: 抽出十方共同本质，再用同一模板拆每个 Agent，供 wannian K01 定边界。细节证据仍来自本机源码与 GitHub 一手材料。  
-`not-authority`: 不改写合同 / 工作簿；K01 实施以 [施工单](../plans/k01-agent-loop.md) 为准，全档顺序见 [roadmap](../plans/roadmap.md)。
+`not-authority`: 不改写合同 / 工作簿；K01 实施以 [施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 为准，全档顺序见 [roadmap](../plans/roadmap.md)。
 
 ---
 

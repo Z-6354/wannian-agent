@@ -21,6 +21,19 @@ export function listVendors() {
   return request("/api/manage/model/vendors");
 }
 
+export function listPresets() {
+  return request("/api/manage/model/presets");
+}
+
+export function connectVendor(id, apiKey, expectedRevision) {
+  const body = { apiKey };
+  if (expectedRevision != null) body.expectedRevision = expectedRevision;
+  return request("/api/manage/model/vendors/" + encodeURIComponent(id) + "/connect", {
+    method: "PUT",
+    body,
+  });
+}
+
 export function saveVendor(id, body) {
   return request("/api/manage/model/vendors/" + encodeURIComponent(id), {
     method: "PUT",

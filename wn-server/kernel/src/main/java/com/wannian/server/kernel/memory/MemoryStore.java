@@ -28,6 +28,11 @@ public interface MemoryStore {
         return new SubjectSnapshot(listActive(companionIdentity), subjectGenerations(companionIdentity));
     }
 
+    /** Companions that currently have at least one ACTIVE memory row (tombstone hygiene). */
+    default List<CompanionIdentity> companionsWithActiveMemories() {
+        return List.of(CompanionIdentity.YANHUO);
+    }
+
     record SubjectSnapshot(List<StoredMemoryRecord> active, Map<String, Long> generations) {
         public SubjectSnapshot {
             active = List.copyOf(active);

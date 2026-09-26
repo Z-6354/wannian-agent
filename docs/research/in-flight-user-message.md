@@ -3,7 +3,7 @@
 `status`: **decided** — 2026-09-20  
 `purpose`: 执行中新输入的会话调度策略。  
 `decision`: **followup（FIFO）**；不拒收；不做默认 Steer；不用 Jev 做调度。  
-`authority`: 本决策已定；实施写入 [0.2.1 施工单](../plans/k01-agent-loop.md) 与 [内核合同](../decisions/01-contract.md)。细节论证仍供查阅。  
+`authority`: 本决策已定；实施写入 [0.2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 与 [内核合同](../decisions/01-contract.md)。细节论证仍供查阅。  
 `related`: [agent-loop-survey](./agent-loop-survey.md) · [wannian-loop-modules §2.8](./wannian-loop-modules.md) · [缺陷 §6.1](../reviews/01-defects.md) · [Turn 状态机](../guide/04-kernel-reference.md) · OpenClaw `followup` 模式
 
 ---

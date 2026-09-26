@@ -51,13 +51,13 @@ wn-server/
 |---------|--------|------|
 | **agent loop** | kernel | 单核 harness：预算、工具观察、取消、真实模型 |
 | **tool** | kernel | 本节点可安全执行的工具；不派到第二台机器 |
-| **memory / relationship** | kernel | 烟火的成长与记忆，算法可简单，不能只有空接口 |
+| **memory / relationship** | kernel | 杜小洛的成长与记忆，算法可简单，不能只有空接口 |
 
 ### 2.3 v0.3 增加
 
 | 模块 ID | 所在层 | 职责 |
 |---------|--------|------|
-| **world** | 世界树角色所在节点 | 只向烟火投事件 |
+| **world** | 世界树角色所在节点 | 只向杜小洛投事件 |
 | **node registry** | 共享数据面 | 设备 / 节点 / 角色绑定；一份真源 |
 
 ### 2.4 其后（占位，不建空工程）
@@ -87,7 +87,7 @@ wn-server/
               └──── channel SPI ←── embedded-web adapter
 
         v0.2:  turn ──► loop ──► tool（仍在这一个节点）
-        v0.3:  世界树节点 ──事件──► 烟火节点；多节点共一份库
+        v0.3:  世界树节点 ──事件──► 杜小洛节点；多节点共一份库
 ```
 
 **调用方向**：`wn-server-app → wannian-ui`（样式装配）与 `app → kernel → api`（服务端代码）；页面与 adapter 在 `app` 内，不另成模块。kernel 模块之间 turn 为中枢；companion/memory/llm 不直接依赖 HTTP。

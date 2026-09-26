@@ -37,6 +37,27 @@ class TurnTransitionTest {
     }
 
     @Test
+    void committingWithoutPlanCanFailUnrecoverable() {
+        Turn turn = newReceived();
+        turn.claim(1L, new ExecutionClaim("local-primary", t1), t0);
+        turn.start(t0);
+        turn.beginCommit(t0);
+        turn.failUnrecoverableCommit("MISSING_COMMIT_PLAN", t0);
+        assertThat(turn.status()).isEqualTo(TurnStatus.FAILED);
+        assertThat(turn.errorCode()).isEqualTo("MISSING_COMMIT_PLAN");
+        assertThat(turn.revision()).isEqualTo(5L);
+    }
+
+    @Test
+    void failUnrecoverableCommitRejectedFromRunning() {
+        Turn turn = newReceived();
+        turn.claim(1L, new ExecutionClaim("local-primary", t1), t0);
+        turn.start(t0);
+        assertThatThrownBy(() -> turn.failUnrecoverableCommit("MISSING_COMMIT_PLAN", t0))
+                .isInstanceOf(TurnTransitionException.class);
+    }
+
+    @Test
     void cannotStartFromReceivedWithoutClaim() {
         Turn turn = newReceived();
         assertThatThrownBy(() -> turn.start(t0))

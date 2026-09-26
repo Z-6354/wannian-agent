@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * OpenAI 兼容 {@code GET {baseUrl}/models}。密钥只从环境变量读取，不写日志。
+ * OpenAI 兼容 {@code GET {baseUrl}/models}。密钥经 {@link VendorCredentialAccess}，不写日志。
  */
 @Component
 public class OpenAiCompatibleVendorAdapter implements VendorAdapter {
@@ -24,32 +24,30 @@ public class OpenAiCompatibleVendorAdapter implements VendorAdapter {
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final EnvAccess envAccess;
+    private final VendorCredentialAccess credentials;
 
     @Autowired
-    public OpenAiCompatibleVendorAdapter(ObjectMapper objectMapper, EnvAccess envAccess) {
-        this(HttpClient.newBuilder().connectTimeout(TIMEOUT).build(), objectMapper, envAccess);
+    public OpenAiCompatibleVendorAdapter(ObjectMapper objectMapper, VendorCredentialAccess credentials) {
+        this(HttpClient.newBuilder().connectTimeout(TIMEOUT).build(), objectMapper, credentials);
     }
 
-    OpenAiCompatibleVendorAdapter(HttpClient httpClient, ObjectMapper objectMapper, EnvAccess envAccess) {
+    OpenAiCompatibleVendorAdapter(
+            HttpClient httpClient, ObjectMapper objectMapper, VendorCredentialAccess credentials) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
-        this.envAccess = Objects.requireNonNull(envAccess, "envAccess");
+        this.credentials = Objects.requireNonNull(credentials, "credentials");
     }
 
     @Override
     public ListModelsOutcome listModels(VendorRecord vendor) {
-        if (vendor == null || !StubModelCatalog.PROTOCOL.equals(vendor.protocol())) {
-            return new ListModelsOutcome.Rejected(ManageReason.PROTOCOL_UNSUPPORTED, "当前只接受 openai-compatible");
+        if (vendor == null || !StubModelCatalog.isSupportedProtocol(vendor.protocol())) {
+            return new ListModelsOutcome.Rejected(
+                    ManageReason.PROTOCOL_UNSUPPORTED, "当前只接受 openai-compatible 或 openai-responses");
         }
-        String apiKeyEnv = vendor.apiKeyEnv();
-        if (apiKeyEnv == null || apiKeyEnv.isBlank()) {
-            return new ListModelsOutcome.Rejected(ManageReason.ILLEGAL_ARGUMENT, "密钥变量名不能为空");
-        }
-        String apiKey = envAccess.get(apiKeyEnv);
+        String apiKey = credentials.getApiKey(vendor.id(), vendor.apiKeyEnv());
         if (apiKey == null || apiKey.isBlank()) {
             return new ListModelsOutcome.Rejected(
-                    ManageReason.DEPENDENCY_UNAVAILABLE, "密钥环境变量未设置或为空");
+                    ManageReason.DEPENDENCY_UNAVAILABLE, "密钥未配置（文件或环境变量）");
         }
 
         URI uri;
@@ -90,7 +88,9 @@ public class OpenAiCompatibleVendorAdapter implements VendorAdapter {
         }
 
         try {
-            return new ListModelsOutcome.Listed(parseEntries(response.body()));
+            List<ModelCatalogEntry> entries =
+                    VendorCatalogProtocolFilter.filter(vendor.protocol(), parseEntries(response.body()));
+            return new ListModelsOutcome.Listed(entries);
         } catch (IOException | IllegalArgumentException ex) {
             return new ListModelsOutcome.Rejected(ManageReason.DEPENDENCY_UNAVAILABLE, "无法解析供应商目录");
         }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -42,6 +45,8 @@ class ConversationHttpTest {
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_step");
+            connection.createStatement().executeUpdate("DELETE FROM turn_persona");
+            connection.createStatement().executeUpdate("DELETE FROM conversation_persona");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -142,5 +147,66 @@ class ConversationHttpTest {
                         Map.of("clientRequestId", "raw-1", "text", "hello"),
                         ReceiveTurnResponse.class);
         assertThat(conflict.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void personaBindingPreservesMissingAndInactiveConversationErrors() throws Exception {
+        var missing=restTemplate.exchange("/api/conversations/00000000-0000-0000-0000-000000000001/persona",
+                HttpMethod.PUT,new HttpEntity<>(Map.of("personaId","yanhuo","expectedRevision",0)),ConversationPersonaController.PersonaBindingBody.class);
+        assertThat(missing.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(missing.getBody().reasonCode()).isEqualTo("CONVERSATION_NOT_FOUND");
+
+        ResponseEntity<CreateConversationResponse> created=restTemplate.postForEntity("/api/conversations",Map.of(),CreateConversationResponse.class);
+        try(Connection c=dataSource.getConnection();var ps=c.prepareStatement("UPDATE conversation SET status='ARCHIVED' WHERE id=?")){
+            ps.setString(1,created.getBody().conversationId());ps.executeUpdate();
+        }
+        var inactive=restTemplate.exchange("/api/conversations/"+created.getBody().conversationId()+"/persona",
+                HttpMethod.PUT,new HttpEntity<>(Map.of("personaId","yanhuo","expectedRevision",0)),ConversationPersonaController.PersonaBindingBody.class);
+        assertThat(inactive.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(inactive.getBody().reasonCode()).isEqualTo("CONVERSATION_NOT_ACTIVE");
+    }
+
+    @Test
+    void detailAndRecentExposeConversationScopedOutboxCursor() throws Exception {
+        ResponseEntity<CreateConversationResponse> first =
+                restTemplate.postForEntity("/api/conversations", Map.of(), CreateConversationResponse.class);
+        restTemplate.postForEntity(
+                "/api/conversations/" + first.getBody().conversationId() + "/turns",
+                Map.of("clientRequestId", "cursor-seed", "text", "seed", "sequenceNo", 1),
+                ReceiveTurnResponse.class);
+        ResponseEntity<CreateConversationResponse> second =
+                restTemplate.postForEntity("/api/conversations", Map.of(), CreateConversationResponse.class);
+        String firstId = first.getBody().conversationId();
+        String secondId = second.getBody().conversationId();
+        insertConversationOutbox(firstId, 6L);
+        insertConversationOutbox(secondId, 7L);
+
+        ResponseEntity<Map> detail =
+                restTemplate.getForEntity("/api/conversations/" + firstId, Map.class);
+        ResponseEntity<Map> recent = restTemplate.getForEntity("/api/conversations/recent", Map.class);
+
+        assertThat(detail.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(detail.getBody()).containsKey("outboxCursor");
+        assertThat(((Number) detail.getBody().get("outboxCursor")).longValue()).isEqualTo(6L);
+        assertThat(((Map<?, ?>) recent.getBody().get("conversation")).get("id")).isEqualTo(secondId);
+        assertThat(((Number) recent.getBody().get("outboxCursor")).longValue()).isEqualTo(7L);
+    }
+
+    private void insertConversationOutbox(String conversationId, long sequenceNo) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+                java.sql.PreparedStatement ps =
+                        connection.prepareStatement(
+                                """
+                                INSERT INTO outbox_event (
+                                    id, aggregate_type, aggregate_id, event_type,
+                                    payload_json, sequence_no, created_at
+                                ) VALUES (?, 'conversation', ?, 'MessageCommitted', ?, ?, '2026-09-24T00:00:00Z')
+                                """)) {
+            ps.setString(1, UUID.randomUUID().toString());
+            ps.setString(2, conversationId);
+            ps.setString(3, "{\"conversationId\":\"" + conversationId + "\"}");
+            ps.setLong(4, sequenceNo);
+            ps.executeUpdate();
+        }
     }
 }

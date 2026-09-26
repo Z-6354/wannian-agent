@@ -50,7 +50,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class TurnEngineMemoryHotpathTest {
 
-    private static final String SYSTEM = "你是烟火。";
+    private static final String SYSTEM = "你是杜小洛。";
     private static final Duration LEASE = Duration.ofSeconds(60);
 
     @TempDir

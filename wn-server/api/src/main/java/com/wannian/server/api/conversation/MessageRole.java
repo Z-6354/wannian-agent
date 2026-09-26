@@ -12,6 +12,6 @@ public enum MessageRole {
     /** 用户输入。 */
     USER,
 
-    /** 助手（烟火）回复。 */
+    /** 助手（杜小洛）回复。 */
     ASSISTANT
 }

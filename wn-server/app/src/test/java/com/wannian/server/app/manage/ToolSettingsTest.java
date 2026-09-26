@@ -99,7 +99,9 @@ class ToolSettingsTest {
                         BuiltinToolNames.LIST_TOOLS,
                         BuiltinToolNames.CURRENT_TIME,
                         BuiltinToolNames.REMEMBER_FACT,
-                        BuiltinToolNames.UPDATE_RELATIONSHIP);
+                        BuiltinToolNames.UPDATE_RELATIONSHIP,
+                        BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL);
         settings.update(byName, new ToolSettings.FacetLists(lockedFacet, lockedFacet, lockedFacet));
 
         assertThat(catalog.findByName(BuiltinToolNames.CALCULATE)).isEmpty();
@@ -133,6 +135,45 @@ class ToolSettingsTest {
 
         assertThat(settings.snapshot().byName().get(BuiltinToolNames.LIST_TOOLS)).isEqualTo("locked");
         assertThat(settings.snapshot().enabled()).contains(BuiltinToolNames.REMEMBER_FACT);
+    }
+
+    @Test
+    void loadOrCreatePersistsMissingLockedTools() throws Exception {
+        Path file = tempDir.resolve("wannian.json");
+        // 旧盘：无 load_skill，三面也未列入
+        Files.writeString(
+                file,
+                """
+                {
+                  "tools": {
+                    "byName": {
+                      "list_tools": "locked",
+                      "current_time": "locked",
+                      "remember_fact": "locked",
+                      "update_relationship": "locked",
+                      "search_memory": "locked",
+                      "calculate": "on",
+                      "http_read": "on",
+                      "powershell_resolve_5": "off",
+                      "powershell_resolve_7": "on"
+                    },
+                    "yanhuo": {
+                      "chat": ["list_tools", "current_time", "remember_fact", "update_relationship", "search_memory", "calculate"],
+                      "work": ["list_tools", "current_time", "remember_fact", "update_relationship", "search_memory", "calculate", "http_read", "powershell_resolve_7"],
+                      "research": ["list_tools", "current_time", "remember_fact", "update_relationship", "search_memory", "calculate", "http_read", "powershell_resolve_7"]
+                    }
+                  }
+                }
+                """);
+
+        ToolCatalog catalog = new ToolCatalog();
+        ToolBindingTable table = new ToolBindingTable();
+        ToolSettings settings = new ToolSettings(tempDir.toString(), catalog, table, RICH_HOST);
+
+        assertThat(settings.snapshot().byName().get(BuiltinToolNames.LOAD_SKILL)).isEqualTo("locked");
+        assertThat(settings.snapshot().yanhuo().chat()).contains(BuiltinToolNames.LOAD_SKILL);
+        assertThat(Files.readString(file)).contains("\"load_skill\"");
+        assertThat(catalog.findByName(BuiltinToolNames.LOAD_SKILL)).isPresent();
     }
 
     @Test

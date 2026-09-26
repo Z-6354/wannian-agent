@@ -75,9 +75,25 @@ class CreateConversationTest {
                 .isInstanceOf(CreateConversationResult.Created.class);
         assertThat(loadTitle(first)).isEqualTo("会话1");
 
+        // 0.2.4-G：再建空会话会清掉其它空 ACTIVE；有消息的会话才参与默认标题序号
+        seedUserMessage(first);
+
         assertThat(conversationStore.create(CreateConversationCommand.of(second)))
                 .isInstanceOf(CreateConversationResult.Created.class);
         assertThat(loadTitle(second)).isEqualTo("会话2");
+        assertThat(countConversations()).isEqualTo(2);
+    }
+
+    @Test
+    void createPurgesOtherEmptyActiveShells() throws Exception {
+        ConversationId first = ConversationId.generate();
+        ConversationId second = ConversationId.generate();
+        assertThat(conversationStore.create(CreateConversationCommand.of(first)))
+                .isInstanceOf(CreateConversationResult.Created.class);
+        assertThat(conversationStore.create(CreateConversationCommand.of(second)))
+                .isInstanceOf(CreateConversationResult.Created.class);
+        assertThat(countConversations()).isEqualTo(1);
+        assertThat(loadTitle(second)).isEqualTo("会话1");
     }
 
     @Test
@@ -139,6 +155,21 @@ class CreateConversationTest {
                         connection.createStatement().executeQuery("SELECT COUNT(*) FROM conversation")) {
             rs.next();
             return rs.getInt(1);
+        }
+    }
+
+    private void seedUserMessage(ConversationId id) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                """
+                                INSERT INTO message (id, conversation_id, role, content_json, sequence_no, created_at)
+                                VALUES (?, ?, 'USER', '{"v":1,"text":"seed"}', 1, ?)
+                                """)) {
+            ps.setString(1, java.util.UUID.randomUUID().toString());
+            ps.setString(2, id.asString());
+            ps.setString(3, java.time.Instant.now().toString());
+            ps.executeUpdate();
         }
     }
 }

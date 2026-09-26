@@ -18,7 +18,12 @@ public record ToolExecutionContext(
         String sourceTurnId,
         String sourceAttemptId,
         List<ToolDescriptor> visibleTools,
-        TurnMemoryPending pending) {
+        TurnMemoryPending pending,
+        ToolInvocationContext invocationContext) {
+
+    public ToolExecutionContext(String operationId,String sourceTurnId,String sourceAttemptId,List<ToolDescriptor> visibleTools,TurnMemoryPending pending) {
+        this(operationId,sourceTurnId,sourceAttemptId,visibleTools,pending,null);
+    }
 
     public ToolExecutionContext {
         Objects.requireNonNull(operationId, "operationId");
@@ -44,5 +49,10 @@ public record ToolExecutionContext(
                 sourceAttemptId,
                 visibleTools,
                 pending);
+    }
+
+    public static ToolExecutionContext basic(String operationId,String sourceTurnId,String sourceAttemptId,
+            List<ToolDescriptor> visibleTools,TurnMemoryPending pending,ToolInvocationContext invocationContext) {
+        return new ToolExecutionContext(operationId,sourceTurnId,sourceAttemptId,visibleTools,pending,invocationContext);
     }
 }

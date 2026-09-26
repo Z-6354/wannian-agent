@@ -120,6 +120,8 @@ class MemoryReviewStageCTest {
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
             connection.createStatement().executeUpdate("DELETE FROM turn_step");
+            connection.createStatement().executeUpdate("DELETE FROM turn_persona");
+            connection.createStatement().executeUpdate("DELETE FROM conversation_persona");
             connection.createStatement().executeUpdate("DELETE FROM turn");
             connection.createStatement().executeUpdate("DELETE FROM message");
             connection.createStatement().executeUpdate("DELETE FROM conversation");
@@ -177,6 +179,26 @@ class MemoryReviewStageCTest {
         assertThat(fakeLlm.calls().get(0).placeAnchor())
                 .isEqualTo(MemoryReviewConstants.PLACE_ANCHOR_UNSPECIFIED);
         assertThat(fakeLlm.calls().get(0).wallClockDate()).isNotBlank();
+    }
+
+    @Test
+    void reviewOnlyReadsAndWritesTheSnapshotCompanion() throws Exception {
+        ConversationId conversationId=ConversationId.generate();
+        conversationStore.create(CreateConversationCommand.of(conversationId));
+        String profile="{\"schemaVersion\":1,\"displayName\":\"新角色\",\"soul\":\"s\",\"voice\":\"v\",\"identity\":\"i\",\"sources\":[],\"evidence\":[]}";
+        try(Connection c=dataSource.getConnection();PreparedStatement ps=c.prepareStatement("INSERT INTO persona_definition(id,status,display_name,profile_json,revision,created_at,updated_at) VALUES('persona_test','ACTIVE','新角色',?,1,?,?)")){
+            ps.setString(1,profile);ps.setString(2,Instant.now().toString());ps.setString(3,Instant.now().toString());ps.executeUpdate();
+        }
+        completeOneTurn(conversationId,"YANHUO_PRIVATE_SENTINEL","yanhuo");
+        completeOneTurn(conversationId,"NEW_PERSONA_PRIVATE_SENTINEL","persona_test");
+        CompanionIdentity other=new CompanionIdentity("persona_test");
+        fakeLlm.enqueueFact(other,"pref.test","新角色专属偏好",0.8);
+        scheduler.enqueue(conversationId.asString(),other,MemoryReviewScheduler.Trigger.INTERVAL);
+        assertThat(worker.pollOnce()).isTrue();
+        assertThat(fakeLlm.calls()).hasSize(1);
+        assertThat(fakeLlm.calls().getFirst().recentTranscript()).contains("NEW_PERSONA_PRIVATE_SENTINEL").doesNotContain("YANHUO_PRIVATE_SENTINEL");
+        assertThat(memoryStore.listActive(other)).singleElement().extracting(StoredMemoryRecord::claim).isEqualTo("新角色专属偏好");
+        assertThat(memoryStore.listActive(CompanionIdentity.YANHUO)).isEmpty();
     }
 
     @Test
@@ -566,6 +588,10 @@ class MemoryReviewStageCTest {
     }
 
     private void completeOneTurn(ConversationId conversationId, String text) throws Exception {
+        completeOneTurn(conversationId,text,null);
+    }
+
+    private void completeOneTurn(ConversationId conversationId, String text, String personaId) throws Exception {
         TurnId turnId = TurnId.generate();
         MessageId userMessageId = MessageId.generate();
         turnCommitter.receive(
@@ -608,6 +634,9 @@ class MemoryReviewStageCTest {
                         List.of(),
                         null));
         turnCommitter.commit(turnCommitter.frozenCommitPlan(turnId).orElseThrow());
+        if(personaId!=null) try(Connection c=dataSource.getConnection();PreparedStatement ps=c.prepareStatement("INSERT INTO turn_persona(turn_id,conversation_id,persona_id,definition_revision,binding_revision,snapshot_json,created_at) VALUES(?,?,?,?,?,?,?)")){
+            ps.setString(1,turnId.asString());ps.setString(2,conversationId.asString());ps.setString(3,personaId);ps.setInt(4,personaId.equals("yanhuo")?0:1);ps.setLong(5,0);ps.setString(6,"{}");ps.setString(7,Instant.now().toString());ps.executeUpdate();
+        }
     }
 
     private long countJobs(String conversationId, String status) throws Exception {

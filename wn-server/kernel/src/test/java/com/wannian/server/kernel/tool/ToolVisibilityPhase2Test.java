@@ -36,6 +36,7 @@ class ToolVisibilityPhase2Test {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.HTTP_READ,
                         BuiltinToolNames.POWERSHELL_RESOLVE_7);
@@ -72,6 +73,7 @@ class ToolVisibilityPhase2Test {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -92,6 +94,7 @@ class ToolVisibilityPhase2Test {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -110,6 +113,7 @@ class ToolVisibilityPhase2Test {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.POWERSHELL_RESOLVE_7);
     }
@@ -128,6 +132,7 @@ class ToolVisibilityPhase2Test {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE,
                         BuiltinToolNames.HTTP_READ)
                 .doesNotContain(

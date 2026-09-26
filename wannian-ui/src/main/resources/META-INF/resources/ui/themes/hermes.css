@@ -68,6 +68,27 @@
   --brand-mark-ink: #ffe6cb;
   --brand-mark-border: rgb(255 230 203 / 28%);
 
+  --bubble-user: #0c3838;
+  --bubble-assistant: transparent;
+  --link: #8fc7c0;
+  --scrollbar-thumb: rgb(255 230 203 / 22%);
+  --scrollbar-thumb-hover: rgb(255 230 203 / 36%);
+  --elevation-stroke-color: rgb(255 230 203 / 22%);
+  --brand-mark-rotate: -3deg;
+  --interactive-hover: rgb(12 56 56 / 65%);
+  --interactive-active: rgb(12 56 56 / 85%);
+  --send: #ffe6cb;
+  --send-hover: #fff1e2;
+  --send-foreground: #041c1c;
+  --tooltip-bg: #0c3838;
+  --tooltip-ink: #ffe6cb;
+  --toast-bg: #0c3838;
+  --toast-ink: #ffe6cb;
+  --menu-bg: #062424;
+  --code-bg: #041c1c;
+  --code-banner-bg: #062424;
+  --skeleton: rgb(255 230 203 / 8%);
+
   --theme-glow: radial-gradient(ellipse at 0 0, rgb(255 189 56 / 28%) 0, transparent 55%);
   --theme-glow-opacity: 0.2;
   --theme-noise-opacity: 0.055;

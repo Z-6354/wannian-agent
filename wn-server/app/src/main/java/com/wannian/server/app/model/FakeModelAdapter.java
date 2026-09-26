@@ -6,10 +6,11 @@ import com.wannian.server.kernel.model.ModelMessage;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
+import com.wannian.server.kernel.model.ModelStreamObserver;
 import com.wannian.server.kernel.model.ModelUsage;
 import java.util.List;
 
-/** 默认测试与 fake 模式：不访问网络。 */
+/** 默认测试与 fake 模式：不访问网络。不宣称真流式验收。 */
 public final class FakeModelAdapter implements ModelPort {
 
     private final String modelId;
@@ -20,11 +21,23 @@ public final class FakeModelAdapter implements ModelPort {
 
     @Override
     public ModelOutcome decide(ModelRequest request, ModelCallContext context) {
-        if (context != null && context.cancelled()) {
+        return decide(request, context, ModelStreamObserver.NOOP);
+    }
+
+    @Override
+    public ModelOutcome decide(
+            ModelRequest request, ModelCallContext context, ModelStreamObserver observer) {
+        if (context != null && context.isCancelledNow()) {
             return new ModelOutcome.Failure(ErrorCodes.CANCELLED, "调用已取消", false);
         }
         String lastUser = lastUserText(request.messages());
-        return new ModelOutcome.FinalAnswer("假模型(" + modelId + ")：" + lastUser, new ModelUsage(0, 0));
+        String text = "假模型(" + modelId + ")：" + lastUser;
+        ModelStreamObserver sink = observer == null ? ModelStreamObserver.NOOP : observer;
+        try {
+            sink.onTextDelta(text);
+        } catch (RuntimeException ignored) {
+        }
+        return new ModelOutcome.FinalAnswer(text, new ModelUsage(0, 0));
     }
 
     private static String lastUserText(List<ModelMessage> messages) {

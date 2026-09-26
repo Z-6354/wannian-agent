@@ -1,6 +1,6 @@
 # 03 · 0.2.1 审计（Agent Loop / Turn 接线 / 错误码）
 
-审查日期：2026-09-22。对象：当前工作树中宣称 **v0.2 · 0.2.1 已交付** 的 `wn-server` 实现（A/B/C/D），对照 [实施清单 0.2.1](../guide/01-checklist.md)、[施工单](../plans/k01-agent-loop.md)、[插话决策](../research/in-flight-user-message.md)、[内核合同 followup](../decisions/01-contract.md)。
+审查日期：2026-09-22。对象：当前工作树中宣称 **v0.2 · 0.2.1 已交付** 的 `wn-server` 实现（A/B/C/D），对照 [实施清单 0.2.1](../guide/01-checklist.md)、[施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)、[插话决策](../research/in-flight-user-message.md)、[内核合同 followup](../decisions/01-contract.md)。
 
 性质：审阅与缺陷登记，**本次不修改业务代码，不启动修复，不授权提交、发布或扩大阶段范围**。旧稿 [01-defects](./01-defects.md) / [02-release-h3](./02-release-h3.md) 不改写。
 
@@ -48,7 +48,7 @@ TimeoutModelPort.java
 - **已知待补（施工单已标 `[ ]`）**：blank / Refusal / Failure 受控失败的 live 难触发；`maxModelDecisions=3` 打满难触发。本文仍指出「配置存在但闸门不可达」与「清单把软预算勾成已交付」的过宽问题。
 - 排除 `target/`；不审查未改动的历史 H3 已关闭项（除非 0.2.1 接线破坏其不变量）。
 
-主要阅读：`kernel/.../agent/*`、`kernel/.../turn/TurnEngine.java`、`kernel/.../error/*`、`app/.../http/TurnController.java`、`TimeoutModelPort` / `OpenAiCompatibleModelAdapter` / `AgentBudgetSettings`、相关测试与 `docs/plans/k01-agent-loop.md`。
+主要阅读：`kernel/.../agent/*`、`kernel/.../turn/TurnEngine.java`、`kernel/.../error/*`、`app/.../http/TurnController.java`、`TimeoutModelPort` / `OpenAiCompatibleModelAdapter` / `AgentBudgetSettings`、相关测试与 `docs/plans/archive/0.2.1-0.2.3/k01-agent-loop.md`。
 
 ---
 

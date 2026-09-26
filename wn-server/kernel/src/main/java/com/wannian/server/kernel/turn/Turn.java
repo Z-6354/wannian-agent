@@ -229,6 +229,23 @@ public final class Turn {
         advance(TurnStatus.FAILED, now);
     }
 
+    /**
+     * COMMITTING → FAILED：仅用于缺少冻结计划等不可恢复提交态，解除会话 FIFO 堵塞。
+     *
+     * <p>正常成功提交仍只经 {@link TurnCommitter#commit}；禁止用本方法代替提交。
+     */
+    public void failUnrecoverableCommit(String classifiedErrorCode, Instant now) {
+        Objects.requireNonNull(classifiedErrorCode, "classifiedErrorCode");
+        Objects.requireNonNull(now, "now");
+        String code = classifiedErrorCode.trim();
+        if (code.isEmpty()) {
+            throw new IllegalArgumentException("errorCode 不能为空");
+        }
+        requireStatus(TurnStatus.COMMITTING, "failUnrecoverableCommit");
+        this.errorCode = code;
+        advance(TurnStatus.FAILED, now);
+    }
+
     private boolean hasActiveOwner(Instant now) {
         if (executionId == null || claimExpiresAt == null) {
             return false;

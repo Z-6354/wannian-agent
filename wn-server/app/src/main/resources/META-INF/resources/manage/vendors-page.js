@@ -1,206 +1,201 @@
-import { deleteVendor, saveVendor } from "/manage/api.js?v=20260920p";
-import { loadModelOverview } from "/manage/model-data.js?v=20260920p";
+import {
+  connectVendor,
+  deleteVendor,
+  getEnabled,
+  listPresets,
+  listVendors,
+} from "/manage/api.js?v=20260925f";
 import { clearBanner, paintEnabled, renderLoading, renderRetry, showError, showSuccess } from "/manage/page-feedback.js?v=20260920p";
-import { PROTOCOL_OPTIONS } from "/manage/protocols.js?v=20260920p";
+import { openDialog } from "/shell/dialog.js?v=20260925r";
 
+/**
+ * 供应商页：只选内置 Preset + 粘贴密钥；模型启用仍走模型页。
+ */
 export async function mountVendorsPage(view) {
-  const state = { vendors: [], enabled: null, pending: "" };
+  const state = { presets: [], vendorsById: {}, enabled: null, pending: "" };
 
   async function refresh() {
-    const result = await loadModelOverview();
-    if (!result.ok) {
-      showError(view.banner, result);
+    const [presetsRes, vendorsRes, enabledRes] = await Promise.all([
+      listPresets(),
+      listVendors(),
+      getEnabled(),
+    ]);
+    if (!presetsRes.ok) {
+      showError(view.banner, presetsRes);
       return false;
     }
-    state.vendors = result.vendors;
-    state.enabled = result.enabled;
+    if (!vendorsRes.ok) {
+      showError(view.banner, vendorsRes);
+      return false;
+    }
+    if (!enabledRes.ok) {
+      showError(view.banner, enabledRes);
+      return false;
+    }
+    state.presets = Array.isArray(presetsRes.body) ? presetsRes.body : [];
+    state.vendorsById = {};
+    for (const v of Array.isArray(vendorsRes.body) ? vendorsRes.body : []) {
+      state.vendorsById[v.id] = v;
+    }
+    state.enabled = enabledRes.body && enabledRes.body.enabled ? enabledRes.body.enabled : null;
     clearBanner(view.banner);
     return true;
   }
 
   function render() {
     paintEnabled(view.status, state.enabled);
-    renderActions();
+    view.actions.replaceChildren();
     view.main.replaceChildren();
     const page = document.createElement("section");
     page.className = "content-page";
     const intro = document.createElement("p");
     intro.className = "hint";
-    intro.textContent = "管理连接信息；密钥值只从环境变量读取，页面只保存变量名。";
+    intro.textContent =
+      "选择内置供应商并保存 API 密钥（写入本机 data/secrets）。模型请到「模型」页检索并启用。";
     page.append(intro);
-    if (!state.vendors.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      const line = document.createElement("p");
-      line.textContent = "还没有供应商。用页头的「添加供应商」建立第一条连接。";
-      empty.append(line);
-      page.append(empty);
-    } else {
-      const grid = document.createElement("div");
-      grid.className = "card-grid";
-      for (const vendor of state.vendors) {
-        grid.append(vendorCard(vendor));
-      }
-      page.append(grid);
+
+    const grid = document.createElement("div");
+    grid.className = "card-grid";
+    for (const preset of state.presets) {
+      grid.append(presetCard(preset));
     }
+    page.append(grid);
     view.main.append(page);
   }
 
-  function renderActions() {
-    view.actions.replaceChildren();
-    const add = document.createElement("button");
-    add.type = "button";
-    add.textContent = "添加供应商";
-    add.disabled = Boolean(state.pending);
-    add.addEventListener("click", () => openVendorDialog(null, add));
-    view.actions.append(add);
-  }
-
-  function vendorCard(vendor) {
+  function presetCard(preset) {
+    const connected = state.vendorsById[preset.id];
     const card = document.createElement("article");
     card.className = "card";
     const head = document.createElement("div");
     head.className = "card-head";
     const title = document.createElement("h2");
-    title.textContent = vendor.displayName;
+    title.textContent = preset.displayName;
     const badge = document.createElement("div");
     badge.className = "badge";
-    badge.textContent = vendor.protocol;
+    badge.textContent = connected ? (connected.hasSecret || preset.hasSecret ? "已连接" : "已登记") : "未连接";
     head.append(title, badge);
-
-    const status = document.createElement("p");
-    status.className = "status-line";
-    const dot = document.createElement("span");
-    dot.className = "status-dot";
-    dot.dataset.tone = "ok";
-    dot.setAttribute("aria-hidden", "true");
-    const statusText = document.createElement("span");
-    statusText.textContent = "已配置";
-    status.append(dot, statusText);
 
     const facts = document.createElement("dl");
     facts.className = "card-facts";
-    facts.append(fact("地址", vendor.baseUrl), fact("密钥变量", vendor.apiKeyEnv));
+    facts.append(fact("id", preset.id), fact("地址", preset.baseUrl), fact("协议", preset.protocol));
 
     const actions = document.createElement("div");
     actions.className = "actions";
-    const edit = actionButton("编辑", "ghost", () => openVendorDialog(vendor, edit));
-    const discover = actionButton("检索模型", "secondary", () => {
-      location.hash = "#models?vendor=" + encodeURIComponent(vendor.id);
-    });
-    const remove = actionButton("删除", "danger ghost", () => confirmDelete(vendor, remove));
-    actions.append(edit, discover, remove);
-    card.append(head, status, facts, actions);
+    const connect = actionButton(connected ? "更新密钥" : "连接", "", () =>
+      openConnectDialog(preset, connected, connect)
+    );
+    actions.append(connect);
+    if (connected) {
+      const discover = actionButton("检索模型", "secondary", () => {
+        location.hash = "#models?vendor=" + encodeURIComponent(preset.id);
+      });
+      const remove = actionButton("断开", "danger ghost", () => confirmDelete(connected, remove));
+      actions.append(discover, remove);
+    }
+    card.append(head, facts, actions);
     return card;
   }
 
-  function actionButton(text, className, activate) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = className;
-    button.textContent = text;
-    button.disabled = Boolean(state.pending);
-    button.addEventListener("click", activate);
-    return button;
-  }
-
-  function confirmDelete(vendor, trigger) {
-    const modal = createDialog("confirm-delete-title", "删除供应商", trigger);
-    const message = document.createElement("p");
-    message.textContent = "将删除「" + vendor.displayName + "」。如果它正在启用，当前启用也会一并取消。";
-    modal.body.append(message);
-    const cancel = actionButton("取消", "secondary", modal.close);
-    const confirm = actionButton("删除", "danger", async () => {
-      if (state.pending) return;
-      state.pending = "delete:" + vendor.id;
-      modal.setPending(true);
-      confirm.disabled = true;
-      cancel.disabled = true;
-      confirm.setAttribute("aria-busy", "true");
-      const result = await deleteVendor(vendor.id);
-      state.pending = "";
-      if (!result.ok) {
-        modal.setPending(false);
-        showError(view.banner, result);
-        confirm.disabled = false;
-        cancel.disabled = false;
-        confirm.removeAttribute("aria-busy");
-        return;
-      }
-      modal.close();
-      if (await refresh()) render();
-    });
-    confirm.dataset.solid = "true";
-    modal.actions.append(cancel, confirm);
-    modal.open(confirm);
-  }
-
-  function openVendorDialog(editing, trigger) {
-    if (document.querySelector(".dialog-backdrop")) return;
-    const modal = createDialog("vendor-dialog-title", editing ? "编辑供应商" : "添加供应商", trigger);
+  function openConnectDialog(preset, existing, trigger) {
     const formError = document.createElement("p");
     formError.className = "field-error";
     formError.setAttribute("role", "alert");
     formError.setAttribute("aria-live", "assertive");
     formError.hidden = true;
     const form = document.createElement("form");
-    form.append(
-      field("id", "id", editing ? editing.id : "", !editing, "创建后不可修改。"),
-      field("显示名", "displayName", editing ? editing.displayName : "", true, ""),
-      protocolField(editing ? editing.protocol : PROTOCOL_OPTIONS[0].id),
-      field("Base URL", "baseUrl", editing ? editing.baseUrl : "", true, "例如 https://api.example.com/v1"),
-      field("密钥变量名", "apiKeyEnv", editing ? editing.apiKeyEnv : "", true, "只填环境变量名，不保存或回显密钥值。"),
-      formError
-    );
-    modal.body.append(form);
-    const cancel = actionButton("取消", "secondary", modal.close);
-    const save = actionButton("保存", "", () => {});
-    save.type = "submit";
-    modal.actions.append(cancel, save);
+    form.id = "vendor-connect-form";
+    const keyField = field("API 密钥", "apiKey", "", true, "写入本机 secrets/" + preset.id + ".key，不会回显。");
+    form.append(keyField, formError);
+
+    const modal = openDialog({
+      titleId: "vendor-connect-title",
+      title: "连接 " + preset.displayName,
+      body: form,
+      trigger,
+      renderActions(actions, api) {
+        const cancel = actionButton("取消", "secondary", api.close);
+        const save = actionButton("保存", "", () => {});
+        save.type = "submit";
+        save.setAttribute("form", form.id);
+        actions.append(cancel, save);
+      },
+    });
+    if (!modal) return;
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (state.pending) return;
       formError.hidden = true;
-      const data = new FormData(form);
-      const id = String(data.get("id") || "").trim();
-      const body = {
-        displayName: String(data.get("displayName") || ""),
-        protocol: String(data.get("protocol") || ""),
-        baseUrl: String(data.get("baseUrl") || ""),
-        apiKeyEnv: String(data.get("apiKeyEnv") || ""),
-      };
-      if (editing) body.expectedRevision = editing.revision;
-      state.pending = "save:" + id;
+      const apiKey = String(new FormData(form).get("apiKey") || "").trim();
+      if (!apiKey) {
+        formError.textContent = "请填写 API 密钥";
+        formError.hidden = false;
+        return;
+      }
+      state.pending = "connect:" + preset.id;
       modal.setPending(true);
-      save.disabled = true;
-      cancel.disabled = true;
-      save.setAttribute("aria-busy", "true");
-      const result = await saveVendor(id, body);
+      const result = await connectVendor(
+        preset.id,
+        apiKey,
+        existing && typeof existing.revision === "number" ? existing.revision : undefined
+      );
       state.pending = "";
       if (!result.ok) {
         modal.setPending(false);
         formError.textContent = result.code + " " + result.detail;
         formError.hidden = false;
         showError(view.banner, result);
-        save.disabled = false;
-        cancel.disabled = false;
-        save.removeAttribute("aria-busy");
         return;
       }
       modal.close();
       if (await refresh()) {
-        showSuccess(view.banner, "供应商已保存");
+        showSuccess(view.banner, preset.displayName + " 已连接");
         render();
       }
     });
-    modal.open(form.querySelector("input:not([readonly]), select"));
+    modal.open(form.querySelector("input"));
+  }
+
+  function confirmDelete(vendor, trigger) {
+    const modal = openDialog({
+      titleId: "vendor-delete-title",
+      title: "断开供应商",
+      description:
+        "将删除「" + vendor.displayName + "」的连接与本机密钥文件，并移除其已加入的模型列表。",
+      role: "alertdialog",
+      trigger,
+      renderActions(actions, api) {
+        const cancel = actionButton("取消", "secondary", api.close);
+        const confirm = actionButton("断开", "danger", async () => {
+          if (state.pending) return;
+          state.pending = "delete:" + vendor.id;
+          api.setPending(true);
+          const result = await deleteVendor(vendor.id);
+          state.pending = "";
+          if (!result.ok) {
+            api.setPending(false);
+            showError(view.banner, result);
+            return;
+          }
+          api.close();
+          if (await refresh()) {
+            showSuccess(view.banner, "已断开 " + vendor.displayName);
+            render();
+          }
+        });
+        confirm.dataset.solid = "true";
+        actions.append(cancel, confirm);
+        queueMicrotask(() => api.open(confirm));
+      },
+    });
   }
 
   renderLoading(view.main);
   view.actions.replaceChildren();
   paintEnabled(view.status, null);
   if (!(await refresh())) {
-    renderRetry(view.main, "无法加载供应商列表。", () => mountVendorsPage(view));
+    renderRetry(view.main, "无法加载供应商。", () => mountVendorsPage(view));
     return;
   }
   render();
@@ -232,113 +227,20 @@ function field(labelText, name, value, editable, hintText) {
   }
   const input = document.createElement("input");
   input.name = name;
-  input.value = value;
+  input.type = name === "apiKey" ? "password" : "text";
+  input.value = value || "";
   input.required = true;
-  if (["id", "apiKeyEnv", "baseUrl"].includes(name)) input.className = "mono";
-  if (!editable && name === "id") input.readOnly = true;
+  input.autocomplete = "off";
+  if (!editable) input.readOnly = true;
   wrap.append(input);
   return wrap;
 }
 
-function protocolField(selected) {
-  const wrap = document.createElement("label");
-  wrap.className = "field";
-  const label = document.createElement("span");
-  label.className = "field-label";
-  label.textContent = "协议";
-  const select = document.createElement("select");
-  select.name = "protocol";
-  for (const option of PROTOCOL_OPTIONS) {
-    const item = document.createElement("option");
-    item.value = option.id;
-    item.textContent = option.label;
-    item.selected = option.id === selected;
-    select.append(item);
-  }
-  wrap.append(label, select);
-  return wrap;
-}
-
-function createDialog(labelId, titleText, trigger) {
-  const backdrop = document.createElement("div");
-  backdrop.className = "dialog-backdrop";
-  const dialog = document.createElement("div");
-  dialog.className = "dialog";
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-labelledby", labelId);
-  dialog.setAttribute("aria-describedby", labelId + "-description");
-  dialog.tabIndex = -1;
-  const head = document.createElement("div");
-  head.className = "dialog-head";
-  const title = document.createElement("h2");
-  title.id = labelId;
-  title.textContent = titleText;
-  const closeButton = document.createElement("button");
-  closeButton.type = "button";
-  closeButton.className = "ghost dialog-close";
-  closeButton.setAttribute("aria-label", "关闭");
-  closeButton.textContent = "×";
-  head.append(title, closeButton);
-  const body = document.createElement("div");
-  body.className = "dialog-body";
-  body.id = labelId + "-description";
-  const foot = document.createElement("div");
-  foot.className = "dialog-foot";
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  foot.append(actions);
-  dialog.append(head, body, foot);
-  backdrop.append(dialog);
-  let pending = false;
-  function close() {
-    if (pending) return;
-    document.removeEventListener("keydown", onKey);
-    backdrop.remove();
-    if (trigger) trigger.focus();
-  }
-  function onKey(event) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-      return;
-    }
-    if (event.key === "Tab") {
-      const focusable = [...dialog.querySelectorAll(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )].filter((node) => !node.hidden);
-      if (!focusable.length) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-  }
-  closeButton.addEventListener("click", close);
-  backdrop.addEventListener("click", (event) => {
-    if (event.target === backdrop) close();
-  });
-  return {
-    body,
-    actions,
-    close,
-    open(initialFocus) {
-      document.body.append(backdrop);
-      document.addEventListener("keydown", onKey);
-      (initialFocus || dialog).focus();
-    },
-    setPending(value) {
-      pending = value;
-      closeButton.disabled = value;
-    },
-  };
+function actionButton(text, className, activate) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className || "";
+  button.textContent = text;
+  button.addEventListener("click", activate);
+  return button;
 }

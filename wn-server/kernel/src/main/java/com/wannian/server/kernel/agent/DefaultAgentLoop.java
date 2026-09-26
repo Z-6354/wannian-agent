@@ -8,11 +8,15 @@ import com.wannian.server.kernel.journal.JournalKind;
 import com.wannian.server.kernel.journal.JournalSettings;
 import com.wannian.server.kernel.journal.RunJournal;
 import com.wannian.server.kernel.journal.RunJournalEntry;
+import com.wannian.server.kernel.prompt.VoiceNudge;
+import com.wannian.server.kernel.prompt.CrisisRiskPolicy;
+import com.wannian.server.kernel.prompt.CrisisResourceDirectory;
 import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelMessage;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
+import com.wannian.server.kernel.model.ModelStreamObserver;
 import com.wannian.server.kernel.model.ModelUsage;
 import com.wannian.server.kernel.model.ToolCallRequest;
 import com.wannian.server.kernel.tool.ToolDescriptor;
@@ -27,7 +31,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
  * {@link AgentLoop} 的默认实现（0.2.2：ToolCalls → ToolRuntime → 回灌 → 再决策）。
@@ -42,11 +49,28 @@ public final class DefaultAgentLoop implements AgentLoop {
 
     private static final String FALLBACK_REFUSAL = "模型拒绝回答";
     private static final String FALLBACK_FAILURE = "模型调用失败";
+    private static final String CRISIS_FALLBACK =
+            "我很担心你现在的安全。如果你或对方正处于立即危险中，请马上联系所在地的紧急服务，并请身边可信任的人陪着你、远离眼前可能造成伤害的物品。你现在是否正处于立即危险中？也可以告诉我你所在的国家或地区，便于判断适用的求助方式。";
+    private static final String DISTRESS_FALLBACK =
+            "听起来你最近很难熬。愿意的话，可以告诉我发生了什么；如果你开始担心自己会受伤，请马上联系身边可信任的人或所在地的紧急服务。";
+    private static final String HARM_TO_OTHERS_FALLBACK =
+            "请现在就和那个人保持距离，不要去找他，也不要朝任何人靠近。马上联系所在地的急救服务或警方，并请身边可信赖的人来协助。所在地未知时我不提供猜测号码。";
+    private static final String HARM_TO_OTHERS_WITH_HELD_WEAPON_FALLBACK =
+            "请立即与那个人保持距离，不要去找对方或靠近任何人。如果武器在你手里，请在远离目标且周围无人靠近的安全位置，把它轻轻放到地面，松手后立即后退；不要携带或再拿起。马上联系所在地的急救服务或警方，并请身边可信赖的人来协助。所在地未知时我不提供猜测号码。";
+    private static final String HARM_TO_OTHERS_WITH_NEARBY_WEAPON_FALLBACK =
+            "请和那个人及武器保持距离，不要接触、拿起或搬动武器，也不要去找对方。马上联系所在地的急救服务或警方，并请身边可信赖的人来协助。所在地未知时我不提供猜测号码。";
+    private static final String MEDICAL_INGESTION_FALLBACK =
+            "请立即联系所在地的急救服务或中毒咨询服务，或前往急诊，不要等待症状出现。不要自行催吐；请让身边可信赖的人陪着你或对方，并把药品包装或名称告诉医护人员。所在地未知时我不提供猜测号码。";
+    private static final String IMMEDIATE_SELF_HARM_FALLBACK =
+            "请马上离开高处、道路或其他危险位置，去有人的安全地方，不要继续实施伤害自己的行为。立即联系所在地的急救服务或警方，并请可信赖的人现在陪着你、协助你获得急诊帮助。所在地未知时我不提供猜测号码。";
 
     private final ModelPort model;
     private final ToolRuntime tools;
     private final RunJournal journal;
     private final JournalSettings journalSettings;
+    private final Supplier<ModelStreamObserver> streamObserver;
+    private final AgentActivityListener activityListener;
+    private final CrisisResourceDirectory crisisResources;
 
     /**
      * @param model 模型决策入口；不得为 null
@@ -71,10 +95,42 @@ public final class DefaultAgentLoop implements AgentLoop {
      */
     public DefaultAgentLoop(
             ModelPort model, ToolRuntime tools, RunJournal journal, JournalSettings journalSettings) {
+        this(
+                model,
+                tools,
+                journal,
+                journalSettings,
+                () -> ModelStreamObserver.NOOP,
+                AgentActivityListener.NOOP,
+                CrisisResourceDirectory.empty());
+    }
+
+    public DefaultAgentLoop(
+            ModelPort model,
+            ToolRuntime tools,
+            RunJournal journal,
+            JournalSettings journalSettings,
+            Supplier<ModelStreamObserver> streamObserver,
+            AgentActivityListener activityListener) {
+        this(model, tools, journal, journalSettings, streamObserver, activityListener,
+                CrisisResourceDirectory.empty());
+    }
+
+    public DefaultAgentLoop(
+            ModelPort model,
+            ToolRuntime tools,
+            RunJournal journal,
+            JournalSettings journalSettings,
+            Supplier<ModelStreamObserver> streamObserver,
+            AgentActivityListener activityListener,
+            CrisisResourceDirectory crisisResources) {
         this.model = Objects.requireNonNull(model, "model");
         this.tools = tools;
         this.journal = Objects.requireNonNull(journal, "journal");
         this.journalSettings = Objects.requireNonNull(journalSettings, "journalSettings");
+        this.streamObserver = Objects.requireNonNull(streamObserver, "streamObserver");
+        this.activityListener = Objects.requireNonNull(activityListener, "activityListener");
+        this.crisisResources = Objects.requireNonNull(crisisResources, "crisisResources");
     }
 
     /**
@@ -89,6 +145,10 @@ public final class DefaultAgentLoop implements AgentLoop {
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(budget, "budget");
 
+        CrisisRiskPolicy.Decision crisis = CrisisRiskPolicy.classify(input.userMessage());
+        if (crisis.requiresSafetyPath()) {
+            return deterministicCrisisResponse(input, crisis);
+        }
         List<ModelMessage> messages = buildInitialMessages(input);
         int completedDecisions = 0;
         int decideSequence = 0;
@@ -111,8 +171,10 @@ public final class DefaultAgentLoop implements AgentLoop {
 
             Instant decideStarted = Instant.now();
             List<ModelMessage> requestSnapshot = List.copyOf(messages);
-            ModelOutcome decision =
-                    model.decide(new ModelRequest(messages, input.toolDescriptors()), context);
+            ModelStreamObserver observer = safeObserver();
+            ModelOutcome decision;
+            decision = model.decide(
+                    new ModelRequest(messages, input.toolDescriptors()), context, observer);
             if (countsTowardDecisionBudget(decision, input.toolDescriptors())) {
                 completedDecisions++;
             }
@@ -261,6 +323,7 @@ public final class DefaultAgentLoop implements AgentLoop {
         for (ToolCallRequest call : calls) {
             String operationId = turnKey + ":s" + stepNumber + ":" + call.id();
             Instant toolStarted = Instant.now();
+            notifyToolStarted(input, call, operationId);
             ToolExecutionOutcome outcome;
             boolean systemTool = !toolCountsTowardBudget(call.name(), input.toolDescriptors());
             if (systemTool) {
@@ -286,7 +349,8 @@ public final class DefaultAgentLoop implements AgentLoop {
                                             turnKey,
                                             turnKey,
                                             input.toolDescriptors(),
-                                            input.pending()));
+                                            input.pending(),
+                                            new com.wannian.server.kernel.tool.ToolInvocationContext(input.userMessage(),input.conversationId(),input.turnId())));
                 }
             } else {
                 outcome =
@@ -297,9 +361,11 @@ public final class DefaultAgentLoop implements AgentLoop {
                                         turnKey,
                                         turnKey,
                                         input.toolDescriptors(),
-                                        input.pending()));
+                                        input.pending(),
+                                        new com.wannian.server.kernel.tool.ToolInvocationContext(input.userMessage(),input.conversationId(),input.turnId())));
             }
             Instant toolFinished = Instant.now();
+            notifyToolUpdated(input, call, operationId, outcome);
             journalToolCall(
                     turnKey,
                     conversationKey(input),
@@ -582,7 +648,74 @@ public final class DefaultAgentLoop implements AgentLoop {
                 stepNumber,
                 budget.hardDeadline(),
                 budget.cancelToken().isCancelled(),
-                turnKey);
+                turnKey,
+                () -> budget.cancelToken().isCancelled());
+    }
+
+    private ModelStreamObserver safeObserver() {
+        try {
+            ModelStreamObserver observer = streamObserver.get();
+            return observer == null ? ModelStreamObserver.NOOP : observer;
+        } catch (RuntimeException ex) {
+            return ModelStreamObserver.NOOP;
+        }
+    }
+
+    private void notifyToolStarted(AgentInput input, ToolCallRequest call, String operationId) {
+        try {
+            String rawArgs = call.argumentsJson();
+            if (rawArgs == null || rawArgs.isBlank()) {
+                rawArgs = "{}";
+            }
+            // 原始参数交给 ActivityListener；生产侧 StreamingActivityListener 用 TurnToolCallProjector 脱敏
+            activityListener.onToolStarted(
+                    input.conversationId(),
+                    input.turnId(),
+                    input.turnId().asString(),
+                    call.id(),
+                    operationId,
+                    call.name(),
+                    rawArgs);
+        } catch (RuntimeException ignored) {
+            // 运行投影不得打断 Loop
+        }
+    }
+
+    private void notifyToolUpdated(
+            AgentInput input,
+            ToolCallRequest call,
+            String operationId,
+            ToolExecutionOutcome outcome) {
+        try {
+            String status;
+            String errorCode = null;
+            if (outcome instanceof ToolExecutionOutcome.Succeeded) {
+                status = "SUCCEEDED";
+            } else if (outcome instanceof ToolExecutionOutcome.Failed failed) {
+                status = "FAILED";
+                errorCode = failed.code();
+            } else if (outcome instanceof ToolExecutionOutcome.Rejected rejected) {
+                status = "REJECTED";
+                errorCode = rejected.code();
+            } else if (outcome instanceof ToolExecutionOutcome.Unknown unknown) {
+                status = "UNKNOWN";
+                errorCode = unknown.code();
+            } else {
+                status = "UNKNOWN";
+            }
+            activityListener.onToolUpdated(
+                    input.conversationId(),
+                    input.turnId(),
+                    input.turnId().asString(),
+                    call.id(),
+                    operationId,
+                    call.name(),
+                    status,
+                    errorCode,
+                    null);
+        } catch (RuntimeException ignored) {
+            // 运行投影不得打断 Loop
+        }
     }
 
     private static List<ModelMessage> buildInitialMessages(AgentInput input) {
@@ -598,6 +731,88 @@ public final class DefaultAgentLoop implements AgentLoop {
             messages.add(new ModelMessage("system", input.conversationExcerpt()));
         }
         messages.add(new ModelMessage("user", input.userMessage()));
+        boolean rewrite =
+                input.userMessage() != null
+                        && (input.userMessage().startsWith("换一种说法")
+                                || input.userMessage().contains("近讯已去掉你上一句助手回复"));
+        messages.add(
+                new ModelMessage(
+                        "system", VoiceNudge.forTurn(input.turnId().asString(), rewrite)));
         return messages;
+    }
+
+    private AgentOutcome deterministicCrisisResponse(
+            AgentInput input, CrisisRiskPolicy.Decision decision) {
+        Instant now = Instant.now();
+        Optional<CrisisResourceDirectory.VerifiedResource> resource = Optional.empty();
+        String matchedRegionAlias = null;
+        try {
+            Optional<CrisisResourceDirectory.VerifiedResource> candidate =
+                    crisisResources.findForExplicitRegion(input.userMessage());
+            if (candidate != null) {
+                Optional<CrisisResourceDirectory.VerifiedResource> verified = candidate
+                        .filter(item -> item.isCurrent(now))
+                        .filter(item -> item.explicitlyNamedIn(input.userMessage()).isPresent());
+                if (verified.isPresent()) {
+                    resource = verified;
+                    matchedRegionAlias = verified.get().explicitlyNamedIn(input.userMessage()).orElse(null);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 资源目录不可用时保持未知地区通用回应，不猜号码。
+        }
+
+        String response;
+        if (decision.level() == CrisisRiskPolicy.Level.WATCH) {
+            response = DISTRESS_FALLBACK;
+        } else if (decision.reasons().contains("HARM_TO_OTHERS_EXPLICIT")) {
+            if (decision.reasons().contains("WEAPON_HELD_EXPLICIT")) {
+                response = HARM_TO_OTHERS_WITH_HELD_WEAPON_FALLBACK;
+            } else if (decision.reasons().contains("WEAPON_ACCESS_EXPLICIT")) {
+                response = HARM_TO_OTHERS_WITH_NEARBY_WEAPON_FALLBACK;
+            } else {
+                response = HARM_TO_OTHERS_FALLBACK;
+            }
+        } else if (decision.reasons().contains("MEDICATION_INGESTION_EXPLICIT")) {
+            response = MEDICAL_INGESTION_FALLBACK;
+        } else if (decision.reasons().contains("HARMFUL_ACT_EXPLICIT")) {
+            response = IMMEDIATE_SELF_HARM_FALLBACK;
+        } else {
+            response = CRISIS_FALLBACK;
+        }
+        String resourceFields = "";
+        if (decision.level() != CrisisRiskPolicy.Level.WATCH && resource.isPresent()) {
+            CrisisResourceDirectory.VerifiedResource verified = resource.get();
+            response += " 已核实的当地资源：" + verified.displayName() + "，联系方式："
+                    + verified.contact() + "（由 " + verified.verifiedBy() + " 于 "
+                    + verified.verifiedAt() + " 核验）。";
+            resourceFields = ",\"resourceRegion\":" + JournalJson.quote(verified.regionCode())
+                    + ",\"resourceName\":" + JournalJson.quote(verified.displayName())
+                    + ",\"resourceVerifiedAt\":" + JournalJson.quote(verified.verifiedAt().toString())
+                    + ",\"resourceVerifiedBy\":" + JournalJson.quote(verified.verifiedBy())
+                    + ",\"matchedRegionAlias\":" + JournalJson.quote(matchedRegionAlias);
+        }
+
+        String fallbackCode = "CRISIS_DETERMINISTIC_RESPONSE";
+        String reasonCodes = decision.reasons().stream()
+                .map(JournalJson::quote).collect(Collectors.joining(",", "[", "]"));
+        String requestJson = "{\"level\":" + JournalJson.quote(decision.level().name())
+                + ",\"reasonCodes\":" + reasonCodes + resourceFields + "}";
+        String resultJson = JournalJson.object("fallbackCode", fallbackCode,
+                "responseMode", "DETERMINISTIC_NO_MODEL_OR_TOOLS");
+        try {
+            journal.append(RunJournalEntry.of(
+                    input.turnId().asString(), conversationKey(input), 0,
+                    JournalActor.SYSTEM, JournalKind.CRISIS_DECISION,
+                    requestJson, resultJson, "RETURNED", fallbackCode, now, now));
+        } catch (RuntimeException ignored) {
+            // 审计存储失败不得阻断安全回应。
+        }
+
+        List<AgentTrace.Step> audit = List.of(
+                step(0, "CrisisRisk-" + decision.level(), 0, null,
+                        "CRISIS_SIGNALS_" + String.join("_", decision.reasons()), false),
+                step(0, "CrisisFallback", 0, null, fallbackCode, false));
+        return new AgentOutcome.FinalResponse(response, null, traceFrom(audit));
     }
 }

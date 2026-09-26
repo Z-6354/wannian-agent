@@ -35,6 +35,14 @@ public final class DefaultToolRuntime implements ToolRuntime {
         }
         ToolCatalog.CatalogEntry entry = entryOpt.get();
 
+        // The catalog is the registered superset; the current run context is the authorization boundary.
+        // Never execute a tool merely because it exists in the catalog (e.g. an extension configured off).
+        boolean visible = context.visibleTools().stream().anyMatch(tool -> tool.name().equals(entry.toolName()));
+        if (!visible) {
+            return new ToolExecutionOutcome.Rejected(
+                    opId, ErrorCodes.TOOLS_NOT_ENABLED, "本回合未开放工具: " + entry.toolName());
+        }
+
         ToolCallValidator.ValidationResult validation =
                 ToolCallValidator.validate(
                         entry, invocation.argumentsJson());
@@ -68,7 +76,8 @@ public final class DefaultToolRuntime implements ToolRuntime {
                                             entry.toolName(),
                                             invocation.argumentsJson(),
                                             context.visibleTools(),
-                                            context.pending()));
+                                            context.pending(),
+                                            context.invocationContext()));
         } catch (RuntimeException ex) {
             ToolExecutionOutcome failed =
                     new ToolExecutionOutcome.Failed(

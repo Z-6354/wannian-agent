@@ -45,8 +45,9 @@ public final class UpdateRelationshipToolAdapter implements ToolAdapter {
                     ToolJson.optionalString(fields, "preferredAddress").orElse(null);
             String boundaries = ToolJson.optionalString(fields, "boundaries").orElse(null);
 
+            CompanionIdentity turnCompanion = pending.companionIdentity();
             RelationshipToolDraft draft =
-                    new RelationshipToolDraft(companion, preferredAddress, boundaries, reason);
+                    new RelationshipToolDraft(turnCompanion, preferredAddress, boundaries, reason);
 
             String probeClaim =
                     String.join(
@@ -56,7 +57,7 @@ public final class UpdateRelationshipToolAdapter implements ToolAdapter {
                             draft.boundaries() == null ? "" : draft.boundaries());
             MemoryToolDraft probe =
                     new MemoryToolDraft(
-                            companion,
+                            turnCompanion,
                             "relationship.probe",
                             probeClaim,
                             ContentKind.USER_FACT,

@@ -12,8 +12,13 @@ import com.wannian.server.app.manage.AgentBudgetSettings;
 import com.wannian.server.app.memory.MemoryReviewTurnHooks;
 import com.wannian.server.app.model.EnabledModelPortResolver;
 import com.wannian.server.app.model.EnabledModelPortResolver.ResolveResult;
+import com.wannian.server.app.prompt.CompanionPromptService;
+import com.wannian.server.app.stream.DurableTurnScheduler;
+import com.wannian.server.app.stream.DurableTurnScheduler.ActiveTurnRegistry;
+import com.wannian.server.app.title.ConversationAutoTitleService;
 import com.wannian.server.kernel.agent.AgentBudget;
 import com.wannian.server.kernel.error.ErrorCodes;
+import com.wannian.server.kernel.prompt.CrisisRiskPolicy;
 import com.wannian.server.kernel.turn.ExecuteTurn;
 import com.wannian.server.kernel.turn.ExecuteTurnResult;
 import com.wannian.server.kernel.turn.ReceiveTurnPlan;
@@ -22,6 +27,9 @@ import com.wannian.server.kernel.turn.Turn;
 import com.wannian.server.kernel.turn.TurnCommitter;
 import com.wannian.server.kernel.turn.TurnEngine;
 import com.wannian.server.kernel.turn.TurnRepository;
+import com.wannian.server.kernel.persona.ConversationPersonaBinding;
+import com.wannian.server.kernel.persona.PersonaTurnSnapshot;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -38,13 +46,12 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>未启用模型时回合停在 RECEIVED，响应里说明原因。不发 SSE。
  * 完成时附带本回合 {@code toolCalls}（来自 turn_step；账本关闭则为空）。
+ *
+ * <p>0.2.4-C：同步路径也登记 {@link DurableTurnScheduler.ActiveTurnRegistry}，使 Stop 能取消。
  */
 @RestController
 @RequestMapping("/api/conversations/{conversationId}/turns")
 public class TurnController {
-
-    /** 本批固定人设；后续可改为 Companion 配置。 */
-    private static final String SYSTEM_INSTRUCTIONS = "你是万年，一个有帮助的助手。";
 
     /** 本批固定认领租约；后续可进 wannian.json。 */
     private static final Duration CLAIM_LEASE = Duration.ofSeconds(60);
@@ -57,7 +64,13 @@ public class TurnController {
     private final CompletedTurnReplyLoader completedReplies;
     private final MemoryReviewTurnHooks memoryReviewTurnHooks;
     private final TurnToolCallProjector toolCallProjector;
+    private final CompanionPromptService companionPromptService;
+    private final DurableTurnScheduler.ActiveTurnRegistry activeTurns;
+    private final ConversationAutoTitleService autoTitle;
     private final ObjectMapper objectMapper;
+    private ConversationPersonaBinding personaBindings;
+
+    @Autowired public void setPersonaBindings(ConversationPersonaBinding personaBindings) { this.personaBindings = personaBindings; }
 
     public TurnController(
             TurnCommitter turnCommitter,
@@ -68,6 +81,9 @@ public class TurnController {
             CompletedTurnReplyLoader completedReplies,
             MemoryReviewTurnHooks memoryReviewTurnHooks,
             TurnToolCallProjector toolCallProjector,
+            CompanionPromptService companionPromptService,
+            DurableTurnScheduler.ActiveTurnRegistry activeTurns,
+            ConversationAutoTitleService autoTitle,
             ObjectMapper objectMapper) {
         this.turnCommitter = turnCommitter;
         this.turns = turns;
@@ -77,6 +93,9 @@ public class TurnController {
         this.completedReplies = completedReplies;
         this.memoryReviewTurnHooks = memoryReviewTurnHooks;
         this.toolCallProjector = toolCallProjector;
+        this.companionPromptService = companionPromptService;
+        this.activeTurns = activeTurns;
+        this.autoTitle = autoTitle;
         this.objectMapper = objectMapper;
     }
 
@@ -141,26 +160,42 @@ public class TurnController {
         }
         Turn turn = found.get();
         if (turn.status() == TurnStatus.RECEIVED) {
-            ResolveResult resolved = modelPorts.resolve();
-            if (resolved instanceof ResolveResult.Rejected rejected) {
-                return HttpMapping.accepted(accepted, null, rejected.code(), rejected.detail(), null);
+            // 让确定性安全分流在模型启用检查之前进入 TurnEngine；这条路径不调用模型。
+            if (!CrisisRiskPolicy.classify(userMessage).requiresSafetyPath()) {
+                ResolveResult resolved = modelPorts.resolve();
+                if (resolved instanceof ResolveResult.Rejected rejected) {
+                    return HttpMapping.accepted(accepted, null, rejected.code(), rejected.detail(), null);
+                }
             }
         }
 
         Instant now = Instant.now();
+        PersonaTurnSnapshot persona = personaBindings == null ? null : personaBindings.resolveForTurn(turn.conversationId(), accepted.turnId());
         AgentBudget budget = budgetSettings.createBudget(now);
-        ExecuteTurnResult outcome =
-                turnEngine.execute(
-                        new ExecuteTurn(
-                                accepted.turnId(),
-                                userMessage,
-                                SYSTEM_INSTRUCTIONS,
-                                budget,
-                                CLAIM_LEASE));
+        activeTurns.register(
+                accepted.turnId(),
+                turn.conversationId(),
+                budget.cancelToken(),
+                Thread.currentThread());
+        ExecuteTurnResult outcome;
+        try {
+            outcome =
+                    turnEngine.execute(
+                            new ExecuteTurn(
+                                    accepted.turnId(),
+                                    userMessage,
+                                    persona == null ? companionPromptService.composeSystemInstructions() : companionPromptService.composeSystemInstructions(persona),
+                                    budget,
+                                    CLAIM_LEASE,
+                                    persona));
+        } finally {
+            activeTurns.unregister(accepted.turnId());
+        }
         String turnKey = accepted.turnId().asString();
         return switch (outcome) {
             case ExecuteTurnResult.Replied replied -> {
-                memoryReviewTurnHooks.afterTurnCompleted(turn.conversationId());
+                memoryReviewTurnHooks.afterTurnCompleted(turn.conversationId(), persona==null?com.wannian.server.kernel.memory.CompanionIdentity.YANHUO:persona.companionIdentity());
+                autoTitle.scheduleAfterCompleted(turn.conversationId(), accepted.turnId());
                 yield HttpMapping.accepted(
                         accepted, replied.text(), null, null, toolCallProjector.listForTurn(turnKey));
             }

@@ -1,6 +1,6 @@
 # Wannian 指导文档
 
-`status`: **v0.1 已封版** — 手册不授权 commit、push 或发布。下一步是 **v0.2**（正式小版本 **0.2.1–0.2.7**），看 [实施清单](01-checklist.md)、[路线图](../plans/roadmap.md) 与 [0.2.1 施工单](../plans/k01-agent-loop.md)。版本定义在 [产品概览](../product/01-overview.md)。
+`status`: **v0.1 已封版** — 手册不授权 commit、push 或发布。v0.2 正式小版本 **0.2.1–0.2.7**：**0.2.1–0.2.4 已交付**，下一 **0.2.5**。见 [实施清单](01-checklist.md)、[路线图](../plans/roadmap.md)。版本定义在 [产品概览](../product/01-overview.md)。
 
 这里是编程手册，不得反向改写版本边界。历史交付（骨架、持久化、管理页、直接回答）已合并。v0.3 的世界树与多核不在本目录开工。
 
@@ -34,6 +34,7 @@ Codex 可以解释、审查和提供更小的示例，但未经用户改变分�
 | [05-agent-loop.md](./05-agent-loop.md) | **0.2.1**：用户亲自实现 Agent Loop |
 | [06-memory.md](./06-memory.md) | **0.2.3**：用户亲自实现记忆与关系 |
 | [07-testing.md](./07-testing.md) | 测试与故障练习；回归矩阵 R01—R12；**§1.1 真人实机禁 Fake、能力由 harness 自证** |
+| [09-configuration.md](./09-configuration.md) | **运行时配置真源**：yml / 环境变量；禁止业务默认硬编码 |
 | [history/08-manage-adapter.md](./history/08-manage-adapter.md) | 历史 H4：管理页与模型适配器批次记录 |
 
 ## 4. 使用方法

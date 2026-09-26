@@ -3,6 +3,7 @@ package com.wannian.server.app.http;
 import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
+import com.wannian.server.kernel.conversation.ConversationMutationResult;
 import com.wannian.server.kernel.conversation.CreateConversationResult;
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.turn.ReceiveTurnResult;
@@ -110,6 +111,23 @@ final class HttpMapping {
         return uuid(raw).map(MessageId::new);
     }
 
+    static ResponseEntity<ConversationDetailResponse> conversationMutation(
+            ConversationMutationResult result) {
+        return switch (result) {
+            case ConversationMutationResult.Ok ok ->
+                    ResponseEntity.ok(ConversationDetailResponse.from(ok.conversation()));
+            case ConversationMutationResult.Rejected rejected ->
+                    ResponseEntity.status(statusFor(rejected.reasonCode()))
+                            .body(ConversationDetailResponse.rejected(
+                                    rejected.reasonCode(), rejected.detail()));
+        };
+    }
+
+    /** 供 Controller 映射公开错误码。 */
+    static HttpStatus statusForPublic(String reasonCode) {
+        return statusFor(reasonCode);
+    }
+
     private static Optional<UUID> uuid(String raw) {
         if (raw == null || raw.isBlank()) {
             return Optional.empty();
@@ -123,8 +141,15 @@ final class HttpMapping {
 
     private static HttpStatus statusFor(String reasonCode) {
         return switch (reasonCode) {
-            case ErrorCodes.CONVERSATION_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case ErrorCodes.PERSISTENCE_FAILED, ErrorCodes.RETRYABLE_BUSY -> HttpStatus.SERVICE_UNAVAILABLE;
+            case ErrorCodes.CONVERSATION_NOT_FOUND, ErrorCodes.TURN_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case ErrorCodes.REVISION_CONFLICT,
+                    ErrorCodes.CONVERSATION_BUSY,
+                    ErrorCodes.CLIENT_REQUEST_CONFLICT,
+                    ErrorCodes.STOP_NOT_ALLOWED -> HttpStatus.CONFLICT;
+            case ErrorCodes.PERSISTENCE_FAILED, ErrorCodes.RETRYABLE_BUSY ->
+                    HttpStatus.SERVICE_UNAVAILABLE;
+            case ErrorCodes.UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
+            case ErrorCodes.MANAGE_UNCONFIGURED -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
     }

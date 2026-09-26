@@ -25,12 +25,23 @@ public class ModelVendorStore {
     private final DataSource dataSource;
     private final VendorAdapterResolver adapters;
     private final ModelCatalogCache catalogCache;
+    private final VendorPresetSource presets;
+    private final VendorSecretStore secrets;
+    private final VendorCredentialAccess credentials;
 
     public ModelVendorStore(
-            DataSource dataSource, VendorAdapterResolver adapters, ModelCatalogCache catalogCache) {
+            DataSource dataSource,
+            VendorAdapterResolver adapters,
+            ModelCatalogCache catalogCache,
+            VendorPresetSource presets,
+            VendorSecretStore secrets,
+            VendorCredentialAccess credentials) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.adapters = Objects.requireNonNull(adapters, "adapters");
         this.catalogCache = Objects.requireNonNull(catalogCache, "catalogCache");
+        this.presets = Objects.requireNonNull(presets, "presets");
+        this.secrets = Objects.requireNonNull(secrets, "secrets");
+        this.credentials = Objects.requireNonNull(credentials, "credentials");
     }
 
     public List<VendorBody> list() {
@@ -45,9 +56,101 @@ public class ModelVendorStore {
                 ResultSet rs = ps.executeQuery()) {
             List<VendorBody> rows = new ArrayList<>();
             while (rs.next()) {
-                rows.add(readVendor(rs));
+                rows.add(toVendorBody(rs));
             }
             return List.copyOf(rows);
+        } catch (SQLException ex) {
+            throw new ManagePersistenceException(ex);
+        }
+    }
+
+    public List<ManageBodies.PresetBody> listPresets() {
+        List<ManageBodies.PresetBody> out = new ArrayList<>();
+        for (VendorPreset preset : presets.list()) {
+            boolean connected = false;
+            try (Connection connection = dataSource.getConnection()) {
+                connected = findRevision(connection, preset.id()) != null;
+            } catch (SQLException ex) {
+                throw new ManagePersistenceException(ex);
+            }
+            out.add(
+                    new ManageBodies.PresetBody(
+                            preset.id(),
+                            preset.displayName(),
+                            preset.protocol(),
+                            preset.baseUrl(),
+                            connected,
+                            credentials.hasCredential(preset.id(), preset.apiKeyEnvHint())));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * 按内置 Preset 连接：写密钥文件并 upsert {@code model_vendor} 行（字段来自 Preset）。
+     */
+    public SaveResult connect(String id, ManageBodies.ConnectVendorRequest request) {
+        if (!VendorRules.validId(id)) {
+            return SaveResult.rejected(ManageReason.ILLEGAL_ARGUMENT, "供应商 id 不合法");
+        }
+        if (request == null || request.apiKey() == null || request.apiKey().isBlank()) {
+            return SaveResult.rejected(ManageReason.ILLEGAL_ARGUMENT, "apiKey 不能为空");
+        }
+        VendorPreset preset = presets.find(id).orElse(null);
+        if (preset == null) {
+            return SaveResult.rejected(ManageReason.ILLEGAL_ARGUMENT, "不是内置供应商，无法连接");
+        }
+        VendorRules.Check check =
+                VendorRules.check(
+                        preset.displayName(),
+                        preset.protocol(),
+                        preset.baseUrl(),
+                        preset.apiKeyEnvHint());
+        if (check instanceof VendorRules.Check.Bad bad) {
+            return SaveResult.rejected(bad.code(), bad.detail());
+        }
+        VendorRules.Check.OkFields ok = (VendorRules.Check.OkFields) check;
+        String now = Instant.now().toString();
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                Long current = findRevision(connection, id);
+                boolean created;
+                if (current == null) {
+                    insert(connection, id, ok, now);
+                    created = true;
+                } else {
+                    if (request.expectedRevision() != null && request.expectedRevision() != current) {
+                        connection.rollback();
+                        return SaveResult.rejected(ManageReason.REVISION_CONFLICT, "revision 与库中不一致");
+                    }
+                    int updated = update(connection, id, ok, current, now);
+                    if (updated != 1) {
+                        connection.rollback();
+                        return SaveResult.rejected(ManageReason.REVISION_CONFLICT, "revision 与库中不一致");
+                    }
+                    created = false;
+                }
+                secrets.write(preset.secretId(), request.apiKey());
+                // 同源网关（共享 secretId）一并登记，避免只连 Responses 却看不到 Chat 模型。
+                ensureSecretSiblings(connection, preset, now);
+                rebalanceSharedCatalogListed(connection, preset.secretId());
+                connection.commit();
+                catalogCache.invalidate(id);
+                for (VendorPreset sibling : presets.list()) {
+                    if (preset.secretId().equals(sibling.secretId())) {
+                        catalogCache.invalidate(sibling.id());
+                    }
+                }
+                return new SaveResult.Saved(load(connection, id), created);
+            } catch (SQLException ex) {
+                rollbackQuietly(connection);
+                throw new ManagePersistenceException(ex);
+            } catch (RuntimeException ex) {
+                rollbackQuietly(connection);
+                throw ex;
+            } finally {
+                connection.setAutoCommit(true);
+            }
         } catch (SQLException ex) {
             throw new ManagePersistenceException(ex);
         }
@@ -134,6 +237,10 @@ public class ModelVendorStore {
                 }
                 connection.commit();
                 catalogCache.invalidate(id);
+                String secretId = presets.find(id).map(VendorPreset::secretId).orElse(id);
+                if (!secretStillInUse(connection, secretId, id)) {
+                    secrets.delete(secretId);
+                }
                 return new DeleteResult.Deleted();
             } catch (SQLException | RuntimeException ex) {
                 rollbackQuietly(connection);
@@ -403,7 +510,7 @@ public class ModelVendorStore {
         }
     }
 
-    private static VendorBody load(Connection connection, String id) throws SQLException {
+    private VendorBody load(Connection connection, String id) throws SQLException {
         String sql =
                 """
                 SELECT id, display_name, protocol, base_url, api_key_env, revision
@@ -415,19 +522,23 @@ public class ModelVendorStore {
                 if (!rs.next()) {
                     throw new SQLException("刚写入的供应商读不回来");
                 }
-                return readVendor(rs);
+                return toVendorBody(rs);
             }
         }
     }
 
-    private static VendorBody readVendor(ResultSet rs) throws SQLException {
+    private VendorBody toVendorBody(ResultSet rs) throws SQLException {
+        String id = rs.getString("id");
+        String apiKeyEnv = rs.getString("api_key_env");
         return new VendorBody(
-                rs.getString("id"),
+                id,
                 rs.getString("display_name"),
                 rs.getString("protocol"),
                 rs.getString("base_url"),
-                rs.getString("api_key_env"),
-                rs.getLong("revision"));
+                apiKeyEnv,
+                rs.getLong("revision"),
+                credentials.hasCredential(id, apiKeyEnv),
+                presets.find(id).isPresent());
     }
 
     private static Long findRevision(Connection connection, String id) throws SQLException {
@@ -470,7 +581,7 @@ public class ModelVendorStore {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, id);
             ps.setString(2, ok.displayName());
-            ps.setString(3, StubModelCatalog.PROTOCOL);
+            ps.setString(3, ok.protocol());
             ps.setString(4, ok.baseUrl());
             ps.setString(5, ok.apiKeyEnv());
             ps.setString(6, now);
@@ -491,7 +602,7 @@ public class ModelVendorStore {
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, ok.displayName());
-            ps.setString(2, StubModelCatalog.PROTOCOL);
+            ps.setString(2, ok.protocol());
             ps.setString(3, ok.baseUrl());
             ps.setString(4, ok.apiKeyEnv());
             ps.setString(5, now);
@@ -500,6 +611,150 @@ public class ModelVendorStore {
             return ps.executeUpdate();
         }
     }
+
+    /** 共享密钥的其它协议一并 upsert，便于一次连接两套目录。 */
+    private void ensureSecretSiblings(Connection connection, VendorPreset preset, String now)
+            throws SQLException {
+        for (VendorPreset sibling : presets.list()) {
+            if (!preset.secretId().equals(sibling.secretId()) || sibling.id().equals(preset.id())) {
+                continue;
+            }
+            VendorRules.Check check =
+                    VendorRules.check(
+                            sibling.displayName(),
+                            sibling.protocol(),
+                            sibling.baseUrl(),
+                            sibling.apiKeyEnvHint());
+            if (check instanceof VendorRules.Check.Bad) {
+                continue;
+            }
+            VendorRules.Check.OkFields ok = (VendorRules.Check.OkFields) check;
+            Long revision = findRevision(connection, sibling.id());
+            if (revision == null) {
+                insert(connection, sibling.id(), ok, now);
+            } else {
+                update(connection, sibling.id(), ok, revision, now);
+            }
+        }
+    }
+
+    /**
+     * 把错挂在 Responses 供应商下的 Chat 模型（及反向）挪到对应协议行。
+     * 目标行不存在时跳过该条。
+     */
+    private void rebalanceSharedCatalogListed(Connection connection, String secretId)
+            throws SQLException {
+        String responsesVendor = null;
+        String chatVendor = null;
+        for (VendorPreset preset : presets.list()) {
+            if (!secretId.equals(preset.secretId())) {
+                continue;
+            }
+            if (StubModelCatalog.isResponsesProtocol(preset.protocol())) {
+                responsesVendor = preset.id();
+            } else if (StubModelCatalog.PROTOCOL.equals(preset.protocol())) {
+                chatVendor = preset.id();
+            }
+        }
+        if (responsesVendor == null || chatVendor == null) {
+            return;
+        }
+        if (findRevision(connection, responsesVendor) == null
+                || findRevision(connection, chatVendor) == null) {
+            return;
+        }
+        String sql =
+                """
+                SELECT vendor_id, model_id, display_name, enabled, added_at
+                FROM model_listed
+                WHERE vendor_id IN (?, ?)
+                """;
+        List<ListedRow> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, responsesVendor);
+            ps.setString(2, chatVendor);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.add(
+                            new ListedRow(
+                                    rs.getString("vendor_id"),
+                                    rs.getString("model_id"),
+                                    rs.getString("display_name"),
+                                    rs.getInt("enabled") == 1,
+                                    rs.getString("added_at")));
+                }
+            }
+        }
+        for (ListedRow row : rows) {
+            boolean responsesFamily =
+                    VendorCatalogProtocolFilter.isResponsesFamily(
+                            new ModelCatalogEntry(row.modelId(), row.displayName()));
+            String target = responsesFamily ? responsesVendor : chatVendor;
+            if (target.equals(row.vendorId())) {
+                continue;
+            }
+            moveListed(connection, row, target);
+        }
+    }
+
+    private static void moveListed(Connection connection, ListedRow row, String targetVendorId)
+            throws SQLException {
+        if (isListed(connection, targetVendorId, row.modelId())) {
+            if (row.enabled()) {
+                try (PreparedStatement clear =
+                        connection.prepareStatement("UPDATE model_listed SET enabled = 0 WHERE enabled = 1")) {
+                    clear.executeUpdate();
+                }
+                try (PreparedStatement enable =
+                        connection.prepareStatement(
+                                """
+                                UPDATE model_listed
+                                SET enabled = 1
+                                WHERE vendor_id = ? AND model_id = ?
+                                """)) {
+                    enable.setString(1, targetVendorId);
+                    enable.setString(2, row.modelId());
+                    enable.executeUpdate();
+                }
+            }
+            try (PreparedStatement drop =
+                    connection.prepareStatement(
+                            "DELETE FROM model_listed WHERE vendor_id = ? AND model_id = ?")) {
+                drop.setString(1, row.vendorId());
+                drop.setString(2, row.modelId());
+                drop.executeUpdate();
+            }
+            return;
+        }
+        try (PreparedStatement move =
+                connection.prepareStatement(
+                        """
+                        UPDATE model_listed
+                        SET vendor_id = ?
+                        WHERE vendor_id = ? AND model_id = ?
+                        """)) {
+            move.setString(1, targetVendorId);
+            move.setString(2, row.vendorId());
+            move.setString(3, row.modelId());
+            move.executeUpdate();
+        }
+    }
+
+    private boolean secretStillInUse(Connection connection, String secretId, String deletedVendorId)
+            throws SQLException {
+        for (VendorPreset preset : presets.list()) {
+            if (!secretId.equals(preset.secretId()) || preset.id().equals(deletedVendorId)) {
+                continue;
+            }
+            if (findRevision(connection, preset.id()) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private record ListedRow(
+            String vendorId, String modelId, String displayName, boolean enabled, String addedAt) {}
 
     private static void rollbackQuietly(Connection connection) {
         try {

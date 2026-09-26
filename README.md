@@ -1,24 +1,61 @@
-# wannian
+# wannian-ui
 
-`last_updated`: 2026-09-20  
-`status`: **v0.1 已封版** — 直接回答已交付。下一步 v0.2。进度：[清单](./docs/guide/01-checklist.md) · 排期：[路线图](./docs/plans/roadmap.md)。
+`wannian-ui` 是与 `wn-server` 同级的独立样式包。它只提供 `/ui/` 下所有 Client 共用的 tokens、themes、components 与 layouts。管理页、对话页和浏览器端 API adapter 在 `wn-server/app` 内，不在本模块。
 
-## 一句话
+消费端按固定顺序引入：
 
-个人单用户陪伴助手：**wn-server 为唯一大脑**。v0.2 在一个节点上做成 harness。v0.3 才加世界树和多核。电脑手脚 **wn-agent 更后**。
+```html
+<link rel="stylesheet" href="/ui/tokens.css">
+<link rel="stylesheet" href="/ui/themes/paper.css">
+<link rel="stylesheet" href="/ui/components.css">
+<link rel="stylesheet" href="/ui/layouts/console.css">
+```
 
-## 文档
+- `tokens.css`：与主题无关的间距、圆角、控件高度、动效与 elevation；并提供可被主题覆盖的字体栈与标题/标签表达默认值。
+- `themes/paper.css`：**默认入口**（页面 HTML 仍链此文件），内容为 DeepSeek Harness 网页端浅色调色板。
+- `themes/deepseek.css`：与 `paper.css` 同值的命名副本，便于文档与一键替换对照。
+- `themes/deepseek-dark.css`：可选深色主题（同套 DSH 语义色）。
+- `themes/hermes.css`：可选深青黑主题（窄体英文气质）。
+- `themes/mono-light.css`、`themes/mono-dark.css`：可选黑白主题。
+- `components.css`：无业务语义的按钮、字段、提示条、空状态与无障碍基础样式。
+- `layouts/console.css`：控制台壳、导航、卡片、表格、对话框。
+- `layouts/chat.css`：对话 Client 可复用的主页面布局。
 
-| 入口 | 说明 |
-|------|------|
-| [docs/README.md](./docs/README.md) | 文档总索引 |
-| [产品概览](./docs/product/01-overview.md) | **v0.1 / v0.2 / v0.3** |
-| [内核合同](./docs/decisions/01-contract.md) | Turn 与提交形状；版本档次以概览为准 |
-| [实施清单](./docs/guide/01-checklist.md) | 唯一进度勾选 |
-| [路线图](./docs/plans/roadmap.md) | 唯一批次顺序 |
-| [K01 施工单](./docs/plans/k01-agent-loop.md) | v0.2 第一步 |
-| [补修放行](./docs/reviews/02-release-h3.md) | 历史 H3 关闭证据 |
+换主题时只替换中间那一行的 theme 文件，不要改组件类名。例如深色：
 
-## 代码
+```html
+<link rel="stylesheet" href="/ui/themes/deepseek-dark.css">
+```
 
-`wn-server/`：`api` · `kernel` · `app`。依赖方向 `app → kernel → api`。构建与冒烟见 [wn-server/README.md](./wn-server/README.md)。
+## 模块接口
+
+页面只需要选择一个主题、一个布局，并使用模块提供的语义类名。颜色、控件状态、响应式和视觉变体都在本模块内维护；业务 HTML、页面 JavaScript 和 API adapter 不属于本模块，由 `wn-server/app` 维护。
+
+布局可以不同：管理端使用 `console.css`，对话页使用 `chat.css`。主题可以相同，也可以由未来 Client 自主选择。共享视觉语言不等于共享页面壳。
+
+主题文件除颜色外，还可覆盖：
+
+- `--font-sans` / `--font-display` / `--font-brand` / `--font-mono`
+- `--heading-size` / `--heading-tracking` / `--heading-line-height`
+- `--label-transform` / `--label-tracking`
+- `--button-transform` / `--button-tracking`
+- `--brand-transform` / `--brand-tracking` / `--brand-sub-writing-mode` / `--brand-mark-rotate`
+- `--sidebar-*`（含 `--sidebar-pattern`、`--sidebar-accent`）
+- `--bubble-user` / `--bubble-assistant` / `--link` / `--scrollbar-thumb*`
+- `--elevation-stroke-color` / `--elevation-panel` / `--elevation-soft` / `--elevation-prominent`
+- `--theme-glow` / `--theme-noise-opacity`
+
+默认（DeepSeek Harness）字体角色：
+
+| Token | 用途 | 栈 |
+| --- | --- | --- |
+| `--font-sans` | 正文、按钮、标签、导航、标题 | 系统 UI / PingFang / 微软雅黑 |
+| `--font-display` | 页面标题、卡片标题 | 同 sans |
+| `--font-brand` | 侧栏品牌名 | 同 sans |
+| `--font-mono` | 状态行、代码感文案 | SF Mono / JetBrains Mono / Consolas |
+
+## 参考与边界
+
+默认视觉对齐本地 `0HAN/Work/deepseek-harness` 的 `packages/client/ui-theme`（浅色 alias、发丝 elevation、浅蓝用户气泡、浅色侧栏）。不复制 DSH 业务组件或商标素材；只映射公开语义 token。
+
+不要在本模块加入业务文案、API 或页面状态管理。不要在业务目录重写 button、field、banner、card、table、dialog、status 等已有原语。新增跨页面视觉值时先补 token；新增页面形态时在 `layouts/` 增加独立布局，不把所有样式加载到同一页面。

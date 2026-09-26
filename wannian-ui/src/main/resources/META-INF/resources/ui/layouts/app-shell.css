@@ -1,12 +1,10 @@
 :root {
   --content-max: 1240px;
-  --sidebar-pattern-size: 28px 28px;
+  --sidebar-pattern-size: auto;
 }
 
 html {
   height: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #c4b29a transparent;
 }
 
 .shell {
@@ -26,10 +24,11 @@ html {
   height: 100dvh;
   flex-direction: column;
   overflow: hidden;
-  padding: 24px 16px 18px;
+  padding: 12px 12px 18px;
   color: var(--sidebar-ink);
   background: var(--sidebar-surface);
   background-size: var(--sidebar-pattern-size);
+  border-right: 0.5px solid var(--sidebar-border);
 }
 
 .sidebar::after {
@@ -37,7 +36,7 @@ html {
   right: -52px;
   bottom: -96px;
   z-index: 0;
-  color: #fff;
+  color: var(--sidebar-ink);
   content: var(--sidebar-watermark);
   font-family: var(--font-brand);
   font-size: 260px;
@@ -53,24 +52,27 @@ html {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin: 0;
+  padding: 8px 4px;
   flex: 0 0 auto;
 }
 
 .brand-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   place-items: center;
   border: 1px solid var(--brand-mark-border);
+  border-radius: 8px;
   color: var(--brand-mark-ink);
   background: var(--brand-mark-bg);
   font-family: var(--font-brand);
-  font-size: 24px;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
-  transform: rotate(-3deg);
+  transform: rotate(var(--brand-mark-rotate, 0deg));
 }
 
 .brand-copy {
@@ -79,20 +81,22 @@ html {
 
 .brand-name {
   margin: 0;
-  color: #fff;
+  color: var(--sidebar-ink);
   font-family: var(--font-sans);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--brand-tracking);
+  text-transform: var(--brand-transform);
 }
 
 .brand-sub {
-  margin: 3px 0 0;
-  color: rgb(255 255 255 / 58%);
+  margin: 2px 0 0;
+  color: var(--sidebar-muted);
   font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--brand-sub-tracking);
+  writing-mode: var(--brand-sub-writing-mode);
   white-space: nowrap;
 }
 
@@ -102,7 +106,7 @@ html {
   display: grid;
   align-content: start;
   gap: 2px;
-  margin-top: 28px;
+  margin-top: 16px;
   padding: 0;
   flex: 0 0 auto;
   width: 100%;
@@ -110,12 +114,12 @@ html {
 
 .nav-group {
   margin: 14px 8px 2px;
-  color: rgb(255 255 255 / 42%);
+  color: var(--sidebar-muted);
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -128,23 +132,23 @@ html {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: rgb(255 255 255 / 64%);
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--sidebar-muted);
   font-family: var(--font-sans);
   font-size: 14px;
+  font-weight: 500;
   line-height: 1.25;
   text-decoration: none;
   white-space: nowrap;
   transition:
-    color var(--duration-fast),
-    background var(--duration-fast),
-    box-shadow var(--duration-fast);
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
 }
 
 .nav-icon {
-  width: 19px;
-  flex: 0 0 19px;
+  width: 18px;
+  flex: 0 0 18px;
   color: inherit;
   font-family: var(--font-sans);
   font-size: 14px;
@@ -154,23 +158,24 @@ html {
 }
 
 .nav-link:hover {
-  color: #fff;
-  background: rgb(255 255 255 / 7%);
+  color: var(--sidebar-ink);
+  background: var(--sidebar-hover);
+  text-decoration: none;
 }
 
 .nav-link[aria-current="page"] {
-  color: #fff;
-  background: rgb(255 255 255 / 10%);
-  box-shadow: inset 3px 0 0 var(--sidebar-accent);
+  color: var(--sidebar-ink);
+  background: var(--sidebar-current);
+  box-shadow: none;
 }
 
 .nav-link[aria-current="page"] .nav-icon {
-  color: #fff;
+  color: var(--sidebar-accent);
   opacity: 1;
 }
 
 .nav-link:focus-visible {
-  outline: 2px solid rgb(255 255 255 / 48%);
+  outline: 2px solid color-mix(in srgb, var(--ring) 45%, transparent);
   outline-offset: 2px;
 }
 
@@ -179,8 +184,13 @@ html {
   z-index: 1;
   min-width: 0;
   min-height: 100%;
-  padding: 52px clamp(28px, 5vw, 76px) 36px;
+  padding: 28px clamp(24px, 4vw, 56px) 28px;
   background: var(--workspace-bg);
+}
+
+/* 0.2.4-D：对话页自管内边距，给会话侧栏全高栅格 */
+.workspace.chat-workspace {
+  padding: 0;
 }
 
 .content-frame {
@@ -192,9 +202,9 @@ html {
 .page-head {
   display: flex;
   justify-content: space-between;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .page-head-text {
@@ -202,7 +212,7 @@ html {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 14px;
+  gap: 10px 12px;
 }
 
 .page-head-text h1 {
@@ -212,10 +222,10 @@ html {
 .page-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
   align-items: center;
-  padding-top: 10px;
+  padding-top: 4px;
 }
 
 .page-status {
@@ -223,11 +233,12 @@ html {
   align-items: center;
   gap: 6px;
   margin: 0;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
   color: var(--muted-strong);
-  background: var(--surface-card);
+  background: var(--surface-subtle);
+  box-shadow: var(--elevation-panel);
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.4;
@@ -238,15 +249,13 @@ html {
 }
 
 .page-status[data-tone="ok"] {
-  border-color: color-mix(in srgb, var(--ok) 28%, var(--border));
   color: color-mix(in srgb, var(--ok) 75%, var(--ink));
-  background: color-mix(in srgb, var(--ok) 8%, var(--surface-card));
+  background: color-mix(in srgb, var(--ok) 10%, var(--surface-card));
 }
 
 .page-status[data-tone="warn"] {
-  border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
   color: color-mix(in srgb, var(--warn) 80%, var(--ink));
-  background: color-mix(in srgb, var(--warn) 10%, var(--surface-card));
+  background: color-mix(in srgb, var(--warn) 12%, var(--surface-card));
 }
 
 .mobile-head,
@@ -262,15 +271,16 @@ html {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    min-height: 56px;
+    min-height: 52px;
     padding: var(--space-2) var(--space-4);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0.5px solid var(--border);
     background: var(--bg);
   }
 
   .mobile-head strong {
     font-family: var(--font-sans);
-    letter-spacing: 0.06em;
+    font-weight: 600;
+    letter-spacing: 0;
   }
 
   .mobile-nav-toggle {
@@ -319,7 +329,7 @@ html {
   }
 
   .workspace {
-    padding: 24px var(--space-4) var(--space-6);
+    padding: 20px var(--space-4) var(--space-6);
   }
 
   .page-head {

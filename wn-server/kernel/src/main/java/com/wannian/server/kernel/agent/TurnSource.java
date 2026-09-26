@@ -8,7 +8,7 @@ package com.wannian.server.kernel.agent;
 public enum TurnSource {
     /** 用户主动发话。 */
     USER,
-    /** 世界事件投递给烟火（预留）。 */
+    /** 世界事件投递给杜小洛（预留）。 */
     WORLD,
     /** 日程/定时触发（预留）。 */
     SCHEDULE,

@@ -19,8 +19,9 @@ import java.util.Objects;
  * <p><b>行为</b>
  *
  * <ul>
- *   <li>读 {@link MemoryStore#listActive}（仅 yanhuo）→ {@link MemoryDecay#shouldTombstone}
- *       （A+B 两条款）→ 经 {@link MemoryCommand#tombstone} 短事务 CAS；<strong>零 LLM</strong>。
+ *   <li>读 {@link MemoryStore#companionsWithActiveMemories} 下各伴身 {@link MemoryStore#listActive}
+ *       → {@link MemoryDecay#shouldTombstone}（A+B 两条款）→ 经 {@link MemoryCommand#tombstone}
+ *       短事务 CAS；<strong>零 LLM</strong>。
  *   <li>单次 {@link #scanOnce} 最多尝试 {@code batchLimit} 个墓碑候选（yml {@code
  *       wannian.memory.tombstone.batch-limit}）。先应用纯 {@link MemoryDecay#shouldTombstone}
  *       过滤，再限制 CAS 尝试数，避免 ACTIVE 列表按新到旧排序时旧候选被新记录永久挡住。
@@ -61,39 +62,41 @@ public final class SqliteDefaultTombstoneScanner implements MemoryTombstoneScann
     @Override
     public int scanOnce() {
         Instant now = Instant.now(clock);
-        List<StoredMemoryRecord> active = memoryStore.listActive(CompanionIdentity.YANHUO);
-        List<StoredMemoryRecord> candidates =
-                active.stream()
-                        .filter(
-                                row -> {
-                                    Duration age = Duration.between(row.createdAt(), now);
-                                    return MemoryDecay.shouldTombstone(row.importance(), age);
-                                })
-                        .sorted(
-                                Comparator.comparing(StoredMemoryRecord::createdAt)
-                                        .thenComparing(StoredMemoryRecord::id))
-                        .toList();
         int success = 0;
         int attempted = 0;
-        for (StoredMemoryRecord row : candidates) {
-            if (attempted >= batchLimit) {
-                break;
-            }
-            attempted++;
-            MemoryCommand.CommandResult result =
-                    memoryCommand.tombstone(row.id(), row.revision());
-            if (result instanceof MemoryCommand.CommandResult.Applied) {
-                success++;
-            } else if (result instanceof MemoryCommand.CommandResult.Rejected rejected) {
-                LOG.log(
-                        System.Logger.Level.WARNING,
-                        () ->
-                                "tombstone 跳过 id="
-                                        + row.id()
-                                        + " code="
-                                        + rejected.code()
-                                        + " "
-                                        + rejected.message());
+        for (CompanionIdentity companion : memoryStore.companionsWithActiveMemories()) {
+            List<StoredMemoryRecord> active = memoryStore.listActive(companion);
+            List<StoredMemoryRecord> candidates =
+                    active.stream()
+                            .filter(
+                                    row -> {
+                                        Duration age = Duration.between(row.createdAt(), now);
+                                        return MemoryDecay.shouldTombstone(row.importance(), age);
+                                    })
+                            .sorted(
+                                    Comparator.comparing(StoredMemoryRecord::createdAt)
+                                            .thenComparing(StoredMemoryRecord::id))
+                            .toList();
+            for (StoredMemoryRecord row : candidates) {
+                if (attempted >= batchLimit) {
+                    return success;
+                }
+                attempted++;
+                MemoryCommand.CommandResult result =
+                        memoryCommand.tombstone(row.id(), row.revision());
+                if (result instanceof MemoryCommand.CommandResult.Applied) {
+                    success++;
+                } else if (result instanceof MemoryCommand.CommandResult.Rejected rejected) {
+                    LOG.log(
+                            System.Logger.Level.WARNING,
+                            () ->
+                                    "tombstone 跳过 id="
+                                            + row.id()
+                                            + " code="
+                                            + rejected.code()
+                                            + " "
+                                            + rejected.message());
+                }
             }
         }
         return success;

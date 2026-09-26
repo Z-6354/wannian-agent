@@ -2,7 +2,7 @@
 
 `status`: **draft** — 2026-09-20（同日修订：工具画像 / 成长核心 / Jev DLC / 世界演进预留）  
 `premise`: Agent = **一个循环** + **其他模块**（见 [agent-loop-survey.md](./agent-loop-survey.md)）。本文列本项目模块、**参照哪些 Agent**、以及特殊化。  
-`owns`: 模块清单。排期见 [roadmap](../plans/roadmap.md)；K01 见 [k01](../plans/k01-agent-loop.md)。拓扑 / 叙事见多核心与世界演进稿。
+`owns`: 模块清单。排期见 [roadmap](../plans/roadmap.md)；K01 见 [k01](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)。拓扑 / 叙事见多核心与世界演进稿。
 
 **产品特殊化轴（贯穿全文）：**
 
@@ -402,7 +402,7 @@ TurnEngine → agent + committer +（只读）companion/memory
 | [agent-loop-survey.md](./agent-loop-survey.md) | 十方抽象与对照 |
 | [multi-node-companion-world.md](./multi-node-companion-world.md) | 设备 / 节点 / 角色 |
 | [world-evolution-and-extensions.md](./world-evolution-and-extensions.md) | 世界叙事、工具画像、Jev |
-| [k01-agent-loop.md](../plans/k01-agent-loop.md) | K01 施工 |
+| [k01-agent-loop.md](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) | K01 施工 |
 | [roadmap.md](../plans/roadmap.md) | 全档排期 |
 | [memory.md](./memory.md) | 记忆与关系已确认边界 |
 | [02-modules.md](../product/02-modules.md) | 产品级模块表 |

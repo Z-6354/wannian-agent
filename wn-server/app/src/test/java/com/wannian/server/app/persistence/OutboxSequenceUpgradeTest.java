@@ -164,6 +164,28 @@ class OutboxSequenceUpgradeTest {
         }
     }
 
+    @Test
+    void latestSequenceIsScopedToConversationWhenOutboxIsInterleaved(@TempDir Path dir)
+            throws Exception {
+        SQLiteDataSource dataSource = dataSource(dir.resolve("wannian.db"));
+        migrate(dataSource, null);
+        String firstConversation = UUID.randomUUID().toString();
+        String secondConversation = UUID.randomUUID().toString();
+        try (Connection connection = dataSource.getConnection()) {
+            insertConversation(connection, firstConversation, "2026-09-18T12:00:00Z", true);
+            insertConversation(connection, secondConversation, "2026-09-18T12:00:01Z", true);
+            insertConversationOutbox(connection, firstConversation, 1L);
+            insertConversationOutbox(connection, secondConversation, 2L);
+            insertConversationOutbox(connection, firstConversation, 3L);
+            insertConversationOutbox(connection, secondConversation, 4L);
+        }
+
+        SqliteOutboxQuery query = new SqliteOutboxQuery(dataSource);
+        assertThat(query.latestSequence(firstConversation)).isEqualTo(3L);
+        assertThat(query.latestSequence(secondConversation)).isEqualTo(4L);
+        assertThat(query.latestSequence(UUID.randomUUID().toString())).isZero();
+    }
+
     private static SQLiteDataSource dataSource(Path file) {
         SQLiteDataSource dataSource = new SQLiteDataSource();
         dataSource.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
@@ -253,6 +275,24 @@ class OutboxSequenceUpgradeTest {
             ps.setString(2, aggregateId);
             ps.setLong(3, sequenceNo);
             ps.setString(4, now);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void insertConversationOutbox(Connection connection, String conversationId, long sequenceNo)
+            throws Exception {
+        try (PreparedStatement ps =
+                connection.prepareStatement(
+                        """
+                        INSERT INTO outbox_event (
+                            id, aggregate_type, aggregate_id, event_type, payload_json, sequence_no, created_at
+                        ) VALUES (?, 'conversation', ?, 'MessageCommitted', ?, ?, ?)
+                        """)) {
+            ps.setString(1, UUID.randomUUID().toString());
+            ps.setString(2, conversationId);
+            ps.setString(3, "{\"conversationId\":\"" + conversationId + "\"}");
+            ps.setLong(4, sequenceNo);
+            ps.setString(5, "2026-09-18T12:00:00Z");
             ps.executeUpdate();
         }
     }

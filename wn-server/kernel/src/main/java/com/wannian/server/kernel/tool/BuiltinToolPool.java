@@ -4,6 +4,7 @@ import com.wannian.server.kernel.tool.builtin.CalculateToolAdapter;
 import com.wannian.server.kernel.tool.builtin.CurrentTimeToolAdapter;
 import com.wannian.server.kernel.tool.builtin.HttpReadToolAdapter;
 import com.wannian.server.kernel.tool.builtin.ListToolsToolAdapter;
+import com.wannian.server.kernel.tool.builtin.LoadSkillToolAdapter;
 import com.wannian.server.kernel.tool.builtin.PowerShellResolveToolAdapter;
 import com.wannian.server.kernel.tool.builtin.RememberFactToolAdapter;
 import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
@@ -174,6 +175,15 @@ public final class BuiltinToolPool {
                         Set.of(),
                         false,
                         SearchMemoryToolAdapter::unavailable));
+        put(
+                map,
+                new Spec(
+                        BuiltinToolNames.LOAD_SKILL,
+                        "按 skill_id 读取已授权 Skill 的完整说明正文（只读；勿臆造未在索引中的 id）。",
+                        "{\"type\":\"object\",\"properties\":{\"skill_id\":{\"type\":\"string\"}},\"required\":[\"skill_id\"],\"additionalProperties\":false}",
+                        Set.of(),
+                        false,
+                        LoadSkillToolAdapter::unavailable));
         return Map.copyOf(map);
     }
 

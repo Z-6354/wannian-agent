@@ -35,7 +35,7 @@ class ContextAssemblerToolVisibilityTest {
                                 TurnId.generate(),
                                 MessageId.generate(),
                                 "现在几点",
-                                "你是烟火",
+                                "你是杜小洛",
                                 new InMemoryTurnMemoryPending()));
         assertThat(input.toolProfileId()).isEqualTo("yanhuo.chat.default");
         assertThat(names(input))
@@ -45,6 +45,7 @@ class ContextAssemblerToolVisibilityTest {
                         BuiltinToolNames.REMEMBER_FACT,
                         BuiltinToolNames.UPDATE_RELATIONSHIP,
                         BuiltinToolNames.SEARCH_MEMORY,
+                        BuiltinToolNames.LOAD_SKILL,
                         BuiltinToolNames.CALCULATE);
     }
 
@@ -61,7 +62,7 @@ class ContextAssemblerToolVisibilityTest {
                                 TurnId.generate(),
                                 MessageId.generate(),
                                 "解析 powershell",
-                                "你是烟火",
+                                "你是杜小洛",
                                 FacetId.WORK,
                                 new InMemoryTurnMemoryPending()));
         assertThat(input.toolProfileId()).isEqualTo("yanhuo.work.default");

@@ -2,7 +2,7 @@ package com.wannian.server.kernel.tool;
 
 import java.util.Objects;
 
-/** 角色稳定 id（可扩展；本批装配烟火）。 */
+/** 角色稳定 id（可扩展；本批装配杜小洛，保留历史 id yanhuo）。 */
 public record RoleId(String value) {
     public static final RoleId YANHUO = new RoleId("yanhuo");
 

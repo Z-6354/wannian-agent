@@ -22,7 +22,7 @@
 
 | 系统 | 预算形态 | 超限时 | 关键保护 | 证据 |
 |------|----------|--------|----------|------|
-| **本仓 D（现行）** | Top-N=12 + 字符 2000 | 按 score 取前 N，再按序拼；超字数 **整行跳过并 break** | 高 importance 靠 score 垫底；**无**身份豁免；**无**按用户话检索 | [k03-d](../plans/k03-d-recall-tombstone-http.md) |
+| **本仓 D（现行）** | Top-N=12 + 字符 2000 | 按 score 取前 N，再按序拼；超字数 **整行跳过并 break** | 高 importance 靠 score 垫底；**无**身份豁免；**无**按用户话检索 | [k03-d](../plans/archive/0.2.1-0.2.3/k03-d-recall-tombstone-http.md) |
 | **Mem0 × OpenClaw recall** | `maxMemories`（默认 15）+ **tokenBudget**（默认 1500，~4 字/token） | **over-fetch** `top_k = maxMemories×2` → 类别序+importance 排序 → 预算装填；非身份条超预算 **continue 跳过该条、继续试下一条** | **identity / configuration 可强制纳入**（可超预算累加）；召回失败不挡主循环 | [mem0 `integrations/openclaw/recall.ts`](https://github.com/mem0ai/mem0/blob/0fbbb2f5/integrations/openclaw/recall.ts) |
 | **Mem0 search 本体** | `top_k`（默认 20）+ similarity `threshold` | 向量/混合检索只返回 Top-K；内部常 **oversample** 再裁；超长 **embedding 查询** 尾部截断防 embed 爆 token | 「装不下」靠 **按查询相关** 少装，不是全表注入 | [Mem0 search docs](https://docs.mem0.ai/core-concepts/memory-operations/search)；PR #6981 embed 查询 32k char 护栏 |
 | **CrewAI Memory** | `recall(..., limit=)`；任务推送常 **limit=5**，kickoff 可达 20 | 向量 **oversample** 后复合分排序再截断；注入仍是自然语言行，**未见**独立 char/token 二次预算 | 靠 **查询相关 + 衰减 + importance** 让预算内更准；深度 recall 可递归补洞 | [CrewAI memory docs](https://docs.crewai.com/en/concepts/memory)；`recall_oversample_factor` |
@@ -60,4 +60,4 @@
 
 对齐 Open WebUI「注入有顶 + 工具可再搜」，避开 R1 禁向量下的 Mem0/CrewAI 语义检索，也暂不抄 OpenClaw 身份破预算与 Letta core 块。
 
-正文实施增补：[k03-d-search-tool.md](../plans/k03-d-search-tool.md)。
+正文实施增补：[k03-d-search-tool.md](../plans/archive/0.2.1-0.2.3/k03-d-search-tool.md)。

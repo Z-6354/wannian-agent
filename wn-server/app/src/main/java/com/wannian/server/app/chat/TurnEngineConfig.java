@@ -1,13 +1,7 @@
 package com.wannian.server.app.chat;
 
-import com.wannian.server.app.model.EnabledModelPortResolver;
-import com.wannian.server.app.model.ResolvingModelPort;
-import com.wannian.server.kernel.agent.AgentLoop;
 import com.wannian.server.kernel.agent.ContextAssembler;
-import com.wannian.server.kernel.agent.DefaultAgentLoop;
 import com.wannian.server.kernel.conversation.ConversationStore;
-import com.wannian.server.kernel.journal.JournalSettings;
-import com.wannian.server.kernel.journal.RunJournal;
 import com.wannian.server.kernel.memory.DefaultMemoryRecall;
 import com.wannian.server.kernel.memory.MemoryRecall;
 import com.wannian.server.kernel.memory.MemoryRecallLimits;
@@ -17,30 +11,16 @@ import com.wannian.server.kernel.memory.MemoryStore;
 import com.wannian.server.kernel.relationship.RelationshipStore;
 import com.wannian.server.kernel.tool.HostCapabilitySet;
 import com.wannian.server.kernel.tool.RoleId;
-import com.wannian.server.kernel.tool.ToolRuntime;
 import com.wannian.server.kernel.tool.ToolVisibilityResolver;
-import com.wannian.server.kernel.turn.TurnCommitter;
-import com.wannian.server.kernel.turn.TurnEngine;
-import com.wannian.server.kernel.turn.TurnRepository;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 装配 TurnEngine → AgentLoop。
+ * 装配 ContextAssembler / Memory 召回。
  *
- * <p><b>0.2.3-D 接线</b>
- *
- * <ul>
- *   <li>{@link MemoryRecallLimits}：从 {@code wannian.memory.recall.*} 注入（yml / 环境变量）。
- *   <li>{@link MemoryRecall}：{@link DefaultMemoryRecall} + {@link MemoryStore}（Store 为
- *       {@code @Component}）。
- *   <li>{@link ContextAssembler}：注入 recall / {@link RelationshipStore} / {@link
- *       MemoryRecallTouch} / limits；Rel 与 Touch 亦为 persistence {@code @Component}，
- *       <strong>本类不手写第二份构造</strong>，避免双 bean。
- *   <li>AgentLoop / TurnEngine 装配与 D 前相同。
- * </ul>
+ * <p>AgentLoop / TurnEngine 由 {@code StreamDeliveryConfig}（0.2.4-C）装配。
  */
 @Configuration
 public class TurnEngineConfig {
@@ -83,31 +63,5 @@ public class TurnEngineConfig {
                 relationshipStore,
                 memoryRecallTouch,
                 memoryRecallLimits);
-    }
-
-    @Bean
-    AgentLoop agentLoop(
-            EnabledModelPortResolver modelPorts,
-            ToolRuntime toolRuntime,
-            RunJournal runJournal,
-            JournalSettings journalSettings) {
-        return new DefaultAgentLoop(
-                new ResolvingModelPort(modelPorts),
-                toolRuntime,
-                runJournal,
-                journalSettings);
-    }
-
-    @Bean
-    TurnEngine turnEngine(
-            TurnRepository turns,
-            TurnCommitter turnCommitter,
-            ContextAssembler assembler,
-            AgentLoop agentLoop,
-            MemoryStore memoryStore,
-            RunJournal runJournal,
-            JournalSettings journalSettings) {
-        return new TurnEngine(
-                turns, turnCommitter, assembler, agentLoop, memoryStore, runJournal, journalSettings);
     }
 }

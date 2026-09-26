@@ -26,7 +26,7 @@ public class VendorAdapterResolver {
     }
 
     public VendorAdapter resolve(String protocol) {
-        if (!StubModelCatalog.PROTOCOL.equals(protocol)) {
+        if (!StubModelCatalog.isSupportedProtocol(protocol)) {
             return null;
         }
         return "live".equals(mode) ? live : fake;

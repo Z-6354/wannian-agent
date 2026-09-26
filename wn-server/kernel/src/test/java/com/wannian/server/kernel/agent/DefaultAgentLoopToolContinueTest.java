@@ -3,6 +3,7 @@ package com.wannian.server.kernel.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.wannian.server.api.common.TurnId;
+import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import com.wannian.server.kernel.model.ModelOutcome;
@@ -15,10 +16,36 @@ import com.wannian.server.kernel.tool.ToolRuntime;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /** 0.2.2 阶段 3：工具往返 + 预算打满。 */
 class DefaultAgentLoopToolContinueTest {
+
+    @Test
+    void adapterReceivesFrozenOriginalUserMessageConversationAndTurn() {
+        var conversation=ConversationId.generate();var turn=TurnId.generate();
+        AtomicReference<com.wannian.server.kernel.tool.ToolInvocationContext> captured=new AtomicReference<>();
+        ToolCatalog catalog=new ToolCatalog();
+        catalog.register(new com.wannian.server.kernel.tool.ToolRegistration("context_probe","probe",
+                new com.wannian.server.kernel.tool.ToolParameterSchema("{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
+                java.util.Set.of(),request->{captured.set(request.context());return new com.wannian.server.kernel.tool.ToolAdapterResult.Succeeded("{}");}));
+        AtomicInteger decisions=new AtomicInteger();
+        ModelPort model=(request,context)->decisions.incrementAndGet()==1
+                ?new ModelOutcome.ToolCalls(List.of(new ToolCallRequest("probe-1","context_probe","{}")),null)
+                :new ModelOutcome.FinalAnswer("done",null);
+        var pending=new InMemoryTurnMemoryPending(java.util.Map.of(),com.wannian.server.kernel.memory.CompanionIdentity.YANHUO,
+                "请切换到杜小洛",conversation,turn);
+        AgentInput input=new AgentInput(turn,conversation,TurnSource.USER,"",null,null,"请切换到杜小洛",
+                List.of(new com.wannian.server.kernel.tool.ToolDescriptor("context_probe","probe","{}")),null,"sys",null,pending);
+        new DefaultAgentLoop(model,new DefaultToolRuntime(catalog)).run(input,sampleBudget(3));
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().userMessage()).isEqualTo("请切换到杜小洛");
+        assertThat(captured.get().conversationId()).isEqualTo(conversation);
+        assertThat(captured.get().turnId()).isEqualTo(turn);
+        assertThat(input.pending().conversationId()).isEqualTo(conversation);
+        assertThat(input.pending().turnId()).isEqualTo(turn);
+    }
 
     @Test
     void toolCallThenFinalAnswer() {

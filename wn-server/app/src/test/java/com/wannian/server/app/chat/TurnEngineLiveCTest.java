@@ -7,6 +7,7 @@ import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
+import com.wannian.server.app.manage.VendorCredentialAccess;
 import com.wannian.server.app.manage.VendorRecord;
 import com.wannian.server.app.model.OpenAiCompatibleModelAdapter;
 import com.wannian.server.kernel.agent.AgentBudget;
@@ -137,7 +138,11 @@ class TurnEngineLiveCTest {
                         "https://api.deepseek.com/v1",
                         "DEEPSEEK_API_KEY");
         return new OpenAiCompatibleModelAdapter(
-                vendor, "deepseek-flash", HttpClient.newHttpClient(), new ObjectMapper(), System::getenv);
+                vendor,
+                "deepseek-flash",
+                HttpClient.newHttpClient(),
+                new ObjectMapper(),
+                VendorCredentialAccess.envOnly(System::getenv));
     }
 
     private static final class CountingPort implements ModelPort {

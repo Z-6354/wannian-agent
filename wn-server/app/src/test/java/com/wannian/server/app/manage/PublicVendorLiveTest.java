@@ -31,7 +31,9 @@ class PublicVendorLiveTest {
                         "DEEPSEEK_API_KEY");
         OpenAiCompatibleVendorAdapter catalog =
                 new OpenAiCompatibleVendorAdapter(
-                        HttpClient.newHttpClient(), new ObjectMapper(), System::getenv);
+                        HttpClient.newHttpClient(),
+                        new ObjectMapper(),
+                        VendorCredentialAccess.envOnly(System::getenv));
 
         ListModelsOutcome listed = catalog.listModels(vendor);
         assertThat(listed).isInstanceOf(ListModelsOutcome.Listed.class);
@@ -41,7 +43,11 @@ class PublicVendorLiveTest {
 
         OpenAiCompatibleModelAdapter model =
                 new OpenAiCompatibleModelAdapter(
-                        vendor, "deepseek-flash", HttpClient.newHttpClient(), new ObjectMapper(), System::getenv);
+                        vendor,
+                        "deepseek-flash",
+                        HttpClient.newHttpClient(),
+                        new ObjectMapper(),
+                        VendorCredentialAccess.envOnly(System::getenv));
         ModelOutcome outcome =
                 model.decide(
                         new ModelRequest(List.of(new ModelMessage("user", "只回复一个字：好"))),

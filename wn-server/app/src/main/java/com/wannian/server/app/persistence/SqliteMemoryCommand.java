@@ -115,33 +115,28 @@ public class SqliteMemoryCommand implements MemoryCommand, MemoryReviewBatchAppl
                             ErrorCodes.MEMORY_SUBJECT_CONFLICT,
                             "目标 subjectKey 已有 ACTIVE 记忆: " + replacement.subjectKey());
                 }
-                try (PreparedStatement supersede =
-                        connection.prepareStatement(
-                                """
-                                UPDATE memory_record
-                                SET status = ?, revision = ?, valid_until = ?
-                                WHERE id = ? AND revision = ? AND status = ?
-                                """)) {
-                    supersede.setString(1, MemoryLifecycle.SUPERSEDED.name());
-                    supersede.setLong(2, old.revision() + 1);
-                    supersede.setString(3, nowText);
-                    supersede.setString(4, oldId);
-                    supersede.setLong(5, expectedRevision);
-                    supersede.setString(6, MemoryLifecycle.ACTIVE.name());
-                    if (supersede.executeUpdate() != 1) {
-                        connection.rollback();
-                        return new CommandResult.Rejected(
-                                ErrorCodes.REVISION_CONFLICT, "SUPERSEDE CAS 失败");
+                String companionA = old.companionId();
+                String companionB = replacement.companionIdentity().value();
+                if (companionA.compareTo(companionB) > 0) {
+                    String swap = companionA;
+                    companionA = companionB;
+                    companionB = swap;
+                }
+                Object firstLock = SqliteMemoryCommitWriter.writeLockFor(companionA);
+                Object secondLock =
+                        companionA.equals(companionB)
+                                ? null
+                                : SqliteMemoryCommitWriter.writeLockFor(companionB);
+                synchronized (firstLock) {
+                    if (secondLock != null) {
+                        synchronized (secondLock) {
+                            return completeCorrect(
+                                    connection, old, oldId, expectedRevision, replacement, nowText);
+                        }
                     }
+                    return completeCorrect(
+                            connection, old, oldId, expectedRevision, replacement, nowText);
                 }
-                bumpGeneration(connection, old.companionId(), old.subjectKey());
-                if (!old.subjectKey().equals(replacement.subjectKey())
-                        || !old.companionId().equals(replacement.companionIdentity().value())) {
-                    bumpGeneration(connection, replacement.companionIdentity().value(), replacement.subjectKey());
-                }
-                String newId = insertReplacement(connection, replacement, oldId, nowText);
-                connection.commit();
-                return new CommandResult.Applied(newId, 1L);
             } catch (SQLException | JsonProcessingException ex) {
                 rollbackQuietly(connection);
                 if (ex instanceof SQLException sqlException
@@ -158,6 +153,46 @@ public class SqliteMemoryCommand implements MemoryCommand, MemoryReviewBatchAppl
         } catch (SQLException ex) {
             return new CommandResult.Rejected(ErrorCodes.PERSISTENCE_FAILED, "无法打开数据库连接");
         }
+    }
+
+    private CommandResult completeCorrect(
+            Connection connection,
+            ActiveRow old,
+            String oldId,
+            long expectedRevision,
+            ApprovedMemoryChange replacement,
+            String nowText)
+            throws SQLException, JsonProcessingException {
+        try (PreparedStatement supersede =
+                connection.prepareStatement(
+                        """
+                        UPDATE memory_record
+                        SET status = ?, revision = ?, valid_until = ?
+                        WHERE id = ? AND revision = ? AND status = ?
+                        """)) {
+            supersede.setString(1, MemoryLifecycle.SUPERSEDED.name());
+            supersede.setLong(2, old.revision() + 1);
+            supersede.setString(3, nowText);
+            supersede.setString(4, oldId);
+            supersede.setLong(5, expectedRevision);
+            supersede.setString(6, MemoryLifecycle.ACTIVE.name());
+            if (supersede.executeUpdate() != 1) {
+                connection.rollback();
+                return new CommandResult.Rejected(
+                        ErrorCodes.REVISION_CONFLICT, "SUPERSEDE CAS 失败");
+            }
+        }
+        bumpGeneration(connection, old.companionId(), old.subjectKey());
+        if (!old.subjectKey().equals(replacement.subjectKey())
+                || !old.companionId().equals(replacement.companionIdentity().value())) {
+            bumpGeneration(
+                    connection,
+                    replacement.companionIdentity().value(),
+                    replacement.subjectKey());
+        }
+        String newId = insertReplacement(connection, replacement, oldId, nowText);
+        connection.commit();
+        return new CommandResult.Applied(newId, 1L);
     }
 
     /** 人主动遗忘（S11）；清空策略见 {@link #markForgotten}。 */

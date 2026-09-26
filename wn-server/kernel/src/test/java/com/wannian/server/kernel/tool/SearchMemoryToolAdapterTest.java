@@ -86,7 +86,8 @@ class SearchMemoryToolAdapterTest {
                 BuiltinToolPool.registrationOf(
                         BuiltinToolNames.SEARCH_MEMORY, adapter(new Store(List.of()), null)));
         DefaultToolRuntime runtime = new DefaultToolRuntime(catalog);
-        ToolExecutionContext context = new ToolExecutionContext("op", "turn", "attempt", List.of(), null);
+        ToolExecutionContext context = new ToolExecutionContext("op", "turn", "attempt",
+                List.of(new ToolDescriptor(BuiltinToolNames.SEARCH_MEMORY,"search","{}")), null);
 
         ToolExecutionOutcome unknownField = runtime.execute(new ToolInvocation(
                 "call1", BuiltinToolNames.SEARCH_MEMORY,

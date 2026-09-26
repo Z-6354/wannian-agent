@@ -2,14 +2,14 @@
 
 `status`: **v0.1 已封版** — 2026-09-20 重置。v0.1 = 当前已交付（骨架、持久化、管理页、直接回答）。下一步是 **v0.2 单核 harness + 单核节点**（**0.2.1** 起）。世界树与多核是 **v0.3**，本清单不提前开工。
 
-`plan-revised`: **2026-09-22** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1，不再算成 0.2.1。**0.2.4** = 行为账本（A）→ Outbox/SSE + `/chat/` 历史恢复（B）；立项 [k04-behavior-journal.md](../plans/k04-behavior-journal.md)。旧号对照仍有效。审查原文不改写。
+`plan-revised`: **2026-09-25** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1。**0.2.4 已交付**（A→P→B→C→D→E→G→M→F）；收口见 [F REVIEW](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)。下一默认 **0.2.5**。旧号对照仍有效。审查原文不改写。
 
 ## 版本
 
 | 档 | 状态 | 含 | 不含 |
 |----|------|----|------|
 | **v0.1** | 已交付 | H1–H4、`/chat/` 直接回答 | Agent Loop、工具、记忆策略、Outbox、多节点 |
-| **v0.2** | 进行中 | 单核 harness（**0.2.1–0.2.3 已交付**；下一 **0.2.4**）、一个烟火节点 | 世界树、第二个节点、Guardian |
+| **v0.2** | 进行中 | 单核 harness（**0.2.1–0.2.4 已交付**；下一 **0.2.5**）、一个杜小洛节点（历史 ID：`yanhuo`） | 世界树、第二个节点、Guardian |
 | **v0.3** | 未开工 | 世界树、多核节点 | 宿主主备、wn-agent |
 
 ## 使用规则
@@ -34,7 +34,7 @@
 | K03-A / C / D / E；施工别名 K01 | **0.2.1** 子批 A / B / C / D | 错误码、Loop、Turn 接线、execute |
 | K04；施工别名 K02 | **0.2.2** | ToolRuntime |
 | K05；施工别名 K03 | **0.2.3** | Memory / Relationship |
-| K06；施工别名 K04 | **0.2.4** | 行为账本 → Outbox / SSE / 内嵌对话页 |
+| K06；施工别名 K04 | **0.2.4** | 行为账本 → 真流式 / Outbox / 完整会话系统 |
 | K07；施工别名 K05 | **0.2.5** | Task / BackgroundTask |
 | K08；施工别名 K06 | **0.2.6** | 生命周期探针 |
 | K09；施工别名 K07 | **0.2.7** | 故障、恢复与资源 |
@@ -84,13 +84,13 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 ## v0.2 · 0.2.1 起
 
 下列 **0.2.1–0.2.7** 全部属于 **v0.2 单核 harness + 单核节点**。不要在 v0.1 上补做。  
-**0.2.1 / 0.2.2 / 0.2.3 已交付**；下一默认工作 **0.2.4**。
+**0.2.1–0.2.4 已交付**；下一默认工作 **0.2.5**（Task / BackgroundTask）。
 
 ## 0.2.1 · 错误码、Agent Loop 与 Turn 接线（别名 K01）
 
 `status`: **v0.2 · 0.2.1 已交付**（A/B/C/D + 审计 P1–P3 收口）  
 **原「决策打满 live」遗留已关闭：** 0.2.1 时 Loop 不对 ToolCalls `continue`，真模型几乎打不满 3 次 decide。**0.2.2 已接 continue**；窄测 `DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget` 覆盖「反复 ToolCalls → BUDGET_EXHAUSTED」。不要求再用真模型硬撞满 3 次。blank/Refusal 等难控路径有单测即可，**不挡收口**。
-`closure`: [施工单](../plans/k01-agent-loop.md) · [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md)
+`closure`: [施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) · [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md)
 
 ### 目标
 
@@ -167,7 +167,7 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ## 0.2.2 · ToolRuntime 与只读工具（别名 K02）
 
-`status`: **已交付**（2026-09-22）— 阶段 1–4 代码 + 窄测 + live（`list_tools` 真工具往返）；施工单 [k02-tools.md](../plans/k02-tools.md)。
+`status`: **已交付**（2026-09-22）— 阶段 1–4 代码 + 窄测 + live（`list_tools` 真工具往返）；施工单 [k02-tools.md](../plans/archive/0.2.1-0.2.3/k02-tools.md)。
 
 ### 防复发提示（T1/T2 的同类问题）
 
@@ -175,7 +175,7 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ### 目标
 
-深 Module `ToolRuntime`，提供 `list_tools`、`current_time`、`calculate`，可选受限 `http_read`；Windows 另提供 `powershell_resolve_5` / `_7`（启动探测 family 标签求交，模型只见一个；见 [k02-tool-impl-binding](../plans/k02-tool-impl-binding.md)）。
+深 Module `ToolRuntime`，提供 `list_tools`、`current_time`、`calculate`，可选受限 `http_read`；Windows 另提供 `powershell_resolve_5` / `_7`（启动探测 family 标签求交，模型只见一个；见 [k02-tool-impl-binding](../plans/archive/0.2.1-0.2.3/k02-tool-impl-binding.md)）。
 
 ### Codex 可生成
 
@@ -214,7 +214,7 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ## 0.2.3 · Memory 与 Relationship（别名 K03）
 
-`status`: **已交付**（2026-09-24）；施工单 [k03-memory.md](../plans/k03-memory.md)；设计 [memory-system-0.2.3.md](../research/memory-system-0.2.3.md) §4 + §4.1。
+`status`: **已交付**（2026-09-24）；施工单 [k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md)；设计 [memory-system-0.2.3.md](../research/memory-system-0.2.3.md) §4 + §4.1。
 
 交付范围：热路径 `remember_fact` / `update_relationship` → Shape → Policy（仅密钥拒）→ Freeze 同事务；冷路径 Review Job；衰减召回 + Assembler 注入；弱 B 扫墓；HTTP GET/correct/forget；`search_memory`；运行日志 JSONL + `turn_step`（L）；系统工具每工具上限 5 / 普通决策 10；`/chat/` 本回合工具调用投影。
 
@@ -239,7 +239,9 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 ## 0.2.4 · 统一行为账本 → Outbox、SSE 与内嵌网页（别名 K04）
 
-内部顺序硬约束：**0.2.4-A 账本加厚 → 0.2.4-B 交付/恢复**。A 未勾完不得勾选整批 0.2.4。立项见 [k04-behavior-journal.md](../plans/k04-behavior-journal.md)。
+`status`: **已交付 · 2026-09-25**（真人 live + F 窄测；[REVIEW](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)）
+
+内部顺序硬约束（已完成）：**0.2.4-A 账本加厚 →（可交错）0.2.4-P 提示词/Skill → B 会话读写 → C 流式交付 → D 页面 → E 排队/标题 → G 卫生 → M 流式 Markdown → F 真人验收**。已审范围见 [0.2.4 计划](../plans/archive/0.2.4/k04-conversation-system-draft.md)，实施约束见 [0.2.4 设计](../plans/archive/0.2.4/k04-conversation-system-design.md)；Markdown 见 [M 施工单](../plans/archive/0.2.4/k04-m-streaming-markdown-implementation.md)。
 
 ### 防复发提示（T1/T3/T5，审查 §6.5）
 
@@ -250,7 +252,8 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 ### 目标
 
 1. **0.2.4-A**：加厚行为账本——`MEMORY_WRITE` 等 kind、与 Outbox 分工文档化（`turn_step` 表与 MODEL/TOOL 写入已由 **0.2.3-L** 落地）。
-2. **0.2.4-B**：可靠交付已提交事件；页面断线不重做业务；补齐 **消息回读 + 自动恢复历史 + 接入最近会话**。
+2. **0.2.4-P**：提示词文件化（SOUL 等 MD）+ Skill 索引 / `load_skill`（方案 C）。
+3. **0.2.4-B～F**：可靠交付已提交事件与真实模型增量；页面断线不重做业务；完成历史恢复、会话列表、手动/自动标题、标题与正文搜索、归档、回收站、followup 队列 UI、Stop 和撤队。
 
 ### 已验证缺口（写入本批的原因）
 
@@ -275,22 +278,34 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 | 做 | 不做（本批） |
 |----|----------------|
 | 账本加厚 + Outbox 分工 | 用 ErrorCodes / SafeErrorLog 冒充行为审计 |
-| 刷新/重开后自动恢复已提交历史 | 多会话侧栏、跨设备同步 |
+| 刷新/重开后自动恢复已提交历史、会话侧栏 | 跨设备同步 |
 | 恢复路径只读已提交 Message | 重做已由 0.2.3-L 交付的 turn_step 窄版 |
 
 ### 验收
 
 ```text
 # 0.2.4-A 行为账本加厚
-[ ] MEMORY_WRITE（或等价）可追溯；与 Turn 同事务边界一致
-[ ] 与 Outbox 分工文档化；回滚不残留半提交；敏感字段脱敏
-[ ] AgentTrace 非唯一真相源（turn_step 已有则复用）
+[x] MEMORY_WRITE（或等价）可追溯；与 Turn 同事务边界一致
+[x] 与 Outbox 分工文档化；回滚不残留半提交；敏感字段脱敏
+[x] AgentTrace 非唯一真相源（turn_step 已有则复用）
 
-# 0.2.4-B 交付与历史恢复
-[ ] 提交后才发送 SSE；lastEventId 补发正确；重连不增加模型/工具调用
-[ ] GET 可按 conversationId 回读已提交消息；可查最近 ACTIVE 会话
-[ ] 打开 `/chat/` 自动接入记住的或最近会话并渲染历史；恢复路径零次模型/工具调用
-[ ] 「新会话」可清空本地记忆；空态不再声称「刷新后本页不回放历史」（或仅在确无可恢复会话时）
+# 0.2.4-P 提示词治理 + Skill 最小
+[x] 硬安全在代码；SOUL/IDENTITY/USER/SAFETY 自 data-dir；改 SOUL 无需重编译即影响下轮
+[x] Skill 仅索引进 system；`load_skill` 只读正文；未授权/未知 id 不进索引或不返回正文
+[x] 分层与索引有字符/条数上限；无管理页
+
+# 0.2.4-B～F 会话、交付与恢复
+[x] 提交后才发送 SSE；lastEventId 补发正确；重连不增加模型/工具调用
+[x] GET 可按 conversationId 回读已提交消息；可查最近 ACTIVE 会话
+[x] 打开 `/chat/` 自动接入记住的或最近会话并渲染历史；恢复路径零次模型/工具调用
+[x] 「新会话」可清空本地记忆；空态不再声称「刷新后本页不回放历史」（或仅在确无可恢复会话时）
+[x] 真模型正文及工具过程实时流式展示；回合和工具详情可独立展开，隐藏推理不展示
+[x] 助手 Markdown：流式标题/列表/链接/代码块预览；js/ts/json/shell 有高亮；切换会话不串；用户气泡仍纯文本
+[x] 列表/最近会话、手动及首轮异步 AI 标题、标题与消息正文搜索、归档/取消归档、回收站/恢复/清空通过
+[x] followup 排队可见；Stop 真取消、撤销未执行项；双标签与重连不双执行
+[x] 最小单用户鉴权覆盖聊天 HTTP、SSE、历史补发与 internal；真人 live 与断线/重启验收通过
+# F 窄测（2026-09-25）：ConversationHttp / SearchSync / CreateConversation / ReceiveTurnIdempotency / Lifecycle / SSE / ChatPage / EmptyPurge / AutoTitle / RunEventBus / CommittingFail / TurnTransition — BUILD SUCCESS
+# 已知未扩（不挡交付）：poll/claim FIFO 竞态、Stop×claim HTTP IT、搜索 cursor、工具中途打断
 ```
 ## 0.2.5 · TaskRuntime、BackgroundTask 与 SubAgentRun（别名 K05）
 

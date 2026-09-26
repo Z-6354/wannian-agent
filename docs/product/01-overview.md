@@ -72,7 +72,7 @@
 
 ### v0.2 · 单核 harness + 单核节点（进行中）
 
-**单核** = 一个节点、一个角色（烟火）。**harness** = 这一个节点上的 Agent 运行时，不是再包一层空接口。
+**单核** = 一个节点、一个角色（杜小洛；稳定内部 ID 仍为 `yanhuo`）。**harness** = 这一个节点上的 Agent 运行时，不是再包一层空接口。
 
 正式小版本（须全部完成才标 v0.2 完成）：
 
@@ -80,9 +80,9 @@
 |----|------|------|
 | **0.2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute | **已交付**（[04 复核](../reviews/04-reverify-0.2.1.md)） |
 | **0.2.2** | ToolRuntime + 本节点安全工具 | **已交付**（2026-09-22） |
-| **0.2.3** | Memory + Relationship | |
-| **0.2.4** | 统一行为账本 → Outbox / SSE + `/chat/` 历史恢复 | |
-| **0.2.5** | Task / BackgroundTask | |
+| **0.2.3** | Memory + Relationship | **已交付**（2026-09-24） |
+| **0.2.4** | 统一行为账本 → 提示词/Skill → 真流式 / Outbox + 完整会话系统（含 Markdown） | **已交付**（2026-09-25；[F 收口](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)） |
+| **0.2.5** | Task / BackgroundTask | **下一默认** |
 | **0.2.6** | 生命周期探针 | |
 | **0.2.7** | 故障、恢复与资源验收 | |
 
@@ -91,13 +91,13 @@
 - 节点身份可以存在，但只部署并验收这一个节点
 - 不做世界树、不部署第二个节点、不做 Guardian
 
-施工：[0.2.1 已交付](../plans/k01-agent-loop.md)；[0.2.2 已交付](../plans/k02-tools.md)。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。下一步默认 **0.2.3**。
+施工：[0.2.1](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)–[0.2.3](../plans/archive/0.2.1-0.2.3/k03-memory.md) 已交付；[0.2.4](../plans/roadmap.md) 已交付（A/P/B/C/D/E/G/M/F）。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。下一步默认 **0.2.5**。
 
 ### v0.3 · 世界树 + 多核节点
 
-- **世界树**：只向烟火投事件；烟火可选分享；不对用户说话
+- **世界树**：只向杜小洛投事件；杜小洛可选分享；不对用户说话
 - **多核节点**：设备 / 节点 / 角色解耦；一台设备可多个节点；一份数据
-- 同机「烟火 + 世界树」与跨机分角色都合法
+- 同机「杜小洛 + 世界树」与跨机分角色都合法
 - 宿主主备、Guardian、wn-agent 不在本档
 
 拓扑只维护在 [多核心](../research/multi-node-companion-world.md)，叙事只维护在 [世界演进](../research/world-evolution-and-extensions.md)。

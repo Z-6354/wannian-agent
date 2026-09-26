@@ -47,6 +47,10 @@ class MigrationSmokeTest {
             assertThat(queryPragma(connection, "foreign_keys")).isEqualTo("1");
             assertThat(queryPragma(connection, "journal_mode").toLowerCase(Locale.ROOT))
                     .isEqualTo("wal");
+            assertThat(queryPragma(connection, "quick_check")).isEqualTo("ok");
+            assertThat(personaExists(connection, "yanhuo")).isTrue();
+            assertThat(hasForeignKey(connection, "turn_persona", "persona_id", "persona_definition", "id"))
+                    .isTrue();
 
             Set<String> tables = listUserTables(connection);
             assertThat(tables)
@@ -79,6 +83,32 @@ class MigrationSmokeTest {
                 return rs.next();
             }
         }
+    }
+
+    private static boolean personaExists(Connection connection, String id) throws Exception {
+        try (var ps = connection.prepareStatement(
+                "SELECT 1 FROM persona_definition WHERE id = ?")) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static boolean hasForeignKey(
+            Connection connection, String table, String from, String referencedTable, String to)
+            throws Exception {
+        try (ResultSet rs = connection.createStatement()
+                .executeQuery("PRAGMA foreign_key_list(" + table + ")")) {
+            while (rs.next()) {
+                if (from.equals(rs.getString("from"))
+                        && referencedTable.equals(rs.getString("table"))
+                        && to.equals(rs.getString("to"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static String queryPragma(Connection connection, String name) throws Exception {

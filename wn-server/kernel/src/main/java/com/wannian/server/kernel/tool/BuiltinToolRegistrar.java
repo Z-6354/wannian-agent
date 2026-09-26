@@ -1,6 +1,7 @@
 package com.wannian.server.kernel.tool;
 
 import com.wannian.server.kernel.tool.builtin.HttpReadToolAdapter;
+import com.wannian.server.kernel.tool.builtin.LoadSkillToolAdapter;
 import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,20 +36,43 @@ public final class BuiltinToolRegistrar {
      */
     public static void registerEnabled(
             ToolCatalog catalog, Set<String> enabled, String httpReadUserAgent) {
-        registerEnabled(catalog, enabled, httpReadUserAgent, SearchMemoryToolAdapter.unavailable());
+        registerEnabled(
+                catalog,
+                enabled,
+                httpReadUserAgent,
+                SearchMemoryToolAdapter.unavailable(),
+                LoadSkillToolAdapter.unavailable());
     }
 
     /**
-     * 同上；{@code search_memory} 可由组合根注入专用 Adapter，避免其 ports 进入通用运行上下文。
+     * 同上；{@code search_memory} / {@code load_skill} 可由组合根注入专用 Adapter。
      */
     public static void registerEnabled(
             ToolCatalog catalog,
             Set<String> enabled,
             String httpReadUserAgent,
             SearchMemoryToolAdapter searchMemoryAdapter) {
+        registerEnabled(
+                catalog,
+                enabled,
+                httpReadUserAgent,
+                searchMemoryAdapter,
+                LoadSkillToolAdapter.unavailable());
+    }
+
+    /**
+     * 同上；{@code search_memory} 与 {@code load_skill} 均可注入专用 Adapter。
+     */
+    public static void registerEnabled(
+            ToolCatalog catalog,
+            Set<String> enabled,
+            String httpReadUserAgent,
+            SearchMemoryToolAdapter searchMemoryAdapter,
+            LoadSkillToolAdapter loadSkillAdapter) {
         Objects.requireNonNull(catalog, "catalog");
         Objects.requireNonNull(enabled, "enabled");
         Objects.requireNonNull(searchMemoryAdapter, "searchMemoryAdapter");
+        Objects.requireNonNull(loadSkillAdapter, "loadSkillAdapter");
         String userAgent = normalizeHttpUserAgent(httpReadUserAgent);
         LinkedHashSet<String> names = new LinkedHashSet<>();
         for (String raw : enabled) {
@@ -69,6 +93,9 @@ public final class BuiltinToolRegistrar {
                 requireAccepted(
                         catalog.register(
                                 BuiltinToolPool.registrationOf(name, searchMemoryAdapter)));
+            } else if (BuiltinToolNames.LOAD_SKILL.equals(name)) {
+                requireAccepted(
+                        catalog.register(BuiltinToolPool.registrationOf(name, loadSkillAdapter)));
             } else {
                 requireAccepted(catalog.register(BuiltinToolPool.registrationOf(name)));
             }

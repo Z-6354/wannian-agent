@@ -65,6 +65,33 @@
   --brand-mark-ink: #eaeaea;
   --brand-mark-border: #4a4a4a;
 
+  --bubble-user: #222222;
+  --bubble-assistant: transparent;
+  --link: #eaeaea;
+  --scrollbar-thumb: #2a2a2a;
+  --scrollbar-thumb-hover: #4a4a4a;
+  --elevation-stroke-color: #4a4a4a;
+  --brand-mark-rotate: 0deg;
+  --interactive-hover: #222222;
+  --interactive-active: #2a2a2a;
+  --send: #eaeaea;
+  --send-hover: #ffffff;
+  --send-foreground: #0e0e0e;
+  --tooltip-bg: #202020;
+  --tooltip-ink: #eaeaea;
+  --toast-bg: #202020;
+  --toast-ink: #eaeaea;
+  --menu-bg: #141414;
+  --code-bg: #101010;
+  --code-banner-bg: #181818;
+  --skeleton: rgb(255 255 255 / 8%);
+  --md-tok-keyword: #eaeaea;
+  --md-tok-string: #c8c8c8;
+  --md-tok-comment: #6a6a6a;
+  --md-tok-number: #eaeaea;
+  --md-tok-punct: #9a9a9a;
+  --md-tok-property: #d0d0d0;
+
   --theme-glow: none;
   --theme-glow-opacity: 0;
   --theme-noise-opacity: 0;

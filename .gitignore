@@ -16,3 +16,10 @@ Thumbs.db
 .idea/
 *.iml
 .vscode/
+
+# Ephemeral research run dumps (keep summary .md only)
+docs/research/*-live-output*.jsonl
+docs/research/*-ratings-*.csv
+docs/research/persona-import-live-importId.txt
+docs/research/persona-import-live-probe-sample.txt
+docs/research/persona-import-live-*-retry[0-8]*.md

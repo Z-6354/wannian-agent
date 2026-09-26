@@ -121,8 +121,7 @@ public final class InProcessMemoryReviewWorker implements MemoryReviewWorkerPort
         CompanionIdentity companion = new CompanionIdentity(job.companionId());
         ConversationId conversationId = new ConversationId(UUID.fromString(job.conversationId()));
         List<ConversationMessage> recent =
-                conversations.listRecentMessages(
-                        conversationId, MemoryReviewConstants.RECENT_MESSAGE_LIMIT);
+                listRecentMessagesForCompanion(conversationId, companion, MemoryReviewConstants.RECENT_MESSAGE_LIMIT);
         String transcript = formatTranscript(recent);
         MemoryStore.SubjectSnapshot memorySnapshot = memoryStore.subjectSnapshot(companion);
         List<StoredMemoryRecord> active = memorySnapshot.active();
@@ -142,12 +141,42 @@ public final class InProcessMemoryReviewWorker implements MemoryReviewWorkerPort
         List<MemoryToolDraft> drafts = reviewLlm.propose(request);
         List<ApprovedMemoryChange> changes = new java.util.ArrayList<>();
         for (MemoryToolDraft draft : drafts) {
+            if (!companion.equals(draft.companionIdentity())) {
+                LOG.log(System.Logger.Level.WARNING, () -> "丢弃跨角色 Review 草案 job="+job.id()+" expected="+companion.value()+" actual="+draft.companionIdentity().value());
+                continue;
+            }
             ApprovedMemoryChange change = approvedChange(draft, active, generations);
             if (change != null) {
                 changes.add(change);
             }
         }
         return List.copyOf(changes);
+    }
+
+    /** Review only sees turns owned by its companion; a legacy turn without a snapshot belongs to yanhuo. */
+    private List<ConversationMessage> listRecentMessagesForCompanion(
+            ConversationId conversationId, CompanionIdentity companion, int limit) {
+        String sql = """
+                SELECT m.id,m.role,m.content_json,m.sequence_no
+                FROM message m
+                LEFT JOIN turn t ON t.id=m.turn_id
+                LEFT JOIN turn_persona tp ON tp.turn_id=t.id
+                WHERE m.conversation_id=?
+                  AND ((m.turn_id IS NULL AND ?='yanhuo') OR COALESCE(tp.persona_id,'yanhuo')=?)
+                ORDER BY m.sequence_no DESC LIMIT ?
+                """;
+        try(Connection c=dataSource.getConnection();PreparedStatement ps=c.prepareStatement(sql)) {
+            ps.setString(1,conversationId.asString());ps.setString(2,companion.value());ps.setString(3,companion.value());ps.setInt(4,limit);
+            try(ResultSet rs=ps.executeQuery()) {
+                List<ConversationMessage> rows=new java.util.ArrayList<>();
+                while(rs.next()) rows.add(new ConversationMessage(
+                        new com.wannian.server.api.common.MessageId(UUID.fromString(rs.getString("id"))),
+                        com.wannian.server.api.conversation.MessageRole.valueOf(rs.getString("role")),
+                        rs.getString("content_json"),rs.getInt("sequence_no")));
+                java.util.Collections.reverse(rows);
+                return List.copyOf(rows);
+            }
+        }catch(SQLException ex){throw new IllegalStateException("按角色读取 Review 近讯失败",ex);}
     }
 
     private ApprovedMemoryChange approvedChange(

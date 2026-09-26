@@ -12,7 +12,7 @@ final class VendorRules {
     private VendorRules() {}
 
     sealed interface Check permits Check.OkFields, Check.Bad {
-        record OkFields(String displayName, String baseUrl, String apiKeyEnv) implements Check {}
+        record OkFields(String displayName, String protocol, String baseUrl, String apiKeyEnv) implements Check {}
 
         record Bad(String code, String detail) implements Check {}
     }
@@ -29,8 +29,10 @@ final class VendorRules {
         if (name.isEmpty() || name.length() > 80) {
             return new Check.Bad(ManageReason.ILLEGAL_ARGUMENT, "显示名长度必须在 1 到 80 之间");
         }
-        if (protocol == null || !StubModelCatalog.PROTOCOL.equals(protocol)) {
-            return new Check.Bad(ManageReason.PROTOCOL_UNSUPPORTED, "当前只接受 openai-compatible");
+        if (!StubModelCatalog.isSupportedProtocol(protocol)) {
+            return new Check.Bad(
+                    ManageReason.PROTOCOL_UNSUPPORTED,
+                    "当前只接受 openai-compatible 或 openai-responses");
         }
         String normalized = normalizeBaseUrl(baseUrl);
         if (normalized == null) {
@@ -39,7 +41,7 @@ final class VendorRules {
         if (apiKeyEnv == null || !API_KEY_ENV.matcher(apiKeyEnv).matches()) {
             return new Check.Bad(ManageReason.ILLEGAL_ARGUMENT, "密钥变量名不合法");
         }
-        return new Check.OkFields(name, normalized, apiKeyEnv);
+        return new Check.OkFields(name, protocol, normalized, apiKeyEnv);
     }
 
     private static String normalizeBaseUrl(String raw) {

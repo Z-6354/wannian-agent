@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import com.wannian.server.app.manage.VendorCredentialAccess;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,8 @@ class OpenAiCompatibleVendorAdapterTest {
                 new OpenAiCompatibleVendorAdapter(
                         HttpClient.newHttpClient(),
                         new ObjectMapper(),
-                        Map.of("WANNIAN_MODEL_API_KEY", "secret-test-key")::get);
+                        VendorCredentialAccess.envOnly(
+                                Map.of("WANNIAN_MODEL_API_KEY", "secret-test-key")::get));
 
         ListModelsOutcome outcome =
                 adapter.listModels(
@@ -74,7 +76,9 @@ class OpenAiCompatibleVendorAdapterTest {
     void missingEnvIsDependencyUnavailable() {
         OpenAiCompatibleVendorAdapter adapter =
                 new OpenAiCompatibleVendorAdapter(
-                        HttpClient.newHttpClient(), new ObjectMapper(), name -> null);
+                        HttpClient.newHttpClient(),
+                        new ObjectMapper(),
+                        VendorCredentialAccess.envOnly(name -> null));
 
         ListModelsOutcome outcome =
                 adapter.listModels(

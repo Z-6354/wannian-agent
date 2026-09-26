@@ -11,7 +11,7 @@ import java.util.Set;
 /**
  * 工具配置三态与启用策略：系统探测（HostCapability）优先于用户勾选。
  *
- * <p>存盘态仅 {@code locked}/{@code on}/{@code off}。锁死四名不可关；
+ * <p>存盘态仅 {@code locked}/{@code on}/{@code off}。锁死名不可关；
  * {@code powershell_resolve_5} 与 {@code powershell_resolve_7} 本机皆可用时互斥，默认保留 7。
  */
 public final class ToolUsePolicy {
@@ -32,7 +32,8 @@ public final class ToolUsePolicy {
                     BuiltinToolNames.CURRENT_TIME,
                     BuiltinToolNames.REMEMBER_FACT,
                     BuiltinToolNames.UPDATE_RELATIONSHIP,
-                    BuiltinToolNames.SEARCH_MEMORY);
+                    BuiltinToolNames.SEARCH_MEMORY,
+                    BuiltinToolNames.LOAD_SKILL);
 
     private static final Set<String> LOCKED_NAMES = Set.copyOf(LOCKED_ORDER);
 

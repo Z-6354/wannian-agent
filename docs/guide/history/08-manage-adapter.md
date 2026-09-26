@@ -2,7 +2,7 @@
 
 > **结构说明（2026-09-20）**：管理页曾放在 `wannian-ui` 或同级 `wn-web`。现行边界是页面与浏览器端 API adapter 在 `wn-server/app`，`wannian-ui` 只保留 `/ui/` 共享视觉。本文其余内容仅作为历史接口与验收记录。
 
-`status`: **历史 H4 已交付** — 管理页与适配器批次记录。下一步是 **v0.2** 的 [K01](../01-checklist.md)，见 [施工单](../../plans/k01-agent-loop.md) / [路线图](../../plans/roadmap.md)。  
+`status`: **历史 H4 已交付** — 管理页与适配器批次记录。下一步是 **v0.2** 的 [K01](../01-checklist.md)，见 [施工单](../../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) / [路线图](../../plans/roadmap.md)。  
 `plan-revised`: **2026-09-20** — W 与 B1–B3 已实施；`/chat/` 直接回答已计入 v0.1。本文其余为历史接口与验收记录。
 
 ## 1. 排期决定（交付时）

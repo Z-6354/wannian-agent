@@ -18,7 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * 只拦截 {@code /api/manage/**}。本机回环地址不校验口令；其余来源必须带配置文件或环境变量里的口令。
+ * 拦截 {@code /api/manage/**} 与 {@code /api/conversations/**}（含 SSE / 历史补发）。
+ * 本机回环地址不校验口令；其余来源必须带配置文件或环境变量里的口令。
  * 不信任 {@code X-Forwarded-For}。口令用常量时间比较。
  */
 @Component
@@ -37,7 +38,19 @@ public class ManageAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path == null || !path.startsWith("/api/manage/");
+        if (path == null) {
+            return true;
+        }
+        return !path.startsWith("/api/manage/") && !isConversationApi(path) && !isPersonaApi(path);
+    }
+
+    /** 会话读写、Turn、SSE 均在此前缀下。 */
+    static boolean isConversationApi(String path) {
+        return "/api/conversations".equals(path) || path.startsWith("/api/conversations/");
+    }
+
+    static boolean isPersonaApi(String path) {
+        return "/api/personas".equals(path) || path.startsWith("/api/personas/");
     }
 
     @Override

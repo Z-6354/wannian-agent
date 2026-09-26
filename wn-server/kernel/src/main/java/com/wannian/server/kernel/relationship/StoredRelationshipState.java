@@ -48,14 +48,17 @@ public record StoredRelationshipState(
     public String toPromptText() {
         StringBuilder sb = new StringBuilder();
         if (preferredAddress != null) {
-            sb.append("称呼：").append(preferredAddress);
+            sb.append("你常叫对方「").append(preferredAddress).append("」");
         }
         if (boundaries != null) {
             if (!sb.isEmpty()) {
                 sb.append('；');
             }
-            sb.append("边界：").append(boundaries);
+            sb.append("对方说过别碰的：").append(boundaries);
         }
-        return sb.toString();
+        if (sb.isEmpty()) {
+            return "";
+        }
+        return "和对方相处时记得（随口带上，别当成条款宣读）：" + sb;
     }
 }

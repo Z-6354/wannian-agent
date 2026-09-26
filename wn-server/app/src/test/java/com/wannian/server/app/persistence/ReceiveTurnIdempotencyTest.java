@@ -160,9 +160,11 @@ class ReceiveTurnIdempotencyTest {
     @Test
     void sameKeyInAnotherConversationConflictsAndWritesNothing() throws Exception {
         ConversationId first = createConversation();
-        ConversationId second = createConversation();
         String key = "shared-key";
         turnCommitter.receive(plan(first, key, TurnId.generate(), MessageId.generate(), CONTENT_HI));
+
+        // 须先落库首会话回合再开第二会话，否则 G 会在 create 时清掉尚无 message 的空壳
+        ConversationId second = createConversation();
 
         ReceiveTurnResult cross =
                 turnCommitter.receive(plan(second, key, TurnId.generate(), MessageId.generate(), CONTENT_HI));

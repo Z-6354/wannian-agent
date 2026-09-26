@@ -5,6 +5,7 @@ import com.wannian.server.kernel.model.ModelCallContext;
 import com.wannian.server.kernel.model.ModelOutcome;
 import com.wannian.server.kernel.model.ModelPort;
 import com.wannian.server.kernel.model.ModelRequest;
+import com.wannian.server.kernel.model.ModelStreamObserver;
 import java.util.Objects;
 
 /**
@@ -23,10 +24,17 @@ public final class ResolvingModelPort implements ModelPort {
 
     @Override
     public ModelOutcome decide(ModelRequest request, ModelCallContext context) {
+        return decide(request, context, ModelStreamObserver.NOOP);
+    }
+
+    @Override
+    public ModelOutcome decide(
+            ModelRequest request, ModelCallContext context, ModelStreamObserver observer) {
         return switch (resolver.resolve()) {
             case ResolveResult.Rejected rejected ->
                     new ModelOutcome.Failure(rejected.code(), rejected.detail(), false);
-            case ResolveResult.Resolved resolved -> resolved.port().decide(request, context);
+            case ResolveResult.Resolved resolved ->
+                    resolved.port().decide(request, context, observer);
         };
     }
 }

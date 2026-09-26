@@ -1,0 +1,103 @@
+/* Default / DeepSeek Harness web light palette.
+   Source: packages/client/ui-theme (design-platform.css light aliases).
+   Maps DSH --dsw-* semantics onto wannian-ui public tokens so pages
+   keep class names; swap this file for one-click theme replace. */
+:root {
+  color-scheme: light;
+
+  --bg: rgb(255, 255, 255);
+  --bg-accent: rgb(245, 246, 247);
+  --bg-hover: rgb(241, 243, 245);
+  --panel: rgb(255, 255, 255);
+  --card: rgb(255, 255, 255);
+  --ink: rgb(15, 17, 21);
+  --text: rgb(15, 17, 21);
+  --text-strong: rgb(15, 17, 21);
+  --muted: rgb(97, 102, 107);
+  --muted-strong: rgb(67, 69, 74);
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --accent: rgb(15, 17, 21);
+  --accent-hover: rgb(67, 69, 74);
+  --accent-subtle: rgb(235, 238, 242);
+  --accent-foreground: rgb(255, 255, 255);
+  --danger: rgb(236, 19, 19);
+  --danger-foreground: rgb(255, 255, 255);
+  --ok: rgb(34, 197, 94);
+  --warn: rgb(245, 158, 11);
+  --info: rgb(65, 118, 230);
+  --ring: rgb(65, 118, 230);
+  --overlay: rgba(0, 0, 0, 0.24);
+  --shadow-float: 0 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 4px 0 rgba(0, 0, 0, 0.02), 0 12px 32px 0 rgba(0, 0, 0, 0.08);
+  --surface-shadow: var(--elevation-panel);
+  --button-shadow: none;
+
+  --sidebar: rgb(249, 250, 251);
+  --sidebar-ink: rgb(15, 17, 21);
+  --sidebar-muted: rgb(129, 133, 140);
+  --sidebar-current: rgb(235, 238, 242);
+  --sidebar-hover: rgb(241, 243, 245);
+  --sidebar-border: rgba(0, 0, 0, 0.1);
+  --sidebar-accent: rgb(65, 118, 230);
+  --sidebar-surface: rgb(249, 250, 251);
+  --sidebar-pattern-size: auto;
+  --sidebar-watermark: "";
+  --sidebar-watermark-opacity: 0;
+  --brand-mark-bg: rgb(65, 118, 230);
+  --brand-mark-ink: #fff;
+  --brand-mark-border: transparent;
+  --brand-mark-rotate: 0deg;
+
+  --surface-input: rgb(255, 255, 255);
+  --surface-banner: rgb(245, 246, 247);
+  --surface-subtle: rgb(249, 250, 251);
+  --surface-card: rgb(255, 255, 255);
+  --surface-hover: rgb(241, 243, 245);
+
+  --workspace-bg: rgb(255, 255, 255);
+  --kicker: rgb(65, 118, 230);
+  --bubble-user: rgb(237, 243, 254);
+  --bubble-assistant: transparent;
+  --link: rgb(65, 118, 230);
+  --scrollbar-thumb: rgb(229, 229, 229);
+  --scrollbar-thumb-hover: rgb(212, 212, 212);
+  --elevation-stroke-color: rgba(0, 0, 0, 0.16);
+  --interactive-hover: rgba(38, 49, 72, 0.06);
+  --interactive-active: rgba(38, 49, 72, 0.1);
+  --send: rgb(65, 118, 230);
+  --send-hover: rgb(103, 158, 254);
+  --send-foreground: #fff;
+  --tooltip-bg: rgb(44, 44, 46);
+  --tooltip-ink: #fff;
+  --toast-bg: rgb(60, 60, 61);
+  --toast-ink: #fff;
+  --menu-bg: rgb(255, 255, 255);
+  --code-bg: rgb(249, 250, 251);
+  --code-banner-bg: rgb(245, 246, 247);
+  --skeleton: rgba(0, 0, 0, 0.04);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-sans);
+  --font-brand: var(--font-sans);
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Consolas,
+    "Liberation Mono", Menlo, Courier, "PingFang SC", "Microsoft YaHei";
+
+  --heading-size: clamp(21px, 2.4vw, 28px);
+  --heading-tracking: -0.02em;
+  --heading-line-height: 1.3;
+  --heading-weight: 700;
+
+  --label-transform: none;
+  --label-tracking: 0.01em;
+  --button-transform: none;
+  --button-tracking: 0;
+  --brand-transform: none;
+  --brand-tracking: 0;
+  --brand-sub-writing-mode: horizontal-tb;
+  --brand-sub-tracking: 0.02em;
+
+  --theme-glow: none;
+  --theme-glow-opacity: 0;
+  --theme-noise-opacity: 0;
+}

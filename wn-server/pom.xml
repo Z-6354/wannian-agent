@@ -16,7 +16,7 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>wn-server</name>
-    <description>万年烟火单节点内核</description>
+    <description>万年杜小洛单节点内核</description>
 
     <modules>
         <module>api</module>
