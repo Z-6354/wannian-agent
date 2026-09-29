@@ -1,7 +1,7 @@
 # 记忆与关系 · 已确认边界
 
 `status`: **archived-summary** — 2026-09-17 讨论收口；2026-09-20 合并原 `memory-discussion` / `memory-auto-promotion` / `memory-sensitivity` / `memory-conflict` / `memory-relationship` / `memory-job` / `memory-archive`。  
-`version`: 细节供 **v0.2 / 0.2.3** 实施；不授权按本文直接建表。  
+`version`: 细节供 **v2 / 2.3** 实施；不授权按本文直接建表。  
 `external`: [HANAGENT 记忆实现调研](../../../../docs/architecture/research-2026-09-17-agent-memory-patterns.md)
 
 ---
@@ -154,4 +154,4 @@ OwnerProfile
 5. 自动提升后是否轻提示用户
 6. 用户要求记住 S1 时：加密保存（已倾向）的实现细节
 
-v0.2 实施以 [实施清单 K03](../guide/01-checklist.md) 与 [06 工作簿](../guide/06-memory.md) 为准；改产品语义只改本文件。
+v2 实施以 [实施清单 K03](../guide/01-checklist.md) 与 [06 工作簿](../guide/06-memory.md) 为准；改产品语义只改本文件。

@@ -2,7 +2,7 @@
 
 `status`: **已交付**（2026-09-24）· R1 锁定；A–D+/L 入仓；自动化 + 真人路径可用  
 `version`: **0.2.3**（施工别名 K03）  
-`design`: [memory-system-0.2.3.md](../../../research/memory-system-0.2.3.md) §4 + **§4.1 R1 增补** — 冲突以本施工单为准  
+`design`: [memory-system-2.3.md](../../../research/memory-system-2.3.md) §4 + **§4.1 R1 增补** — 冲突以本施工单为准  
 `b-impl`: [k03-b-hotpath-impl.md](./k03-b-hotpath-impl.md) — 热路径（实现与代码审、全量自动化完成）  
 `d-impl`: [k03-d-recall-tombstone-http.md](./k03-d-recall-tombstone-http.md) — 召回 A / 弱 B / HTTP（实现与代码审、全量自动化完成）  
 `prerequisite`: **0.2.1 / 0.2.2 / 0.2.3 已交付**  

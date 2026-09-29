@@ -5,7 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
- * conversation_search FTS 同步（0.2.4-B）。
+ * conversation_search FTS 同步（2.4.3）。
  *
  * <p>由 {@code SqliteTurnCommitter} 在同事务插入用户/助手消息后调用；改名/删会话由
  * {@link SqliteConversationStore} 调用。

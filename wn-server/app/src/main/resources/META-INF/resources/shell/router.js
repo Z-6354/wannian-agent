@@ -1,6 +1,6 @@
-/** 单页壳路由：hash → 工作台视图（chat | vendors | models | tools | system）。 */
+/** 单页壳路由：hash → 工作台视图（chat | tasks | vendors | models | tools | system）。 */
 
-export const APP_VIEWS = ["chat", "vendors", "models", "tools", "system"];
+export const APP_VIEWS = ["chat", "tasks", "vendors", "models", "tools", "system"];
 
 export function parseAppRoute() {
   const hash = location.hash.startsWith("#") ? location.hash.slice(1) : "";

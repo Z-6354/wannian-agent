@@ -75,7 +75,7 @@ class CreateConversationTest {
                 .isInstanceOf(CreateConversationResult.Created.class);
         assertThat(loadTitle(first)).isEqualTo("会话1");
 
-        // 0.2.4-G：再建空会话会清掉其它空 ACTIVE；有消息的会话才参与默认标题序号
+        // 2.4.7：再建空会话会清掉其它空 ACTIVE；有消息的会话才参与默认标题序号
         seedUserMessage(first);
 
         assertThat(conversationStore.create(CreateConversationCommand.of(second)))

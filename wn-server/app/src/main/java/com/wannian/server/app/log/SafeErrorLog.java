@@ -5,7 +5,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 
 /**
- * app 边界错误日志出口（0.2.1-A）。
+ * app 边界错误日志出口（2.1.1）。
  *
  * <p>只写 {@link ErrorLogFields#toLogMessage()}；禁止 {@code log.error("…", exception)} 把堆栈 /
  * SQL / 密钥打进常规业务日志。编程缺陷若需诊断，另开受控通道，不经本方法默认路径。

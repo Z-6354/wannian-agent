@@ -9,11 +9,19 @@ import com.wannian.server.app.model.EnabledModelPortResolver;
 import com.wannian.server.app.model.EnabledModelPortResolver.ResolveResult;
 import com.wannian.server.app.persistence.SqliteTurnQueue;
 import com.wannian.server.app.prompt.CompanionPromptService;
+import com.wannian.server.app.notice.NoticeCenter;
+import com.wannian.server.app.task.IdleDeliveryWorker;
+import com.wannian.server.app.task.TaskDeliveryService;
+import com.wannian.server.app.task.TaskReviewService;
+import org.springframework.beans.factory.ObjectProvider;
 import com.wannian.server.app.title.ConversationAutoTitleService;
 import com.wannian.server.kernel.agent.AgentActivityListener;
 import com.wannian.server.kernel.agent.AgentBudget;
 import com.wannian.server.kernel.error.ErrorCodes;
 import com.wannian.server.kernel.prompt.CrisisRiskPolicy;
+import com.wannian.server.kernel.task.IdleDeliveryPending;
+import com.wannian.server.kernel.task.IdleDeliveryPendingRepository;
+import com.wannian.server.kernel.task.IdleDeliveryStatus;
 import com.wannian.server.kernel.turn.ExecuteTurn;
 import com.wannian.server.kernel.turn.ExecuteTurnResult;
 import com.wannian.server.kernel.turn.SaveTurnResult;
@@ -39,9 +47,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -70,11 +80,35 @@ public class DurableTurnScheduler implements ApplicationRunner {
     private final ConversationAutoTitleService autoTitle;
     private final RunEventBus eventBus;
     private final ActiveTurnRegistry activeTurns;
+    private final boolean enabled;
     private ConversationPersonaBinding personaBindings;
     private MemoryReviewTurnHooks memoryReviewTurnHooks;
+    private IdleDeliveryPendingRepository idleDeliveries;
+    private TaskDeliveryService taskDeliveryService;
+    private ObjectProvider<TaskReviewService> taskReviewService;
+    private NoticeCenter noticeCenter;
 
     @Autowired public void setPersonaBindings(ConversationPersonaBinding personaBindings) { this.personaBindings = personaBindings; }
     @Autowired public void setMemoryReviewTurnHooks(MemoryReviewTurnHooks hooks) { this.memoryReviewTurnHooks = hooks; }
+    @Autowired
+    public void setIdleDeliveries(IdleDeliveryPendingRepository idleDeliveries) {
+        this.idleDeliveries = idleDeliveries;
+    }
+
+    @Autowired
+    public void setTaskDeliveryService(@Lazy TaskDeliveryService taskDeliveryService) {
+        this.taskDeliveryService = taskDeliveryService;
+    }
+
+    @Autowired
+    public void setTaskReviewService(ObjectProvider<TaskReviewService> taskReviewService) {
+        this.taskReviewService = taskReviewService;
+    }
+
+    @Autowired
+    public void setNoticeCenter(NoticeCenter noticeCenter) {
+        this.noticeCenter = noticeCenter;
+    }
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Object wakeLock = new Object();
@@ -93,7 +127,8 @@ public class DurableTurnScheduler implements ApplicationRunner {
             CompanionPromptService companionPromptService,
             ConversationAutoTitleService autoTitle,
             RunEventBus eventBus,
-            ActiveTurnRegistry activeTurns) {
+            ActiveTurnRegistry activeTurns,
+            @Value("${wannian.turn.scheduler.enabled:true}") boolean enabled) {
         this.queue = Objects.requireNonNull(queue, "queue");
         this.turns = Objects.requireNonNull(turns, "turns");
         this.turnEngine = Objects.requireNonNull(turnEngine, "turnEngine");
@@ -105,6 +140,7 @@ public class DurableTurnScheduler implements ApplicationRunner {
         this.autoTitle = Objects.requireNonNull(autoTitle, "autoTitle");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.activeTurns = Objects.requireNonNull(activeTurns, "activeTurns");
+        this.enabled = enabled;
         AtomicInteger seq = new AtomicInteger();
         this.workers =
                 new ThreadPoolExecutor(
@@ -127,6 +163,10 @@ public class DurableTurnScheduler implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!enabled) {
+            LOG.info("DurableTurnScheduler 已禁用（wannian.turn.scheduler.enabled=false）");
+            return;
+        }
         if (!running.compareAndSet(false, true)) {
             return;
         }
@@ -159,6 +199,16 @@ public class DurableTurnScheduler implements ApplicationRunner {
         workers.shutdownNow();
         if (dispatcher != null) {
             dispatcher.interrupt();
+            try {
+                dispatcher.join(2000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        try {
+            workers.awaitTermination(2, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -171,6 +221,9 @@ public class DurableTurnScheduler implements ApplicationRunner {
         for (TurnId turnId : queue.listCommitting()) {
             recoverCommitting(turnId);
         }
+        reconcileIdleDeliveries();
+        reconcileTaskReviewClaims();
+        reconcileOrphanBusyDeliveries();
         lastPeriodicReconcile = Instant.now();
     }
 
@@ -186,7 +239,89 @@ public class DurableTurnScheduler implements ApplicationRunner {
                 recoverCommitting(turnId);
             }
         }
+        reconcileIdleDeliveries();
+        reconcileTaskReviewClaims();
+        reconcileOrphanBusyDeliveries();
         lastPeriodicReconcile = now;
+    }
+
+    private void reconcileTaskReviewClaims() {
+        if (taskReviewService == null) {
+            return;
+        }
+        TaskReviewService reviews = taskReviewService.getIfAvailable();
+        if (reviews == null) {
+            return;
+        }
+        try {
+            reviews.reconcileClaimed();
+        } catch (RuntimeException ex) {
+            LOG.warn("reconcile task review CLAIMED failed", ex);
+        }
+    }
+
+    private void reconcileOrphanBusyDeliveries() {
+        if (taskDeliveryService == null) {
+            return;
+        }
+        try {
+            taskDeliveryService.reconcileOrphanBusyDeliveries();
+        } catch (RuntimeException ex) {
+            LOG.warn("reconcile orphan busy deliveries failed", ex);
+        }
+    }
+
+    /**
+     * Idle DISPATCHING 收口：无 wake → 回 QUEUED；wake 已 COMPLETED → DELIVERED；
+     * wake FAILED/CANCELLED → 递增 attempt 回 QUEUED；wake 仍进行中 → 保持。
+     */
+    private void reconcileIdleDeliveries() {
+        if (idleDeliveries == null) {
+            return;
+        }
+        for (IdleDeliveryPending pending : idleDeliveries.listDispatching()) {
+            try {
+                if (pending.wakeTurnId() == null) {
+                    if (idleDeliveries.casRequeue(pending.deliveryId())) {
+                        LOG.info(
+                                "Idle DISPATCHING 无 wake_turn，已回 QUEUED delivery={}",
+                                pending.deliveryId().asString());
+                    }
+                    continue;
+                }
+                TurnId wakeTurnId = pending.wakeTurnId();
+                Optional<Turn> found = turns.find(wakeTurnId);
+                if (found.isEmpty()) {
+                    idleDeliveries.casRequeueByWakeTurn(wakeTurnId);
+                    continue;
+                }
+                switch (found.get().status()) {
+                    case COMPLETED -> markIdleDelivered(wakeTurnId, Optional.of(pending));
+                    case FAILED, CANCELLED -> resetIdleAfterWakeFailed(wakeTurnId, pending);
+                    default -> {
+                        // RECEIVED/CLAIMED/RUNNING/COMMITTING：调度器继续
+                    }
+                }
+            } catch (RuntimeException ex) {
+                LOG.warn(
+                        "reconcileIdleDeliveries 单条失败 delivery={}: {}",
+                        pending.deliveryId().asString(),
+                        ex.toString());
+            }
+        }
+    }
+
+    private void resetIdleAfterWakeFailed(TurnId wakeTurnId, IdleDeliveryPending pending) {
+        String bumped =
+                taskDeliveryService != null
+                        ? taskDeliveryService.bumpWakeAttemptPayload(pending.payloadJson())
+                        : pending.payloadJson();
+        if (idleDeliveries.resetAfterWakeFailed(wakeTurnId, bumped)) {
+            LOG.info(
+                    "Idle wake Turn 已终态失败，已回 QUEUED 并升 attempt delivery={} turn={}",
+                    pending.deliveryId().asString(),
+                    wakeTurnId.asString());
+        }
     }
 
     private void failOrphanClaim(TurnId turnId, Instant now, String reason) {
@@ -228,6 +363,12 @@ public class DurableTurnScheduler implements ApplicationRunner {
                 turnId.asString(),
                 was,
                 reason);
+        // Idle 唤模 Turn 失败：升 attempt 回 QUEUED，避免 DISPATCHING 饿死且同 clientRequestId 卡在失败 Turn
+        if (idleDeliveries != null) {
+            idleDeliveries
+                    .findByWakeTurnId(turnId)
+                    .ifPresent(p -> resetIdleAfterWakeFailed(turnId, p));
+        }
         wake();
     }
 
@@ -255,12 +396,14 @@ public class DurableTurnScheduler implements ApplicationRunner {
                         turnId.asString(),
                         held.code(),
                         held.detail());
-            } else if (result instanceof ExecuteTurnResult.Replied) {
+            } else if (result instanceof ExecuteTurnResult.Replied
+                    || result instanceof ExecuteTurnResult.AlreadyCompleted) {
                 Optional<Turn> done = turns.find(turnId);
                 done.ifPresent(t -> {
                     autoTitle.scheduleAfterCompleted(t.conversationId(), turnId);
                     if (memoryReviewTurnHooks != null) memoryReviewTurnHooks.afterTurnCompleted(t.conversationId(), persona==null?com.wannian.server.kernel.memory.CompanionIdentity.YANHUO:persona.companionIdentity());
                 });
+                markIdleDelivered(turnId, Optional.empty());
                 LOG.info(
                         "COMMITTING 恢复完成 turn={} result={}",
                         turnId.asString(),
@@ -313,7 +456,11 @@ public class DurableTurnScheduler implements ApplicationRunner {
                     waitIdle();
                 }
             } catch (RuntimeException ex) {
-                LOG.warn("调度循环异常: {}", ex.toString());
+                if (isBenignDbRace(ex)) {
+                    LOG.debug("调度循环忙等: {}", ex.toString());
+                } else {
+                    LOG.warn("调度循环异常: {}", ex.toString());
+                }
                 waitIdle();
             }
         }
@@ -350,16 +497,56 @@ public class DurableTurnScheduler implements ApplicationRunner {
         }
     }
 
+    private static boolean isSqliteBusy(Throwable ex) {
+        return isBenignDbRace(ex);
+    }
+
+    /** 清库 / Flyway / 关池 期间的可恢复竞态，不当作调度故障刷屏。 */
+    private static boolean isBenignDbRace(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            String msg = t.getMessage();
+            if (msg == null) {
+                continue;
+            }
+            String lower = msg.toLowerCase();
+            if (lower.contains("sqlite_busy")
+                    || lower.contains("database is locked")
+                    || lower.contains("sqlite_locked")
+                    || lower.contains("no such table")
+                    || lower.contains("connection closed")
+                    || lower.contains("closed")
+                    || lower.contains("database has been closed")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void executeOne(SqliteTurnQueue.QueuedTurn item) {
         try {
             Optional<Turn> found = turns.find(item.turnId());
-            if (found.isEmpty() || found.get().status() != TurnStatus.RECEIVED) {
+            if (found.isEmpty()) {
+                return;
+            }
+            TurnStatus status = found.get().status();
+            if (status != TurnStatus.RECEIVED) {
+                // 崩溃后可能已 COMPLETED/FAILED：仍须收口 Idle 行，避免永久 DISPATCHING
+                if (status == TurnStatus.COMPLETED) {
+                    markIdleDelivered(item.turnId(), Optional.empty());
+                } else if (status == TurnStatus.FAILED || status == TurnStatus.CANCELLED) {
+                    if (idleDeliveries != null) {
+                        idleDeliveries
+                                .findByWakeTurnId(item.turnId())
+                                .ifPresent(p -> resetIdleAfterWakeFailed(item.turnId(), p));
+                    }
+                }
                 return;
             }
             Optional<String> userText = queue.loadUserText(item.turnId());
             if (userText.isEmpty() || userText.get().isBlank()) {
                 LOG.warn("待执行回合缺少用户正文，撤队 turn={}", item.turnId().asString());
                 failPoisonReceived(found.get());
+                cancelIdleWake(item.turnId());
                 return;
             }
             // 正文验证后才做危机分类。危机轮由 Loop 走确定性回应，不依赖已启用模型。
@@ -371,13 +558,37 @@ public class DurableTurnScheduler implements ApplicationRunner {
             PersonaTurnSnapshot persona = personaBindings == null ? null : personaBindings.resolveForTurn(item.conversationId(), item.turnId());
             Instant now = Instant.now();
             AgentBudget base = budgetSettings.createBudget(now);
+            Optional<IdleDeliveryPending> idleWake =
+                    idleDeliveries == null
+                            ? Optional.empty()
+                            : idleDeliveries.findByWakeTurnId(item.turnId());
+            boolean idleDelivery =
+                    idleWake.isPresent()
+                            || (found.get().clientRequestId() != null
+                                    && found.get()
+                                            .clientRequestId()
+                                            .startsWith(IdleDeliveryWorker.CLIENT_REQUEST_PREFIX));
             AgentBudget budget =
-                    new AgentBudget(
-                            base.maxModelDecisions(),
-                            base.maxSystemToolInvocationsPerTool(),
-                            base.softDeadline(),
-                            base.hardDeadline(),
-                            cancelToken);
+                    idleDelivery
+                            ? new AgentBudget(
+                                    Math.min(4, base.maxModelDecisions()),
+                                    base.maxSystemToolInvocationsPerTool(),
+                                    now.plusSeconds(45),
+                                    now.plusSeconds(90),
+                                    cancelToken)
+                            : new AgentBudget(
+                                    base.maxModelDecisions(),
+                                    base.maxSystemToolInvocationsPerTool(),
+                                    base.softDeadline(),
+                                    base.hardDeadline(),
+                                    cancelToken);
+            String system =
+                    persona == null
+                            ? companionPromptService.composeSystemInstructions()
+                            : companionPromptService.composeSystemInstructions(persona);
+            if (idleWake.isPresent()) {
+                system = system + "\n\n" + IdleDeliveryWorker.formatIdleReportBlock(idleWake.get());
+            }
             TurnRunContext.Handle handle =
                     new TurnRunContext.Handle(
                             item.conversationId(), item.turnId(), cancelToken, eventBus);
@@ -393,21 +604,26 @@ public class DurableTurnScheduler implements ApplicationRunner {
                                 new ExecuteTurn(
                                         item.turnId(),
                                         userText.get(),
-                                        persona == null ? companionPromptService.composeSystemInstructions() : companionPromptService.composeSystemInstructions(persona),
+                                        system,
                                         budget,
                                         claimLease(),
                                         persona));
                 if (result instanceof ExecuteTurnResult.Replied) {
                     autoTitle.scheduleAfterCompleted(item.conversationId(), item.turnId());
                     if (memoryReviewTurnHooks != null) memoryReviewTurnHooks.afterTurnCompleted(item.conversationId(), persona==null?com.wannian.server.kernel.memory.CompanionIdentity.YANHUO:persona.companionIdentity());
+                    markIdleDelivered(item.turnId(), idleWake);
+                } else if (result instanceof ExecuteTurnResult.AlreadyCompleted) {
+                    markIdleDelivered(item.turnId(), idleWake);
                 } else if (result instanceof ExecuteTurnResult.Held held) {
                     LOG.info(
                             "异步执行 Held turn={} code={}",
                             item.turnId().asString(),
                             held.code());
+                    handleIdleExecuteOutcome(item.turnId(), idleWake);
                 }
             } catch (RuntimeException ex) {
                 LOG.warn("异步执行异常 turn={}: {}", item.turnId().asString(), ex.toString());
+                handleIdleExecuteOutcome(item.turnId(), idleWake);
             } finally {
                 activeTurns.unregister(item.turnId());
                 TurnRunContext.clear();
@@ -445,6 +661,127 @@ public class DurableTurnScheduler implements ApplicationRunner {
                     "毒丸回合 CANCELLED+Outbox 落库失败 turn={} result={}",
                     turn.id().asString(),
                     saved.getClass().getSimpleName());
+        }
+    }
+
+    private void markIdleDelivered(TurnId turnId, Optional<IdleDeliveryPending> idleWake) {
+        if (idleDeliveries == null) {
+            return;
+        }
+        IdleDeliveryPending pending =
+                idleWake.orElseGet(
+                        () -> idleDeliveries.findByWakeTurnId(turnId).orElse(null));
+        if (pending == null) {
+            return;
+        }
+        if (pending.status() == IdleDeliveryStatus.DELIVERED) {
+            return;
+        }
+        boolean ok = idleDeliveries.casDelivered(pending.deliveryId(), turnId, Instant.now());
+        if (!ok) {
+            LOG.warn(
+                    "Idle casDelivered 未生效 delivery={} turn={} statusWas={}",
+                    pending.deliveryId().asString(),
+                    turnId.asString(),
+                    pending.status());
+            return;
+        }
+        publishIdleNotice(pending);
+    }
+
+    private void publishIdleNotice(IdleDeliveryPending pending) {
+        if (noticeCenter == null) {
+            return;
+        }
+        try {
+            String errorCode = null;
+            String preview = null;
+            boolean scheduled = false;
+            boolean noticeAlreadySent = false;
+            String reminderMessage = null;
+            String payload = pending.payloadJson();
+            if (payload != null && !payload.isBlank()) {
+                try {
+                    var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
+                    if (node.hasNonNull("errorCode")) {
+                        errorCode = node.get("errorCode").asText();
+                    }
+                    if (node.hasNonNull("resultPreview")) {
+                        preview = node.get("resultPreview").asText();
+                    }
+                    if (node.hasNonNull(TaskDeliveryService.MESSAGE_FIELD)) {
+                        reminderMessage = node.get(TaskDeliveryService.MESSAGE_FIELD).asText();
+                    }
+                    scheduled = node.path("scheduled").asBoolean(false);
+                    noticeAlreadySent =
+                            node.path(TaskDeliveryService.NOTICE_ALREADY_SENT_FIELD).asBoolean(false);
+                } catch (Exception ignored) {
+                    // payload 解析失败仍发通知
+                }
+            }
+            // 2.5.12：NOTIFY 已在终态时先发中心，此处跳过，避免重复「定时任务已完成」
+            if (noticeAlreadySent) {
+                return;
+            }
+            noticeCenter.publishTaskTerminal(
+                    pending.conversationId(),
+                    pending.taskId(),
+                    pending.terminalStatus(),
+                    errorCode,
+                    preview != null ? preview : reminderMessage,
+                    scheduled);
+        } catch (RuntimeException ex) {
+            LOG.warn(
+                    "Idle 消息中心 publish 失败 delivery={}: {}",
+                    pending.deliveryId().asString(),
+                    ex.toString());
+        }
+    }
+
+    /**
+     * Idle 唤模失败收口：Turn 仍可执行则保持 DISPATCHING（保留 wake_turn，避免丢汇报块/死循环）；
+     * 已 COMPLETED 则交付；FAILED/CANCELLED 则取消 Idle 行。
+     */
+    private void handleIdleExecuteOutcome(
+            TurnId turnId, Optional<IdleDeliveryPending> idleWake) {
+        if (idleDeliveries == null) {
+            return;
+        }
+        if (idleWake.isEmpty() && idleDeliveries.findByWakeTurnId(turnId).isEmpty()) {
+            return;
+        }
+        Optional<Turn> latest = turns.find(turnId);
+        if (latest.isEmpty()) {
+            cancelIdleWake(turnId);
+            return;
+        }
+        switch (latest.get().status()) {
+            case COMPLETED -> markIdleDelivered(turnId, idleWake);
+            case RECEIVED, CLAIMED, RUNNING, COMMITTING -> {
+                // 保持 DISPATCHING + wake_turn；调度器后续重试同一 Turn
+            }
+            case FAILED, CANCELLED -> {
+                IdleDeliveryPending pending =
+                        idleWake.orElseGet(
+                                () -> idleDeliveries.findByWakeTurnId(turnId).orElse(null));
+                if (pending != null) {
+                    resetIdleAfterWakeFailed(turnId, pending);
+                } else {
+                    cancelIdleWake(turnId);
+                }
+            }
+            default -> cancelIdleWake(turnId);
+        }
+    }
+
+    private void cancelIdleWake(TurnId turnId) {
+        if (idleDeliveries == null) {
+            return;
+        }
+        try {
+            idleDeliveries.casCancelledByWakeTurn(turnId);
+        } catch (RuntimeException ex) {
+            LOG.warn("Idle 取消失败 turn={}: {}", turnId.asString(), ex.toString());
         }
     }
 
@@ -539,9 +876,14 @@ public class DurableTurnScheduler implements ApplicationRunner {
     @Component
     public static class StreamingTurnRunListener implements TurnRunListener {
         private final com.wannian.server.kernel.persona.PendingConversationPersonaSwitch personaSwitches;
+        private final com.wannian.server.app.task.TaskDeliveryService taskDeliveryService;
 
-        public StreamingTurnRunListener(com.wannian.server.kernel.persona.PendingConversationPersonaSwitch personaSwitches) {
-            this.personaSwitches=personaSwitches;
+        public StreamingTurnRunListener(
+                com.wannian.server.kernel.persona.PendingConversationPersonaSwitch personaSwitches,
+                @org.springframework.context.annotation.Lazy
+                        com.wannian.server.app.task.TaskDeliveryService taskDeliveryService) {
+            this.personaSwitches = personaSwitches;
+            this.taskDeliveryService = taskDeliveryService;
         }
 
         @Override
@@ -559,10 +901,20 @@ public class DurableTurnScheduler implements ApplicationRunner {
 
         @Override public void onCompleted(com.wannian.server.api.common.ConversationId conversationId,TurnId turnId,String executionId) {
             personaSwitches.turnCompleted(conversationId,turnId);
+            try {
+                taskDeliveryService.flushAfterTurnCompleted(conversationId, turnId);
+            } catch (RuntimeException ignored) {
+                // Busy 交付不得打断 Turn 完成钩
+            }
         }
 
         @Override public void onAborted(com.wannian.server.api.common.ConversationId conversationId,TurnId turnId,String executionId) {
             personaSwitches.turnAborted(conversationId,turnId);
+            try {
+                taskDeliveryService.flushOrTransferAfterTurnAborted(conversationId, turnId);
+            } catch (RuntimeException ignored) {
+                // Busy 交付不得打断 Turn 中止钩
+            }
         }
 
         @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)

@@ -13,6 +13,7 @@ import com.wannian.server.kernel.journal.JournalActor;
 import com.wannian.server.kernel.journal.JournalJson;
 import com.wannian.server.kernel.journal.JournalKind;
 import com.wannian.server.kernel.journal.RunJournalEntry;
+import com.wannian.server.kernel.task.BackgroundTaskRepository;
 import com.wannian.server.kernel.turn.CommitTurnPlan;
 import com.wannian.server.kernel.turn.CommitTurnResult;
 import com.wannian.server.kernel.turn.FreezeCommitPlan;
@@ -42,8 +43,10 @@ import org.springframework.stereotype.Component;
  * 一次成功完成必有一条能定位该 Turn 与助手消息的 {@code TurnCompleted} 事件。
  * 已经进入 {@code COMMITTING} 后，lease 过期不再拒绝提交；错误的 executionId 则整笔拒绝。
  *
- * <p>0.2.4-A：实际 Memory 落库后，在同一事务内写入正式 {@code MEMORY_WRITE} 步骤；
+ * <p>2.4.1：实际 Memory 落库后，在同一事务内写入正式 {@code MEMORY_WRITE} 步骤；
  * 失败回滚整笔（含 Message / Turn / Outbox / Memory）。
+ *
+ * <p>2.5.3：可选 {@code TaskDraft} 经 {@link BackgroundTaskRepository#insertFromDraft} 同事务落库。
  */
 @Component
 public class SqliteTurnCommitter implements TurnCommitter {
@@ -63,18 +66,28 @@ public class SqliteTurnCommitter implements TurnCommitter {
     private final SqliteMemoryCommitWriter memoryWriter;
     private final SqliteRelationshipCommitWriter relationshipWriter;
     private final SqliteTurnStepJournal turnStepJournal;
+    private final BackgroundTaskRepository backgroundTaskRepository;
 
-    /** 测试 / 无 Spring 注入 journal 时：自建与 DataSource 绑定的 journal。 */
+    /** 测试 / 无 Spring 注入时：自建 journal + BackgroundTaskRepository。 */
     public SqliteTurnCommitter(DataSource dataSource, ObjectMapper objectMapper) {
-        this(dataSource, objectMapper, new SqliteTurnStepJournal(dataSource));
+        this(
+                dataSource,
+                objectMapper,
+                new SqliteTurnStepJournal(dataSource),
+                new SqliteBackgroundTaskRepository(dataSource));
     }
 
     @Autowired
     public SqliteTurnCommitter(
-            DataSource dataSource, ObjectMapper objectMapper, SqliteTurnStepJournal turnStepJournal) {
+            DataSource dataSource,
+            ObjectMapper objectMapper,
+            SqliteTurnStepJournal turnStepJournal,
+            BackgroundTaskRepository backgroundTaskRepository) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.turnStepJournal = Objects.requireNonNull(turnStepJournal, "turnStepJournal");
+        this.backgroundTaskRepository =
+                Objects.requireNonNull(backgroundTaskRepository, "backgroundTaskRepository");
         this.frozenPlanStore = new SqliteFrozenPlanStore(objectMapper);
         this.memoryWriter = new SqliteMemoryCommitWriter(objectMapper);
         this.relationshipWriter = new SqliteRelationshipCommitWriter(objectMapper);
@@ -193,7 +206,8 @@ public class SqliteTurnCommitter implements TurnCommitter {
                             frozen.assistantMessage(),
                             frozen.additionalEvents(),
                             frozen.approvedMemoryChanges(),
-                            frozen.approvedRelationshipChange()));
+                            frozen.approvedRelationshipChange(),
+                            frozen.taskDraft()));
         } catch (SQLException | JsonProcessingException ex) {
             return Optional.empty();
         }
@@ -202,10 +216,6 @@ public class SqliteTurnCommitter implements TurnCommitter {
     @Override
     public CommitTurnResult commit(CommitTurnPlan plan) {
         Objects.requireNonNull(plan, "plan");
-        if (plan.hasUnsupportedExtensions()) {
-            return new CommitTurnResult.Rejected(
-                    ErrorCodes.UNSUPPORTED_EXTENSION, "本批尚不支持 Task 变更");
-        }
         if (plan.assistantMessage().role() != MessageRole.ASSISTANT) {
             return new CommitTurnResult.Rejected(
                     ErrorCodes.ILLEGAL_ARGUMENT, "assistantMessage.role 必须为 ASSISTANT");
@@ -417,6 +427,9 @@ public class SqliteTurnCommitter implements TurnCommitter {
         insertMemoryWriteSteps(
                 connection, turnId, turn.conversationId(), writeAt, appliedMemories);
         relationshipWriter.apply(connection, turnId, writeAt, plan.approvedRelationshipChange());
+        if (plan.taskDraft() != null) {
+            backgroundTaskRepository.insertFromDraft(connection, plan.taskDraft(), writeAt);
+        }
         touchConversationActivity(connection, turn.conversationId(), now);
         frozenPlanStore.delete(connection, turnId);
         return new CommitTurnResult.Committed(turnId, newRevision);
@@ -546,6 +559,10 @@ public class SqliteTurnCommitter implements TurnCommitter {
             return new CommitTurnResult.Rejected(
                     ErrorCodes.PLAN_MISMATCH, "提交计划的关系变更与冻结计划不一致");
         }
+        if (!Objects.equals(frozen.taskDraft(), plan.taskDraft())) {
+            return new CommitTurnResult.Rejected(
+                    ErrorCodes.PLAN_MISMATCH, "提交计划的 TaskDraft 与冻结计划不一致");
+        }
         return null;
     }
 
@@ -600,6 +617,7 @@ public class SqliteTurnCommitter implements TurnCommitter {
         payload.put("messageId", assistant.messageId().asString());
         payload.put("role", assistant.role().name());
         payload.put("textPreview", previewText(assistant.contentJson()));
+        payload.put("createdAt", now);
         String payloadJson;
         try {
             payloadJson = objectMapper.writeValueAsString(payload);

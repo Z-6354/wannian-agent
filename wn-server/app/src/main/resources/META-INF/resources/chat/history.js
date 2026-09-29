@@ -1,10 +1,10 @@
-import { listMessages, getConversation, recentConversation } from "/chat/api.js?v=20260925i";
+import { listMessages, getConversation, recentConversation } from "/chat/api.js?v=20260928n";
 import {
   applyHistoryPage,
   getCommitted,
   setConversationHeader,
   upsertConversation,
-} from "/chat/state.js?v=20260925i";
+} from "/chat/state.js?v=20260928n";
 
 const PAGE_LIMIT = 100;
 

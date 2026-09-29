@@ -199,7 +199,7 @@ UserChannel / WorldScheduler / GameBridge / …
 | | |
 |--|--|
 | **主参照** | L2 AbortSignal；L1 AtomicBoolean；L5 cancel 点；G5 PAUSED |
-| **辅参照** | L3 interrupt/steer（中途改口；v0.1 可只做取消） |
+| **辅参照** | L3 interrupt/steer（中途改口；v1 可只做取消） |
 
 **二次元特殊化：** 取消后的可见文案避免「已执行副作用却说什么都没发生」；陪伴场景少危险工具，仍守 UNKNOWN 语义（K02）。  
 **多核心特殊化：** 取消与 beginCommit 的决胜在 **持久化 CAS**；跨核不得各判各的。合法 COMMITTING 不因另一核的普通取消打回。
@@ -228,7 +228,7 @@ UserChannel / WorldScheduler / GameBridge / …
 
 **二次元 / 个人问答特殊化**
 
-- v0.1 起工具集按 **ToolProfile** 切换：`chat.default` / `chat.mcp`（识图）/ `schedule`；日后 `im.bridge`、`app.api`、`game.*`（与对话目录隔离，对照 OpenGameAgent「游戏权威工具」）。
+- v1 起工具集按 **ToolProfile** 切换：`chat.default` / `chat.mcp`（识图）/ `schedule`；日后 `im.bridge`、`app.api`、`game.*`（与对话目录隔离，对照 OpenGameAgent「游戏权威工具」）。
 - observation 截断与脱敏；高危（IM/写操作）走确认（L1 propose-confirm 思想）。
 - 游戏会话与陪伴会话换 profile，不换 Loop 实现。
 

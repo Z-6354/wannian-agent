@@ -6,9 +6,9 @@
 
 ## 1. 为什么先做单节点
 
-0.1 要先证明杜小洛能够稳定完成普通 Agent 工作。如果 Turn、工具幂等、记忆提交和后台任务在一个进程里都不可靠，增加三台机器只会放大故障。
+2.1 要先证明杜小洛能够稳定完成普通 Agent 工作。如果 Turn、工具幂等、记忆提交和后台任务在一个进程里都不可靠，增加三台机器只会放大故障。
 
-单节点不等于一次性原型。正确的单节点实现把“业务含义”和“执行位置”分开，因此 0.2 只需增加 Adapter 和控制面。
+单节点不等于一次性原型。正确的单节点实现把“业务含义”和“执行位置”分开，因此 2.2 只需增加 Adapter 和控制面。
 
 ## 2. 三个交付单元
 
@@ -40,7 +40,7 @@ cancel(turnId) → CancelResult
 
 只有实际需要两种 Adapter 的地方才建立 seam：
 
-| Seam | 0.1 Adapter | 测试 Adapter | 0.2 Adapter |
+| Seam | 2.1 Adapter | 测试 Adapter | 2.2 Adapter |
 |---|---|---|---|
 | ModelPort | CloudModelAdapter | FakeModel | 仍可复用 |
 | ToolRuntime 内部 ToolAdapter seam | LocalToolAdapter | FakeToolAdapter | RemoteToolAdapter |
@@ -98,7 +98,7 @@ Kernel 用确定性规则验证后才能提交。不能让模型生成 SQL、状
 这个操作结果未知，禁止自动重试
 ```
 
-0.1 就使用该语义，0.2 节点失联后才能安全重派任务。
+2.1 就使用该语义，2.2 节点失联后才能安全重派任务。
 
 ## 9. 事务与 outbox
 
@@ -126,16 +126,16 @@ logs：诊断信息，有保留周期
 
 把这些目录混在一起，会使未来 Guardian 回退程序时误删人生数据，或使任务清理误删稳定版本。
 
-## 11. 0.2 如何扩展
+## 11. 2.2 如何扩展
 
-0.1：
+2.1：
 
 ```text
 TaskRuntime → TaskExecutor → LocalTaskExecutor
 ToolRuntime → LocalToolAdapter
 ```
 
-0.2：
+2.2：
 
 ```text
 TaskRuntime → PlacementPolicy → LocalTaskExecutor | RemoteTaskExecutor
@@ -148,7 +148,7 @@ TaskExecutor 是 `TaskRuntime` 的内部 seam；AgentLoop 不直接调度 Run。
 
 ## 12. SQLite 的边界
 
-SQLite 足以支持 0.1 单用户、单写入节点。它不提供国内整机故障后的实时接管。0.2 的远程 Worker 不直接写 SQLite；只有国内 Kernel 提交权威状态。
+SQLite 足以支持 2.1 单用户、单写入节点。它不提供国内整机故障后的实时接管。2.2 的远程 Worker 不直接写 SQLite；只有国内 Kernel 提交权威状态。
 
 若未来要求美国 Replica 接管最新状态，需另行设计复制与恢复，不能把 SQLite 文件放进共享网络目录假装多节点数据库。
 
@@ -175,7 +175,7 @@ SQLite 足以支持 0.1 单用户、单写入节点。它不提供国内整机�
 
 ## 1. 总体结论
 
-当前方案的总体方向正确：`app → kernel → api`、Ports and Adapters、不可变命令/结果、outbox、幂等键和本地/远程执行 seam 都能支撑 0.1 向 0.2 演进。
+当前方案的总体方向正确：`app → kernel → api`、Ports and Adapters、不可变命令/结果、outbox、幂等键和本地/远程执行 seam 都能支撑 2.1 向 2.2 演进。
 
 但文档中仍有四处容易形成“Interface 很多、行为分散”的浅 Module：
 
@@ -202,13 +202,13 @@ TaskRuntime
 适用位置：
 
 - `ModelPort`：真实云模型 Adapter + FakeModel；
-- `TaskExecutor`：Local Adapter + 0.2 Remote Adapter；
+- `TaskExecutor`：Local Adapter + 2.2 Remote Adapter；
 - 持久化：SQLite Adapter + 测试 Adapter；
 - `ClockPort`：SystemClock + FixedClock。
 
-价值：Kernel 不依赖 SDK、网络、SQLite 和执行设备。0.2 增加远程节点时只增加 Adapter。
+价值：Kernel 不依赖 SDK、网络、SQLite 和执行设备。2.2 增加远程节点时只增加 Adapter。
 
-注意：并非每个类都需要 port。只有生产与测试确实需要替换，或 0.2 已明确存在第二 Adapter 时才建立 seam。
+注意：并非每个类都需要 port。只有生产与测试确实需要替换，或 2.2 已明确存在第二 Adapter 时才建立 seam。
 
 ### 2.2 Strategy
 
@@ -243,7 +243,7 @@ ToolInvocation
 ApprovedMemoryChange
 ```
 
-Command 必须是不可变数据，表达“想做什么”，而不是携带 Runnable、Bean 或打开的文件句柄。这样 0.2 才能序列化并跨节点传输。
+Command 必须是不可变数据，表达“想做什么”，而不是携带 Runnable、Bean 或打开的文件句柄。这样 2.2 才能序列化并跨节点传输。
 
 ### 2.4 Repository
 
@@ -428,7 +428,7 @@ public interface TaskRuntime {
 }
 ```
 
-外部调度器只周期调用 `dispatchNext`；TaskRuntime 内部管理 lease、attempt、retry 和合法状态转换。`TaskExecutor` 保持内部 seam：0.1 Local，0.2 Remote。
+外部调度器只周期调用 `dispatchNext`；TaskRuntime 内部管理 lease、attempt、retry 和合法状态转换。`TaskExecutor` 保持内部 seam：2.1 Local，2.2 Remote。
 
 TaskDraft 通过 TurnCommitter 与确认回复一起落库，避免“先回复接受、后创建任务”。
 
@@ -500,7 +500,7 @@ AgentLoop
 
 ## 10. P1 · 扩展使用 Adapter，不使用条件分支
 
-（原「0.2 扩展」：指日后能力用 Adapter 挂上。现行产品 **v0.3 / 更后** 才加多节点与世界树；勿在 v0.2 单核 harness 里用 if 版本分支堆空实现。）
+（原「2.2 扩展」：指日后能力用 Adapter 挂上。现行产品 **v3 / 更后** 才加多节点与世界树；勿在 v2 单核 harness 里用 if 版本分支堆空实现。）
 
 错误方向：
 
@@ -520,7 +520,7 @@ ToolRuntime → ToolAdapterRegistry
                   └─ RemoteToolAdapter
 ```
 
-PlacementPolicy 在 0.2 决定选哪个 executor/adapter；Agent Loop 不出现 nodeId、IP 或 mTLS。
+PlacementPolicy 在 2.2 决定选哪个 executor/adapter；Agent Loop 不出现 nodeId、IP 或 mTLS。
 
 ## 11. P1 · 错误使用封闭结果，而不是异常控制正常流程
 
@@ -542,10 +542,10 @@ AgentOutcome
 | Specification | Memory/Tool policy 规则多到需要组合时再引入；首版可用明确函数 |
 | Factory | ID、operationId 和厂商 Adapter 构造可用；不建抽象工厂家族 |
 | Composite | 未来工具组/策略树可能使用；首版没有必要 |
-| Saga/Process Manager | 跨节点长期升级流程适合 0.2；普通 v0.1 TaskRuntime 足够 |
+| Saga/Process Manager | 跨节点长期升级流程适合 2.2；普通 v1 TaskRuntime 足够 |
 | Event Sourcing | 不采用；保留 outbox 和审计事件即可 |
 | CQRS | 不采用完整框架；查询 DTO 与命令模型自然分开即可 |
-| Plugin | 不在 0.1；工具注册表不等于开放插件系统 |
+| Plugin | 不在 2.1；工具注册表不等于开放插件系统 |
 | Builder | ModelRequest 构造复杂后可使用；简单 record 优先 |
 
 ## 13. 明确禁止的过度设计
@@ -558,7 +558,7 @@ AgentOutcome
 - 用 in-process Observer 承担可靠交付；
 - 把所有业务流程包装成通用工作流引擎；
 - 为尚不存在的第三种 Adapter 预建多层工厂；
-- 在 0.1 引入微服务、消息中间件或分布式事务；
+- 在 2.1 引入微服务、消息中间件或分布式事务；
 - 让 Spring Bean 生命周期成为领域状态机。
 
 ## 14. 推荐后的 Module 图
@@ -583,8 +583,8 @@ TurnEngine ────────────────┐
 
 TaskRuntime
   └─ TaskExecutor
-       ├─ Local Adapter（0.1）
-       └─ Remote Adapter（0.2）
+       ├─ Local Adapter（2.1）
+       └─ Remote Adapter（2.2）
 ```
 
 每个外部调用点只学习一个较小 Interface；复杂顺序留在深 Module 内部。
@@ -603,7 +603,7 @@ TaskRuntime
 
 ## 16. 最终判断
 
-采用上述修订后，0.1 可以保持初学者可理解，同时具备明确扩展路径：
+采用上述修订后，2.1 可以保持初学者可理解，同时具备明确扩展路径：
 
 - 换模型：新增 Model Adapter 或 Decorator；
 - 加工具：注册 Tool Adapter，不修改 Agent Loop；

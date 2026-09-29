@@ -34,7 +34,7 @@ public record AgentTrace(List<String> steps) {
     }
 
     /**
-     * 0.2.1 单步审计字段；无工具时可不填 tool / operationId。
+     * 2.1 单步审计字段；无工具时可不填 tool / operationId。
      *
      * @param stepNumber Loop 内 decide 序号（从 1 起）
      * @param decisionType 如 FinalAnswer / ToolCalls / ModelRefusal / Failure

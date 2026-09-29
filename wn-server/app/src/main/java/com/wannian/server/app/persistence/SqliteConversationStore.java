@@ -41,7 +41,7 @@ import javax.sql.DataSource;
 import org.springframework.stereotype.Component;
 
 /**
- * {@link ConversationStore} SQLite 实现（0.2.4-B 草稿 · 核心审阅）。
+ * {@link ConversationStore} SQLite 实现（2.4.3 草稿 · 核心审阅）。
  *
  * <p>列表稳定分页；生命周期 CAS；搜索走 FTS5；清空回收站有界批次且不删 Memory。
  */
@@ -72,7 +72,7 @@ public class SqliteConversationStore implements ConversationStore {
             return new CreateConversationResult.Rejected(
                     ErrorCodes.PERSISTENCE_FAILED, "无法检查会话是否已存在，id=" + id.asString());
         }
-        // 新建前清掉其它空 ACTIVE，避免「点新会话堆空壳」（0.2.4-G）
+        // 新建前清掉其它空 ACTIVE，避免「点新会话堆空壳」（2.4.7）
         try {
             purgeEmptyActiveConversations(50);
         } catch (RuntimeException ignored) {

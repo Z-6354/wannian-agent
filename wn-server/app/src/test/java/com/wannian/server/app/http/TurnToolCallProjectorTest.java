@@ -31,7 +31,7 @@ class TurnToolCallProjectorTest {
                                         turnId,
                                         2,
                                         JournalKind.TOOL_CALL,
-                                        "{\"name\":\"remember_fact\",\"argumentsJson\":\"{\\\"claim\\\":\\\"secret-claim\\\",\\\"subjectKey\\\":\\\"pref.tea\\\",\\\"contentKind\\\":\\\"USER_FACT\\\",\\\"importance\\\":\\\"0.7\\\"}\"}",
+                                        "{\"name\":\"remember_fact\",\"argumentsJson\":\"{\\\"claim\\\":\\\"secret-claim\\\",\\\"subjectKey\\\":\\\"pref.tea\\\",\\\"contentKind\\\":\\\"USER_FACT\\\",\\\"importance\\\":\\\"2.7\\\"}\"}",
                                         t0,
                                         t1),
                                 entry(

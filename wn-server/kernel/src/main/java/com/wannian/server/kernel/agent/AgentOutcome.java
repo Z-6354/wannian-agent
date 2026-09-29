@@ -1,6 +1,7 @@
 package com.wannian.server.kernel.agent;
 
 import com.wannian.server.kernel.model.ModelUsage;
+import com.wannian.server.kernel.task.TaskProposal;
 import java.util.Objects;
 
 /**
@@ -9,7 +10,7 @@ import java.util.Objects;
  * <p>TurnEngine 将本结果转为 {@code CommitTurnPlan} 后由 TurnCommitter 提交；
  * Loop 不得自行写库或发 SSE。编程缺陷仍走异常通道。
  *
- * <p>{@link BackgroundAccepted} 在 0.2.1 为占位形状；完整 BackgroundTask 语义后续批次再接。
+ * <p>2.5.5：{@link BackgroundAccepted} 携带结构化 {@link TaskProposal}；须经用户审核后才落库。
  */
 public sealed interface AgentOutcome {
 
@@ -29,18 +30,22 @@ public sealed interface AgentOutcome {
     }
 
     /**
-     * 工作应转后台任务；0.2.1 占位。
+     * 工作应转后台任务；须用户确认后才 {@code prepare}+落库。
      *
-     * @param taskProposal 不透明任务提案（后续接 TaskRuntime 再定型）
-     * @param acknowledgementText 可先回给用户的确认文案
+     * @param proposal 结构化任务提案
+     * @param acknowledgementText 待审卡片预览短文（非空）；确认回合助手气泡用系统固定文案
      * @param trace 脱敏步骤记录；不得含密钥或私密全文
      */
-    record BackgroundAccepted(String taskProposal, String acknowledgementText, AgentTrace trace)
+    record BackgroundAccepted(TaskProposal proposal, String acknowledgementText, AgentTrace trace)
             implements AgentOutcome {
         public BackgroundAccepted {
-            Objects.requireNonNull(taskProposal, "taskProposal");
+            Objects.requireNonNull(proposal, "proposal");
             Objects.requireNonNull(acknowledgementText, "acknowledgementText");
             Objects.requireNonNull(trace, "trace");
+            acknowledgementText = acknowledgementText.trim();
+            if (acknowledgementText.isEmpty()) {
+                throw new IllegalArgumentException("acknowledgementText 不能为空");
+            }
         }
     }
 

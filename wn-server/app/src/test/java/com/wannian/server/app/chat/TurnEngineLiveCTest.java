@@ -44,7 +44,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.1-C live：同回合二次 execute 不增加模型 decide（AlreadyCompleted 收口）。
+ * 2.1.3 live：同回合二次 execute 不增加模型 decide（AlreadyCompleted 收口）。
  *
  * <p>需 {@code DEEPSEEK_API_KEY}；无密钥时跳过。
  */

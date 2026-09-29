@@ -1,20 +1,20 @@
 # 01 · 产品概览
 
-2026-09-20：版本边界已重置。**v0.1 只认当前已交付进度**；单核 harness 与单核节点是 **v0.2**；世界树与多核节点是 **v0.3**。进度细节在 [实施清单](../guide/01-checklist.md)。不要按旧合同把 Agent Loop 算进 v0.1，也不要回头重建空工程。
+2026-09-20：版本边界已重置。**v1 只认当前已交付进度**；单核 harness 与单核节点是 **v2**；世界树与多核节点是 **v3**。进度细节在 [实施清单](../guide/01-checklist.md)。不要按旧合同把 Agent Loop 算进 v1，也不要回头重建空工程。
 
 ## 1. 承诺与组件
 
 - **个人使用**（单用户，不做多租户）
 - **情感向可成长陪伴**（关系状态与长期记忆在核心，而非堆工具）
 - **大脑在云端**：随时可聊、多端同一会话真相
-- **本地是手脚**（v0.3 之后）：文件 / shell / 截图等能力节点，不跑第二套主脑
+- **本地是手脚**（v3 之后）：文件 / shell / 截图等能力节点，不跑第二套主脑
 
 | 名称 | 角色 | 依赖 | 可缺席 |
 |------|------|------|--------|
 | **wn-server** | Session Owner：Turn、陪伴、记忆、LLM、鉴权、通道 SPI、**可复用内核**、**内嵌管理页与对话页** | 样式包 `wannian-ui` | **否（核心）** |
 | **wn-manage** | 管理端（配置 / 会话 / 节点 / 人设） | 只调 wn-server API | 是 |
 | **wn-app** | 手机端 | wn-server API | 是 |
-| **wn-agent** | Windows 电脑客户端（能力节点） | wn-server 派发 / 心跳 | 是（**v0.3 之后**） |
+| **wn-agent** | Windows 电脑客户端（能力节点） | wn-server 派发 / 心跳 | 是（**v3 之后**） |
 
 ### 不变量
 
@@ -40,8 +40,8 @@
                      · 领域内核与可复用契约
                      · HTTP/SSE（及日后 WS）API
                      · 同源页面在 app 内；样式来自 wannian-ui
-                     · v0.2：单核节点上的 harness
-                     · v0.3：世界树 + 多核节点
+                     · v2：单核节点上的 harness
+                     · v3：世界树 + 多核节点
 ```
 
 大脑在云：一个会话主人，多端只是客户端。手机 / 网页能续聊，是因为都连同一个 Owner。本地执行可后挂：Owner 在云，节点出站连接。亲密数据落在自控服务器上。
@@ -59,9 +59,9 @@
 
 ## 3. 版本范围
 
-这三档是现行边界。旧文若写「v0.1 必须含 Agent Loop」或「v0.2 = Guardian / wn-agent」，以本节为准。
+这三档是现行边界。旧文若写「v0.1 必须含 Agent Loop」或「v0.2 = Guardian / wn-agent」，以本节为准（产品档现写 **v1** / **v2** / **v3**）。
 
-### v0.1 · 当前进度（已交付）
+### v1 · 当前进度（已交付）
 
 单进程 `wn-server`，还不是 Agent harness：
 
@@ -70,30 +70,30 @@
 - `/chat/`：已启用模型时，同一次接收请求里直接回答；未启用则只收下并说明原因
 - 不做工具循环、不替换成 Loop、不做记忆策略、不做 Outbox/SSE、不多节点
 
-### v0.2 · 单核 harness + 单核节点（进行中）
+### v2 · 单核 harness + 单核节点（进行中）
 
 **单核** = 一个节点、一个角色（杜小洛；稳定内部 ID 仍为 `yanhuo`）。**harness** = 这一个节点上的 Agent 运行时，不是再包一层空接口。
 
-正式小版本（须全部完成才标 v0.2 完成）：
+实现周期（须全部完成才标产品档 **v2** 完成；`0.2.5`→`2.5` 见 [version-numbering](../plans/version-numbering.md)）：
 
 | 号 | 内容 | 状态 |
 |----|------|------|
-| **0.2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute | **已交付**（[04 复核](../reviews/04-reverify-0.2.1.md)） |
-| **0.2.2** | ToolRuntime + 本节点安全工具 | **已交付**（2026-09-22） |
-| **0.2.3** | Memory + Relationship | **已交付**（2026-09-24） |
-| **0.2.4** | 统一行为账本 → 提示词/Skill → 真流式 / Outbox + 完整会话系统（含 Markdown） | **已交付**（2026-09-25；[F 收口](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)） |
-| **0.2.5** | Task / BackgroundTask | **下一默认** |
-| **0.2.6** | 生命周期探针 | |
-| **0.2.7** | 故障、恢复与资源验收 | |
+| **2.1** | Agent Loop + 错误码 + Turn 接线 + live/execute | **已交付**（[04 复核](../reviews/04-reverify-0.2.1.md)） |
+| **2.2** | ToolRuntime + 本节点安全工具 | **已交付**（2026-09-22） |
+| **2.3** | Memory + Relationship | **已交付**（2026-09-24） |
+| **2.4** | 统一行为账本 → 提示词/Skill → 真流式 / Outbox + 完整会话系统（含 Markdown） | **已交付**（2026-09-25；[F 收口](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)） |
+| **2.5** | Task / BackgroundTask + 用户向定时 | **已交付 · 历史**（[archive/2.5](../plans/archive/2.5/README.md)） |
+| **2.6** | 生命周期探针 | **现行**（[k06](../plans/k06-lifecycle-probe.md)） |
+| **2.7** | 故障、恢复与资源验收 | |
 
 - 一个 `AgentLoop`：预算、取消、真实模型、Turn 认领与提交
 - 本节点可安全执行的工具、记忆与关系、Outbox/SSE、长任务不占住聊天 Turn
 - 节点身份可以存在，但只部署并验收这一个节点
 - 不做世界树、不部署第二个节点、不做 Guardian
 
-施工：[0.2.1](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)–[0.2.3](../plans/archive/0.2.1-0.2.3/k03-memory.md) 已交付；[0.2.4](../plans/roadmap.md) 已交付（A/P/B/C/D/E/G/M/F）。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。下一步默认 **0.2.5**。
+施工：[2.1](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md)–[2.3](../plans/archive/0.2.1-0.2.3/k03-memory.md) 已交付；[2.4](../plans/roadmap.md) 已交付；[2.5](../plans/archive/2.5/README.md) 历史。全档顺序见 [路线图](../plans/roadmap.md)。勾选在 [实施清单](../guide/01-checklist.md)。**现行 2.6** → [k06-lifecycle-probe.md](../plans/k06-lifecycle-probe.md)。
 
-### v0.3 · 世界树 + 多核节点
+### v3 · 世界树 + 多核节点
 
 - **世界树**：只向杜小洛投事件；杜小洛可选分享；不对用户说话
 - **多核节点**：设备 / 节点 / 角色解耦；一台设备可多个节点；一份数据
@@ -104,7 +104,7 @@
 
 ### 其后
 
-wn-agent、Guardian、代际换代、wn-app、独立网页。讨论见 [research/history](../research/history/README.md)，**不是**产品 v0.2。
+wn-agent、Guardian、代际换代、wn-app、独立网页。讨论见 [research/history](../research/history/README.md)，**不是**产品 v2。
 
 **明确不做（任何当前档）**
 

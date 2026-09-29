@@ -1,7 +1,7 @@
 # 调研 · 世界演进、工具画像、成长记忆与 Jev DLC
 
 `status`: **reference** — 2026-09-20（澄清：世界只喂事件给烟火；烟火像跟朋友分享一样**可选**开口）  
-`purpose`: 世界叙事与开源证据。工具与成长记忆在 **v0.2** 单核 harness 里做实；世界树与多核在 **v0.3**。v0.2 只预留类型，不实现世界路径。  
+`purpose`: 世界叙事与开源证据。工具与成长记忆在 **v2** 单核 harness 里做实；世界树与多核在 **v3**。v2 只预留类型，不实现世界路径。  
 `not-authority`: 版本以 [产品概览 §3](../product/01-overview.md) 为准。排期见 [roadmap](../plans/roadmap.md)。  
 `owns`: 世界叙事、工具画像、Jev、开源证据。拓扑见 [multi-node](./multi-node-companion-world.md)。
 

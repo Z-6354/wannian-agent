@@ -30,7 +30,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.3-E live：真模型经 HTTP Turn 调用 remember_fact 并落库。
+ * 2.3.5 live：真模型经 HTTP Turn 调用 remember_fact 并落库。
  *
  * <p>需 {@code DEEPSEEK_API_KEY}；无密钥时跳过，不退 Fake 冒充通过。
  */

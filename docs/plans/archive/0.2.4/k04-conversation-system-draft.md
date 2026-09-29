@@ -2,7 +2,7 @@
 
 `status`: **范围已审 · 0.2.4 已交付** — 2026-09-25（[F REVIEW](./k04-f-draft/REVIEW.md)）  
 `authority`: [路线图](../../roadmap.md) · [0.2.4 既有清单](../../../guide/01-checklist.md) · [行为账本立项](./k04-behavior-journal.md) · [followup 决议](../../../research/in-flight-user-message.md)  
-`research`: [Agent 聊天交互对标](../../../research/agent-chat-ux-0.2.4.md)
+`research`: [Agent 聊天交互对标](../../../research/agent-chat-ux-2.4.md)
 
 ## 1. 本版目标
 

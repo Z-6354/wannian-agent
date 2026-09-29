@@ -1,12 +1,12 @@
 # 02 · 初学者教程
 
-本教程描述的是 **v0.2 单核 harness** 完成后的样子，不是已经封版的 v0.1。v0.1 只有直接回答，没有工具循环。
+本教程描述的是 **v2 单核 harness** 完成后的样子，不是已经封版的 v1。v1 只有直接回答，没有工具循环。
 
 ## 1. 完成后的系统
 
-完成 **v0.2** 后，用户可以在一个杜小洛节点上打开内嵌网页，连续与杜小洛对话。Kernel 能调用真实云模型、执行少量受控工具、保存消息与记忆、把长工作放到后台，并在浏览器断线或进程重启后恢复已提交状态。
+完成 **v2** 后，用户可以在一个杜小洛节点上打开内嵌网页，连续与杜小洛对话。Kernel 能调用真实云模型、执行少量受控工具、保存消息与记忆、把长工作放到后台，并在浏览器断线或进程重启后恢复已提交状态。
 
-v0.2 不是多节点，也不是世界树。那是 v0.3。
+v2 不是多节点，也不是世界树。那是 v3。
 
 ## 2. 开始前需要掌握的最少知识
 
@@ -207,7 +207,7 @@ API key 只从外部配置读取，不写入数据库、日志、异常正文或
 
 Agent Loop 只认识 `ToolRuntime.execute(...)` 及其封闭结果，不逐个调用 Validator、Policy、OperationStore 和具体 Adapter。
 
-不要在 0.1 加入 Shell、任意文件写入或桌面控制。
+不要在 2.1 加入 Shell、任意文件写入或桌面控制。
 
 ## 10. 阶段 G：SSE 与可靠交付
 
@@ -234,7 +234,7 @@ Turn 事务内创建 BackgroundTask
 → TaskRuntime 稍后创建并调度 SubAgentRun
 ```
 
-`TaskRuntime` 隐藏 lease、attempt、retry、cancel 和合法状态转换；其内部通过 `TaskExecutor` seam 调用执行器。v0.2 用本节点 Local Adapter；远程 Worker（wn-agent）更后，不修改任务领域语义。
+`TaskRuntime` 隐藏 lease、attempt、retry、cancel 和合法状态转换；其内部通过 `TaskExecutor` seam 调用执行器。v2 用本节点 Local Adapter；远程 Worker（wn-agent）更后，不修改任务领域语义。
 
 ## 12. 阶段 I：Memory 与 Relationship
 
@@ -266,4 +266,4 @@ Turn 事务内创建 BackgroundTask
 
 ## 14. 何时算完成
 
-只有 [实施清单](01-checklist.md) 的 **v0.2（K01–K07）** 全部通过，且核心 `OWNER: USER` 实现经过测试和审阅，才能称单核 harness 完成。页面能聊天、一次模型调用成功或 Maven 能打包都不等于完成。v0.1 只封直接回答，不含本教程描述的 Loop。
+只有 [实施清单](01-checklist.md) 的 **v2（K01–K07）** 全部通过，且核心 `OWNER: USER` 实现经过测试和审阅，才能称单核 harness 完成。页面能聊天、一次模型调用成功或 Maven 能打包都不等于完成。v1 只封直接回答，不含本教程描述的 Loop。

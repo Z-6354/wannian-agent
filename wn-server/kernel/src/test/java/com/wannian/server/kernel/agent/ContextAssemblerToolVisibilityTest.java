@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.2 阶段 4：默认聊天模式注入可见工具；可切换工作模式。 */
+/** 2.2 阶段 4：默认聊天模式注入可见工具；可切换工作模式。 */
 class ContextAssemblerToolVisibilityTest {
 
     @Test

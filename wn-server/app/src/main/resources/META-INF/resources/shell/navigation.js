@@ -6,6 +6,7 @@ export const APP_GROUPS = [
 /** 单页壳：挂在 /，用 hash 切换主体（/#chat、/#vendors…），侧栏不卸载。 */
 export const APP_NAV = [
   { id: "chat", href: "/#chat", label: "对话", icon: "◎", group: "agents" },
+  { id: "tasks", href: "/#tasks", label: "任务", icon: "⏱", group: "agents" },
   { id: "vendors", href: "/#vendors", label: "供应商", icon: "◇", group: "agents" },
   { id: "models", href: "/#models", label: "模型", icon: "▦", group: "agents" },
   { id: "tools", href: "/#tools", label: "工具", icon: "⚒", group: "agents" },

@@ -11,7 +11,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 0.2.4-P：Skill 发现、索引有界、白名单与 load_skill 正文。 */
+/** 2.4.2：Skill 发现、索引有界、白名单与 load_skill 正文。 */
 class FileSkillCatalogTest {
 
     @TempDir Path tempDir;

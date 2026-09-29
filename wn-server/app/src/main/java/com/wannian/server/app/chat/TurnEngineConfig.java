@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * 装配 ContextAssembler / Memory 召回。
  *
- * <p>AgentLoop / TurnEngine 由 {@code StreamDeliveryConfig}（0.2.4-C）装配。
+ * <p>AgentLoop / TurnEngine 由 {@code StreamDeliveryConfig}（2.4.4）装配。
  */
 @Configuration
 public class TurnEngineConfig {

@@ -11,7 +11,7 @@
 
 1. 人设以规则和少量短句示范为主，没有固定的多轮示例来校准回应长度、自然转折、主动分享和不完美互动。
 2. `VOICE.md` 每轮常驻，覆盖面广且含多个禁用表达与行为规定。模型可能学到“避免清单”而非稳定的自然声线；这点需用同一模型、同一输入做对照确认。
-3. 默认采样参数为 temperature 0.85、top-p 0.95、presence penalty 0.35，但目前没有针对陪伴自然度的参数对照或回归记录；单凭参数无法判定它们是根因。
+3. 默认采样参数为 temperature 0.85、top-p 0.95、presence penalty 2.35，但目前没有针对陪伴自然度的参数对照或回归记录；单凭参数无法判定它们是根因。
 4. 对话测试大多断言编排、持久化、HTTP/SSE、安全投影等系统行为，未见针对自然度、套话率、追问数量、情境贴合度的断言。
 
 ## 可核对证据
@@ -22,7 +22,7 @@
 - `D:\0HAN\HANAGENT\products\wannian-agent\wn-server\app\src\main\java\com\wannian\server\app\prompt\CompanionPromptService.java:20-25` 每轮把分层提示词与 Skill 索引合成 system 前缀。
 - `D:\0HAN\HANAGENT\products\wannian-agent\wn-server\kernel\src\main\java\com\wannian\server\kernel\prompt\PromptComposer.java:16-27` 顺序为代码硬安全、SOUL、VOICE、IDENTITY、USER、SAFETY 补充、Skill 索引。`ContextAssembler.java:184-206` 再追加观察日锚，并独立构造记忆、关系快照和用户消息。
 - `D:\0HAN\HANAGENT\products\wannian-agent\wn-server\kernel\src\main\java\com\wannian\server\kernel\prompt\PromptSkeleton.java:10-15` 的硬安全明确禁止违法、伤害他人、绕过鉴权及泄露凭据，并规定下方层不能关闭它。
-- `D:\0HAN\HANAGENT\products\wannian-agent\wn-server\app\src\main\resources\application.yml:28-30` 默认 temperature 0.85、top-p 0.95、presence penalty 0.35。配置本身没有证明这些值产生机械感。
+- `D:\0HAN\HANAGENT\products\wannian-agent\wn-server\app\src\main\resources\application.yml:28-30` 默认 temperature 0.85、top-p 0.95、presence penalty 2.35。配置本身没有证明这些值产生机械感。
 - 当前能安全用作“样本”的只有提示词中的手写示例，以及测试里的合成输入（例如 `DefaultAgentLoopLiveTest.java:41` 的“只回复一个字：好”）。未发现被明确标记为对话自然度金样的测试。真实运行日志与备份未读取。
 
 ## 测试入口与本次运行

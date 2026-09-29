@@ -5,7 +5,7 @@ import com.wannian.server.kernel.error.ErrorCodes;
 /**
  * 管理接口对 {@link ErrorCodes} 的兼容别名。
  *
- * <p>0.2.1-A 起稳定 code 只在 {@link ErrorCodes} 登记；本类不再新增字符串，仅作既有调用点过渡。
+ * <p>2.1.1 起稳定 code 只在 {@link ErrorCodes} 登记；本类不再新增字符串，仅作既有调用点过渡。
  * 新代码请直接引用 {@link ErrorCodes}。
  */
 public final class ManageReason {

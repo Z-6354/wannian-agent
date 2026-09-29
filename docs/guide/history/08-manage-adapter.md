@@ -2,8 +2,8 @@
 
 > **结构说明（2026-09-20）**：管理页曾放在 `wannian-ui` 或同级 `wn-web`。现行边界是页面与浏览器端 API adapter 在 `wn-server/app`，`wannian-ui` 只保留 `/ui/` 共享视觉。本文其余内容仅作为历史接口与验收记录。
 
-`status`: **历史 H4 已交付** — 管理页与适配器批次记录。下一步是 **v0.2** 的 [K01](../01-checklist.md)，见 [施工单](../../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) / [路线图](../../plans/roadmap.md)。  
-`plan-revised`: **2026-09-20** — W 与 B1–B3 已实施；`/chat/` 直接回答已计入 v0.1。本文其余为历史接口与验收记录。
+`status`: **历史 H4 已交付** — 管理页与适配器批次记录。下一步是 **v2** 的 [K01](../01-checklist.md)，见 [施工单](../../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) / [路线图](../../plans/roadmap.md)。  
+`plan-revised`: **2026-09-20** — W 与 B1–B3 已实施；`/chat/` 直接回答已计入 v1。本文其余为历史接口与验收记录。
 
 ## 1. 排期决定（交付时）
 
@@ -12,7 +12,7 @@
 | K03-W · Web 管理页 | 历史 H4 | 已交付 |
 | K03-A · 错误码与日志 | **K01-A** | 可与 Loop 交错 |
 | K03-B · 供应商/模型适配器 | 历史 H4 | 已交付 |
-| K03-C · Agent Loop | **K01-B** | v0.2 |
+| K03-C · Agent Loop | **K01-B** | v2 |
 | K03-D · TurnEngine | **K01-C** | 在 B 之后 |
 | K03-E · live 与 execute | **K01-D** | 在 C 之后 |
 
@@ -31,7 +31,7 @@
 | **legacy HANAGENT web-admin** | `legacy/web-admin`：`App.vue` 侧栏；`ModelsHub.vue` 页头+页内 Tab；`VendorPanel` / `ModelImportModal` | **侧栏 + 主区**；「模型与供应商」一页内分 **供应商 / 模型**；供应商卡片 → 表单 → **检索目录 → 多选启用** | 独立 Vite 侧车进程；模型池角色/拖拽排序；自动路由；Boss/Skill/搜索全导航 |
 | **OpenClaw Control UI** | `openclaw/ui` Settings；[Model providers](https://docs.openclaw.ai/concepts/model-providers.md) | **Settings 分组导航**；供应商 **卡片**（协议状态、密钥来源只显示 env 名、不回显密钥）；页头进 **Setup 子流程**；探测结果分类（auth/限流/超时） | Lit+Gateway RPC 全家桶；用量/计费；OAuth 市场；完整 Agents/MCP 设置树 |
 | **Hermes Desktop** | `hermes-agent/apps/desktop` Settings：`SECTIONS` + `PROVIDER_GROUPS` | **注册表驱动导航**（加一项即多一页）；Providers 分 Accounts / Keys / Custom endpoints；模型选择与供应商配置分离 | Electron/计费/插件贡献导航（本批只预留注册表形状） |
-| **Open WebUI**（GitHub） | Admin Settings：Connections vs Models 分路由 | **连接（供应商）与模型目录分栏**；Admin 与个人设置边界清晰（万年 v0.1 单用户，但路由仍分开） | 多租户、Pipeline、全量 Admin 标签 |
+| **Open WebUI**（GitHub） | Admin Settings：Connections vs Models 分路由 | **连接（供应商）与模型目录分栏**；Admin 与个人设置边界清晰（万年 v1 单用户，但路由仍分开） | 多租户、Pipeline、全量 Admin 标签 |
 | **LibreChat**（GitHub） | Admin / endpoint schema | **schema/注册表驱动表单**（新协议字段少改壳）；自定义 endpoint = baseURL + models.fetch | 独立 Admin 微服务；复杂 modelSpecs 体系 |
 
 综合原则：**壳学 OpenClaw/Hermes（可扩展导航），主流程学 web-admin（供应商→检索→启用），领域分界学 Open WebUI（Connections ≠ Models），表单扩展学 LibreChat（协议字段表驱动）。**
@@ -110,7 +110,7 @@ MANAGE_GROUPS = [
 
 ```text
 表格或可选列表：modelId | displayName | 勾选
-主按钮：启用所选（v0.1 默认单一启用；UI 仍用「启用选择」结构，便于日后多角色）
+主按钮：启用所选（v1 默认单一启用；UI 仍用「启用选择」结构，便于日后多角色）
 空态：尚未检索 / 供应商未配置
 错误态：稳定 code + 安全文案（不贴 HTTP 体）
 ```
@@ -310,7 +310,7 @@ MODEL_NOT_IN_CATALOG
 2. 口令保存后请求 `GET vendors` 与 `GET enabled`。失败条显示 `code` 与 `detail`。
 3. 供应商 Tab：空态文案「还没有供应商」。按钮「添加供应商」打开抽屉。字段顺序：id、显示名、协议、Base URL、密钥变量名。新建可填 id；编辑时 id 只读。保存调用 `PUT`。卡片显示协议、Base URL、变量名，不显示密钥值。操作：编辑、检索模型、删除。删除前 `confirm`，文案说明若正在启用会一并取消。
 4. 「检索模型」调用 `models:list`，然后把 hash 改为模型 Tab，并带上 `vendorId`（例如 `#models?vendor=openai-main`，用 `URLSearchParams` 解析，不要自己切字符串出错）。
-5. 模型 Tab：页头第二行只读「当前启用：{vendorId} / {modelId}」，没有则「尚未启用」。目录用表格，单选（`radio`），不是多选。主按钮「启用所选」。v0.1 只有一个启用位；表格结构留 `modelId` 列，方便以后加角色，但本批不要加角色列。
+5. 模型 Tab：页头第二行只读「当前启用：{vendorId} / {modelId}」，没有则「尚未启用」。目录用表格，单选（`radio`），不是多选。主按钮「启用所选」。v1 只有一个启用位；表格结构留 `modelId` 列，方便以后加角色，但本批不要加角色列。
 6. 启用成功后重新 `GET enabled`，不要只改本地字。
 7. 系统导航可点，只渲染 `system-panel.js`。
 

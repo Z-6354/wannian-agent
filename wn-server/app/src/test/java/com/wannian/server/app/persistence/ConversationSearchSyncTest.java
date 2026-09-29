@@ -22,7 +22,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.4-B FTS：标题占位按会话隔离；创建会话不得互删其它会话的空 message_id 行。
+ * 2.4.3 FTS：标题占位按会话隔离；创建会话不得互删其它会话的空 message_id 行。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ConversationSearchSyncTest {

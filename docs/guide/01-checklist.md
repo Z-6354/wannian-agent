@@ -1,27 +1,27 @@
 # 01 · 实施清单
 
-`status`: **v0.1 已封版** — 2026-09-20 重置。v0.1 = 当前已交付（骨架、持久化、管理页、直接回答）。下一步是 **v0.2 单核 harness + 单核节点**（**0.2.1** 起）。世界树与多核是 **v0.3**，本清单不提前开工。
+`status`: **v1 已封版** — 2026-09-20 重置。v1 = 当前已交付（骨架、持久化、管理页、直接回答）。下一步是 **v2 单核 harness + 单核节点**（**2.1** 起）。世界树与多核是 **v3**，本清单不提前开工。
 
-`plan-revised`: **2026-09-25** — 版本三档见 [产品概览 §3](../product/01-overview.md)。v0.2 正式小版本为 **0.2.1–0.2.7**（`K01`–`K07` 为施工别名）。`/chat/` 直接回答留在 v0.1。**0.2.4 已交付**（A→P→B→C→D→E→G→M→F）；收口见 [F REVIEW](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)。下一默认 **0.2.5**。旧号对照仍有效。审查原文不改写。
+`plan-revised`: **2026-09-29** — **现行周期 2.6**；**2.5 已进历史**（[archive/2.5](../plans/archive/2.5/README.md)）。产品档 **`v1`/`v2`/`v3`**；实现周期 **`2.1`–`2.7`**。对照 [version-numbering](../plans/version-numbering.md)。审查/归档保留旧号，不改写原文。
 
 ## 版本
 
 | 档 | 状态 | 含 | 不含 |
 |----|------|----|------|
-| **v0.1** | 已交付 | H1–H4、`/chat/` 直接回答 | Agent Loop、工具、记忆策略、Outbox、多节点 |
-| **v0.2** | 进行中 | 单核 harness（**0.2.1–0.2.4 已交付**；下一 **0.2.5**）、一个杜小洛节点（历史 ID：`yanhuo`） | 世界树、第二个节点、Guardian |
-| **v0.3** | 未开工 | 世界树、多核节点 | 宿主主备、wn-agent |
+| **v1** | 已交付 | H1–H4、`/chat/` 直接回答 | Agent Loop、工具、记忆策略、Outbox、多节点 |
+| **v2** | 进行中 | 单核 harness（**2.1–2.5 已交付**；**现行 2.6**）、一个杜小洛节点（历史 ID：`yanhuo`） | 世界树、第二个节点、Guardian |
+| **v3** | 未开工 | 世界树、多核节点 | 宿主主备、wn-agent |
 
 ## 使用规则
 
-- 每次只实施一个 **0.2.x** 中的一个小批次。
+- 每次只实施一个 **实现周期**（`2.x`）中的一个小批次（阶段）。
 - 用户编写 `OWNER: USER`，Codex 不擅自补全。
 - 每批完成后提交实际差异、命令和测试证据供审阅。
 - 未明确授权时不 commit、push、部署或接触生产凭据。
-- 超出计划的协议改变、扩大模块或提前实现 v0.3 / 更后，先补充方案再实施。
+- 超出计划的协议改变、扩大模块或提前实现 v3 / 更后，先补充方案再实施。
 - 每阶段开工先读自己的“防复发提示”，验收同时检查拒绝/冲突路径的数据库不变断言，不能仅凭正常路径或测试总数勾选完成。
-- 除 **0.2.7** 明确区分的外部资源验收外，下列批次均为 **A · 本机可验证**；`OWNER: USER` 是实现分工，不免除 Agent 准备骨架、解释与验证证据的责任。
-- 旧文档若仍写旧号或 `K0x`，以本文件对照表换算；进度只认本文件 **0.2.x** 编号。
+- 除 **2.7** 明确区分的外部资源验收外，下列批次均为 **A · 本机可验证**；`OWNER: USER` 是实现分工，不免除 Agent 准备骨架、解释与验证证据的责任。
+- 旧文档若仍写三级号 `0.2.x` 或 `K0x`，以 [version-numbering](../plans/version-numbering.md) 与本表换算；进度只认本文件 **二级号**。
 
 ## 编号对照
 
@@ -31,15 +31,15 @@
 | K02（持久化） | 历史 H2 | 已交付；补修证据在 H3 |
 | K03-P | 历史 H3 | 已放行，见 [02 放行](../reviews/02-release-h3.md) |
 | K03-W / K03-B / K03-X | 历史 H4 | 管理页、适配器、索引清洗已交付 |
-| K03-A / C / D / E；施工别名 K01 | **0.2.1** 子批 A / B / C / D | 错误码、Loop、Turn 接线、execute |
-| K04；施工别名 K02 | **0.2.2** | ToolRuntime |
-| K05；施工别名 K03 | **0.2.3** | Memory / Relationship |
-| K06；施工别名 K04 | **0.2.4** | 行为账本 → 真流式 / Outbox / 完整会话系统 |
-| K07；施工别名 K05 | **0.2.5** | Task / BackgroundTask |
-| K08；施工别名 K06 | **0.2.6** | 生命周期探针 |
-| K09；施工别名 K07 | **0.2.7** | 故障、恢复与资源 |
+| K03-A / C / D / E；施工别名 K01 | **2.1**（小版本 **2.1.1–2.1.4**） | 错误码、Loop、Turn 接线、execute（旧 0.2.1） |
+| K04；施工别名 K02 | **2.2** | ToolRuntime（旧 0.2.2） |
+| K05；施工别名 K03 | **2.3** | Memory / Relationship（旧 0.2.3） |
+| K06；施工别名 K04 | **2.4** | 会话系统（旧 0.2.4） |
+| K07；施工别名 K05 | **2.5** | Task / BackgroundTask（旧 0.2.5） |
+| K08；施工别名 K06 | **2.6** | 生命周期探针（旧 0.2.6） |
+| K09；施工别名 K07 | **2.7** | 故障、恢复与资源（旧 0.2.7） |
 
-审查稿、测试工作簿里的旧号是当时写法；新开工一律用 **0.2.x**。施工单文件名可仍用 `k01-…`，文首须写正式号。
+审查稿、测试工作簿里的旧 `0.2.x` / 字母阶段是当时写法；新开工一律用 **`2.x` / `2.x.n`**。施工单文件名可仍用 `k01-…`，文首须写正式号。
 
 ---
 
@@ -57,7 +57,7 @@ Flyway V001–V004；`receive` 幂等；Turn 状态机；`commit` 同事务写 M
 
 ### H3 · 接入模型前的补修与协议收口（旧 K03-P）
 
-T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.7**。约束仍生效：全局 `clientRequestId`；独立 `executionId`；COMMITTING 冻结计划；完成事件与序号由 committer 分配。R03 进程强杀、R10 整库堆峰值属 **0.2.7**。
+T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **2.7**。约束仍生效：全局 `clientRequestId`；独立 `executionId`；COMMITTING 冻结计划；完成事件与序号由 committer 分配。R03 进程强杀、R10 整库堆峰值属 **2.7**。
 
 ### H4 · 管理页、模型适配器与索引清洗（旧 K03-W / B / X）
 
@@ -67,43 +67,43 @@ T1—T7 关闭；T8 重复索引延期到相关 migration 或最迟现行 **0.2.
 
 ---
 
-## 当前 · v0.1 内嵌对话页
+## 当前 · v1 内嵌对话页
 
-`status`: **已完成，计入 v0.1** — `/chat/` 与管理壳共用导航；已启用模型时发送会在同一次请求里完成直接回答；未启用时只收下回合并说明原因。这不是 v0.2 harness。
+`status`: **已完成，计入 v1** — `/chat/` 与管理壳共用导航；已启用模型时发送会在同一次请求里完成直接回答；未启用时只收下回合并说明原因。这不是 v2 harness。
 
 - 页面在 `/chat/`，不嵌进管理面板。管理侧栏只链出去。关掉管理页后这个入口仍在。
 - 页面脚本不写 URL、不 `fetch`。唯一 HTTP 出口是 `/chat/api.js` 的 `createConversation` / `sendTurn`。
 - 这两个函数打 `POST /api/conversations` 和 `POST /api/conversations/{id}/turns`。已启用模型时响应带 `reply`，回合进入 COMPLETED。同一 `clientRequestId` 重放已完成回合只回放已保存回复，不再调用模型。
 - 未启用模型时回合停在 RECEIVED，`detail` / `reasonCode` 说明原因。页面不得在没有 `reply` 时装作已经回答。
 - 不做 SSE、Outbox 补发、消息回读，也不执行工具。刷新后本页不恢复历史。
-- **延期到 0.2.4**：消息回读、刷新/重开后自动恢复 transcript、关闭服务再开后接入最近会话（见下文 **0.2.4**）。v0.1 / 0.2.1–0.2.3 不得提前做完整恢复 UX。
+- **延期到 2.4**：消息回读、刷新/重开后自动恢复 transcript、关闭服务再开后接入最近会话（见下文 **2.4**）。v1 / 2.1–2.3 不得提前做完整恢复 UX。
 - Loop 完成后只改 `api.js`（以及届时的服务端对话接口），不把厂商调用写进页面。
 
 ---
 
-## v0.2 · 0.2.1 起
+## v2 · 2.1 起
 
-下列 **0.2.1–0.2.7** 全部属于 **v0.2 单核 harness + 单核节点**。不要在 v0.1 上补做。  
-**0.2.1–0.2.4 已交付**；下一默认工作 **0.2.5**（Task / BackgroundTask）。
+下列 **2.1–2.7** 全部属于 **v2 单核 harness + 单核节点**。不要在 v1 上补做。  
+**2.1–2.5 已交付**；**现行工作 2.6**（生命周期探针 · [k06](../plans/k06-lifecycle-probe.md)）。
 
-## 0.2.1 · 错误码、Agent Loop 与 Turn 接线（别名 K01）
+## 2.1 · 错误码、Agent Loop 与 Turn 接线（别名 K01）
 
-`status`: **v0.2 · 0.2.1 已交付**（A/B/C/D + 审计 P1–P3 收口）  
-**原「决策打满 live」遗留已关闭：** 0.2.1 时 Loop 不对 ToolCalls `continue`，真模型几乎打不满 3 次 decide。**0.2.2 已接 continue**；窄测 `DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget` 覆盖「反复 ToolCalls → BUDGET_EXHAUSTED」。不要求再用真模型硬撞满 3 次。blank/Refusal 等难控路径有单测即可，**不挡收口**。
+`status`: **v2 · 2.1 已交付**（A/B/C/D + 审计 P1–P3 收口）  
+**原「决策打满 live」遗留已关闭：** 2.1 时 Loop 不对 ToolCalls `continue`，真模型几乎打不满 3 次 decide。**2.2 已接 continue**；窄测 `DefaultAgentLoopToolContinueTest#alwaysToolCallsExhaustsBudget` 覆盖「反复 ToolCalls → BUDGET_EXHAUSTED」。不要求再用真模型硬撞满 3 次。blank/Refusal 等难控路径有单测即可，**不挡收口**。
 `closure`: [施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) · [03 审计快照](../reviews/03-audit-0.2.1.md) · [04 关闭复核](../reviews/04-reverify-0.2.1.md)
 
 ### 目标
 
-使用已启用模型完成有预算的决策循环，并把结果经 Turn 提交。同时完成**全进程唯一**的错误 code 与日志约定；**0.2.2** 及以后引用这套规范。
+使用已启用模型完成有预算的决策循环，并把结果经 Turn 提交。同时完成**全进程唯一**的错误 code 与日志约定；**2.2** 及以后引用这套规范。
 
 ### 子批
 
 | 子批 | 旧称 | 状态 | 交付 |
 |---|---|---|---|
-| 0.2.1-A | K03-A / K01-A | **已交付** | 全进程错误 code 与日志约定；收编历史 H2 的 `reasonCode` |
-| 0.2.1-B | K03-C / K01-B | **已交付**（live：`DefaultAgentLoopLiveTest`；次数打满见 0.2.2 `DefaultAgentLoopToolContinueTest`） | Loop 类型与直接回答 |
-| 0.2.1-C | K03-D / K01-C | **已交付**（编排见 `TurnEngineOrchestrationTest`；live 见 `TurnEngineLiveCTest`；R01–R05 复验命令见施工单） | TurnEngine：认领 → Loop → 冻结计划 → 提交；R01—R05 复验 |
-| 0.2.1-D | K03-E / K01-D | **已交付**（`TurnEngineHttpLiveDTest`；`TurnDialogue` 已退役） | live 装配与对外 `execute` 入口 |
+| 2.1.1 | K03-A / K01-A | **已交付** | 全进程错误 code 与日志约定；收编历史 H2 的 `reasonCode` |
+| 2.1.2 | K03-C / K01-B | **已交付**（live：`DefaultAgentLoopLiveTest`；次数打满见 2.2 `DefaultAgentLoopToolContinueTest`） | Loop 类型与直接回答 |
+| 2.1.3 | K03-D / K01-C | **已交付**（编排见 `TurnEngineOrchestrationTest`；live 见 `TurnEngineLiveCTest`；R01–R05 复验命令见施工单） | TurnEngine：认领 → Loop → 冻结计划 → 提交；R01—R05 复验 |
+| 2.1.4 | K03-E / K01-D | **已交付**（`TurnEngineHttpLiveDTest`；`TurnDialogue` 已退役） | live 装配与对外 `execute` 入口 |
 
 ### 防复发提示（T1/T2/T3/T5/T7）
 
@@ -113,7 +113,7 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 分类起点见 [`28`](04-kernel-reference.md) 第 14 节；预期业务失败用封闭结果（见 [`34`](03-architecture.md) 第 11 节）。
 
-- 稳定 `code` 只登记一处：`com.wannian.server.kernel.error.ErrorCodes`（0.2.1-A 已交付）。
+- 稳定 `code` 只登记一处：`com.wannian.server.kernel.error.ErrorCodes`（2.1.1 已交付）。
 - 厂商 SDK、JDBC、HTTP 异常在 app 边界译成上述 code，不得原样进入 kernel。
 - 编程缺陷与进程级不可恢复故障仍走异常（`InternalDefectException`）。
 - 日志只记稳定 code、操作类别、关联 ID、耗时与脱敏原因（`ErrorLogFields` + app `SafeErrorLog`）；不含密钥、SQL、堆栈或原始敏感正文。边界适配器（Timeout / OpenAI 兼容）已接线 `SafeErrorLog`；非要求全仓每一处 Logger 立刻统一。
@@ -141,8 +141,8 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 ### 验收
 
 ```text
-[x] 直接回答测试（0.2.1-B；`DefaultAgentLoopLiveTest` live）
-[x] 工具分支占位测试（非空 ToolCalls→TOOLS_NOT_ENABLED；空→INVALID_MODEL_OUTPUT）——0.2.2 起已改为真执行路径
+[x] 直接回答测试（2.1.2；`DefaultAgentLoopLiveTest` live）
+[x] 工具分支占位测试（非空 ToolCalls→TOOLS_NOT_ENABLED；空→INVALID_MODEL_OUTPUT）——2.2 起已改为真执行路径
 [x] 最大模型决策打满 → `BUDGET_DECISIONS_EXHAUSTED`（闸门：`AgentBudgetGateTest`；continue：`DefaultAgentLoopToolContinueTest`；软/硬为独立 code）
 [x] 软/硬截止可配置且生效（软截止后不再开新 decide；硬截止挡 decide 前；现行种子默认软 60s / 硬 100s，决策上限 10）
 [x] 系统工具 `remember_fact` / `update_relationship` / `search_memory` 不计入决策次数（`countsTowardDecisionBudget=false`）
@@ -163,9 +163,9 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 - 按 Controller、持久化、模型、工具各写一套错误码或日志格式；
 - 把 manage `probe` 当成 Turn 业务路径，或在 B 之前把 Loop 接到 HTTP 会话接口；
-- 把管理页扩大成 **0.2.4** 对话页 / SSE，或建成独立 wn-manage 工程。
+- 把管理页扩大成 **2.4** 对话页 / SSE，或建成独立 wn-manage 工程。
 
-## 0.2.2 · ToolRuntime 与只读工具（别名 K02）
+## 2.2 · ToolRuntime 与只读工具（别名 K02）
 
 `status`: **已交付**（2026-09-22）— 阶段 1–4 代码 + 窄测 + live（`list_tools` 真工具往返）；施工单 [k02-tools.md](../plans/archive/0.2.1-0.2.3/k02-tools.md)。
 
@@ -189,7 +189,7 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 - 工具对模型可见的描述；
 - Loop 只接入 `ToolRuntime.execute`；
-- 工具错误如何形成 observation（使用 **0.2.1** 的错误 code）。
+- 工具错误如何形成 observation（使用 **2.1** 的错误 code）。
 
 ### 验收
 
@@ -210,11 +210,11 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 
 证据（2026-09-22）：`ToolRuntimePhase1Test`、`ToolVisibilityPhase2Test`、`DefaultAgentLoopToolContinueTest`、`ContextAssemblerToolVisibilityTest`、`ToolUsePolicyTest`、`ToolSettingsTest`、`ToolManageHttpTest`、`OpenAiCompatibleModelAdapterTest`；装配见 `ToolRuntimeConfig` / `TurnEngineConfig`；live：`list_tools` 对话往返。
 
-**明确不在本批：** 会话历史恢复（→0.2.4-B）；任意 PS 执行（更后）。可选未做见施工单 §12。本回合工具调用投影已在 0.2.3 收口附带。
+**明确不在本批：** 会话历史恢复（→2.4.3）；任意 PS 执行（更后）。可选未做见施工单 §12。本回合工具调用投影已在 2.3 收口附带。
 
-## 0.2.3 · Memory 与 Relationship（别名 K03）
+## 2.3 · Memory 与 Relationship（别名 K03）
 
-`status`: **已交付**（2026-09-24）；施工单 [k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md)；设计 [memory-system-0.2.3.md](../research/memory-system-0.2.3.md) §4 + §4.1。
+`status`: **已交付**（2026-09-24）；施工单 [k03-memory.md](../plans/archive/0.2.1-0.2.3/k03-memory.md)；设计 [memory-system-2.3.md](../research/memory-system-2.3.md) §4 + §4.1。
 
 交付范围：热路径 `remember_fact` / `update_relationship` → Shape → Policy（仅密钥拒）→ Freeze 同事务；冷路径 Review Job；衰减召回 + Assembler 注入；弱 B 扫墓；HTTP GET/correct/forget；`search_memory`；运行日志 JSONL + `turn_step`（L）；系统工具每工具上限 5 / 普通决策 10；`/chat/` 本回合工具调用投影。
 
@@ -237,23 +237,23 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 [x] GET/correct/forget；Assembler 按 score 注入记忆 + rel
 ```
 
-## 0.2.4 · 统一行为账本 → Outbox、SSE 与内嵌网页（别名 K04）
+## 2.4 · 统一行为账本 → Outbox、SSE 与内嵌网页（别名 K04）
 
 `status`: **已交付 · 2026-09-25**（真人 live + F 窄测；[REVIEW](../plans/archive/0.2.4/k04-f-draft/REVIEW.md)）
 
-内部顺序硬约束（已完成）：**0.2.4-A 账本加厚 →（可交错）0.2.4-P 提示词/Skill → B 会话读写 → C 流式交付 → D 页面 → E 排队/标题 → G 卫生 → M 流式 Markdown → F 真人验收**。已审范围见 [0.2.4 计划](../plans/archive/0.2.4/k04-conversation-system-draft.md)，实施约束见 [0.2.4 设计](../plans/archive/0.2.4/k04-conversation-system-design.md)；Markdown 见 [M 施工单](../plans/archive/0.2.4/k04-m-streaming-markdown-implementation.md)。
+内部顺序硬约束（已完成）：**2.4.1 账本加厚 →（可交错）2.4.2 提示词/Skill → B 会话读写 → C 流式交付 → D 页面 → E 排队/标题 → G 卫生 → M 流式 Markdown → F 真人验收**。已审范围见 [2.4 计划](../plans/archive/0.2.4/k04-conversation-system-draft.md)，实施约束见 [2.4 设计](../plans/archive/0.2.4/k04-conversation-system-design.md)；Markdown 见 [M 施工单](../plans/archive/0.2.4/k04-m-streaming-markdown-implementation.md)。
 
 ### 防复发提示（T1/T3/T5，审查 §6.5）
 
-复用 H3 的必需完成事件与事务内序号。最小单用户鉴权覆盖 HTTP、SSE、历史补发和 internal；**0.2.6** 再扩展探针测试。  
+复用 H3 的必需完成事件与事务内序号。最小单用户鉴权覆盖 HTTP、SSE、历史补发和 internal；**2.6** 再扩展探针测试。  
 `/chat/` 历史恢复只读已提交 Message，**不得**在恢复路径上调用模型 / Loop / ToolRuntime。  
 账本与 outbox 分工：`turn_step` = 逐步事实；`outbox_event` = 已提交后的可靠交付；禁止用 `log.info` / 仅内存 `AgentTrace` 冒充统一日志。
 
 ### 目标
 
-1. **0.2.4-A**：加厚行为账本——`MEMORY_WRITE` 等 kind、与 Outbox 分工文档化（`turn_step` 表与 MODEL/TOOL 写入已由 **0.2.3-L** 落地）。
-2. **0.2.4-P**：提示词文件化（SOUL 等 MD）+ Skill 索引 / `load_skill`（方案 C）。
-3. **0.2.4-B～F**：可靠交付已提交事件与真实模型增量；页面断线不重做业务；完成历史恢复、会话列表、手动/自动标题、标题与正文搜索、归档、回收站、followup 队列 UI、Stop 和撤队。
+1. **2.4.1**：加厚行为账本——`MEMORY_WRITE` 等 kind、与 Outbox 分工文档化（`turn_step` 表与 MODEL/TOOL 写入已由 **2.3.6** 落地）。
+2. **2.4.2**：提示词文件化（SOUL 等 MD）+ Skill 索引 / `load_skill`（方案 C）。
+3. **2.4.3～F**：可靠交付已提交事件与真实模型增量；页面断线不重做业务；完成历史恢复、会话列表、手动/自动标题、标题与正文搜索、归档、回收站、followup 队列 UI、Stop 和撤队。
 
 ### 已验证缺口（写入本批的原因）
 
@@ -279,22 +279,22 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 |----|----------------|
 | 账本加厚 + Outbox 分工 | 用 ErrorCodes / SafeErrorLog 冒充行为审计 |
 | 刷新/重开后自动恢复已提交历史、会话侧栏 | 跨设备同步 |
-| 恢复路径只读已提交 Message | 重做已由 0.2.3-L 交付的 turn_step 窄版 |
+| 恢复路径只读已提交 Message | 重做已由 2.3.6 交付的 turn_step 窄版 |
 
 ### 验收
 
 ```text
-# 0.2.4-A 行为账本加厚
+# 2.4.1 行为账本加厚
 [x] MEMORY_WRITE（或等价）可追溯；与 Turn 同事务边界一致
 [x] 与 Outbox 分工文档化；回滚不残留半提交；敏感字段脱敏
 [x] AgentTrace 非唯一真相源（turn_step 已有则复用）
 
-# 0.2.4-P 提示词治理 + Skill 最小
+# 2.4.2 提示词治理 + Skill 最小
 [x] 硬安全在代码；SOUL/IDENTITY/USER/SAFETY 自 data-dir；改 SOUL 无需重编译即影响下轮
 [x] Skill 仅索引进 system；`load_skill` 只读正文；未授权/未知 id 不进索引或不返回正文
 [x] 分层与索引有字符/条数上限；无管理页
 
-# 0.2.4-B～F 会话、交付与恢复
+# 2.4.3～F 会话、交付与恢复
 [x] 提交后才发送 SSE；lastEventId 补发正确；重连不增加模型/工具调用
 [x] GET 可按 conversationId 回读已提交消息；可查最近 ACTIVE 会话
 [x] 打开 `/chat/` 自动接入记住的或最近会话并渲染历史；恢复路径零次模型/工具调用
@@ -307,15 +307,35 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 # F 窄测（2026-09-25）：ConversationHttp / SearchSync / CreateConversation / ReceiveTurnIdempotency / Lifecycle / SSE / ChatPage / EmptyPurge / AutoTitle / RunEventBus / CommittingFail / TurnTransition — BUILD SUCCESS
 # 已知未扩（不挡交付）：poll/claim FIFO 竞态、Stop×claim HTTP IT、搜索 cursor、工具中途打断
 ```
-## 0.2.5 · TaskRuntime、BackgroundTask 与 SubAgentRun（别名 K05）
+## 2.5 · TaskRuntime、BackgroundTask、SubAgentRun 与用户向定时（别名 K05）
+
+`status`: **历史 · 已交付 · 2.5 周期完成 · 2026-09-29**（归档 [archive/2.5](../plans/archive/2.5/README.md)；[live](../plans/archive/2.5/reviews/k05-2.5.13-live-acceptance-20260929.md)）
+
+### 进度（小版本）
+
+| 号 | 状态 |
+|----|------|
+| **2.5.1** | 规划 · P1 通过 |
+| **2.5.2** | **已验收**：类型 + V024 + Resolver + Repo + prepare |
+| **2.5.3** | **已验收**（Commit 缝） |
+| **2.5.4** | **已验收**（执行+门闩） |
+| **2.5.5** | **已验收**（Loop/Policy/用户审核 · 模型代审） |
+| **2.5.6** | **已验收**（Busy 虚线交付 · 模型代审 + 用户确认） |
+| **2.5.7** | **代审完成 · 书面降级**；**2.5.7.2 收口补丁已入仓**（Idle） |
+| **2.5.8** | **代审完成 · 书面降级**；**2.5.8.2 收口补丁已入仓**（定时晋升 + 多火交付） |
+| **2.5.9** | **已验收（模型代审）**（侧栏 + 读 API + 取消） |
+| **2.5.10** | **已验收（模型代审）**（消息中心） |
+| **2.5.11** | **暂停**（证据并入 2.5.13） |
+| **2.5.12** | **已验收**（提醒真语义 + UI + 时间） |
+| **2.5.13** | **清理收口 · 周期完成**（①–⑦） |
 
 ### 防复发提示（T1/T2/T3/T7）
 
-每次 attempt 独立身份与 lease。旧 attempt 迟到结果不能更新正式任务结果。TaskDraft 仍经 TurnCommitter。
+每次 attempt 独立身份与 lease。旧 attempt 迟到结果不能更新正式任务结果。TaskDraft 仍经 TurnCommitter。定时到期推送必须 durable；未到期行不得被即时 dispatch 抢走。WORLD_TICK ≠ 用户向定时。
 
 ### 目标
 
-长任务不占住对话；失败可追踪、可重试。
+长任务不占住对话；失败可追踪、可重试。**同一账本支持对用户定时推**（时间字段 + 定时模块）；世界侧 WORLD_TICK 仍属 2.6。
 
 ### Codex 可生成
 
@@ -328,19 +348,32 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 ### 验收
 
 ```text
-[ ] Task 与确认回复同事务；TaskDraft 只经 CommitTurnPlan
-[ ] 原 Turn 完成后可继续聊天；重试创建新 Run
-[ ] LOST lease 不复活；取消阻止新 Run
-[ ] SubAgent 不直接写 Memory/Relationship，不冒充最终回复
-[ ] 旧 attempt 不能提交新 attempt 的结果
-[ ] 取消与完成竞争有唯一裁决；任一步失败全部回滚
+[x] Task 与确认回复同事务；TaskDraft 只经 CommitTurnPlan（或定时窄创建缝入同一账本）
+[x] 原 Turn 完成后可继续聊天；重试创建新 Run
+[x] LOST lease 不复活；取消阻止新 Run
+[x] SubAgent 不直接写 Memory/Relationship，不冒充最终回复
+[x] 旧 attempt 不能提交新 attempt 的结果
+[x] 取消与完成竞争有唯一裁决；任一步失败全部回滚
+[x] 用户向定时：到期 durable 推送；未到期不被即时 dispatch 抢走；WORLD_TICK 不冒充实跑
+[x] 真人 L1–L8（审核/Busy/Idle/定时/侧栏/消息中心/禁区/提醒真语义）
+[x] 全量 Maven app -am test 绿灯；审查 S1–S5 关闭
 ```
 
-## 0.2.6 · 外部生命周期探针（别名 K06）
+计划归档 → [archive/2.5](../plans/archive/2.5/README.md)。
+
+## 2.6 · 外部生命周期探针（别名 K06）
+
+`status`: **现行周期** — [k06-lifecycle-probe.md](../plans/k06-lifecycle-probe.md)（规划初版 · P1 未过）
+
+### 进度（小版本）
+
+| 号 | 状态 |
+|----|------|
+| **2.6.1** | 规划 · 初版待整理（本周期活入口） |
 
 ### 防复发提示（T4，审查 §6.6）
 
-固定绝对数据目录。沿用 **0.2.4** 访问策略。drain 不能强行取消已冻结 COMMITTING，也不能释放 owner 让双执行并存。
+固定绝对数据目录。沿用 **2.4** 访问策略。drain 不能强行取消已冻结 COMMITTING，也不能释放 owner 让双执行并存。
 
 ### 目标
 
@@ -365,17 +398,17 @@ TurnEngine 管认领、上下文与提交，Loop 只返回 Outcome。认领成�
 [ ] drain 超时不伪造完成或重置 COMMITTING
 ```
 
-## 0.2.7 · 故障、恢复与资源验收（别名 K07）
+## 2.7 · 故障、恢复与资源验收（别名 K07）
 
 ### 防复发提示（T1—T8 的最终交叉验证）
 
 验证已确定的恢复协议，不在此时才补 owner、序号或提交计划。不得把新 JDBC 连接等同于完整进程重启，也不得把普通主机实测等同于 2 核 2 GB。
 
-参与拆分：**0.2.7-A** 本机故障注入与临时库恢复；**0.2.7-B** 仅在需要等价资源限制时由用户或对端回传证据。B 未回传不得勾选资源验收。
+参与拆分：**2.7-A** 本机故障注入与临时库恢复；**2.7-B** 仅在需要等价资源限制时由用户或对端回传证据。B 未回传不得勾选资源验收。
 
 ### 目标
 
-证明 0.1 在声明故障模型内可恢复，并适配国内 2 核 2 GB 节点。
+证明 2.1 在声明故障模型内可恢复，并适配国内 2 核 2 GB 节点。
 
 ### Codex 可生成
 
@@ -410,7 +443,7 @@ OWNER: USER 完成位置：
 SQLite 备份恢复报告：
 2 核 2 GB 资源报告：
 已知限制：
-明确延期：v0.3 世界树与多核；更后的 Guardian / wn-agent。
+明确延期：v3 世界树与多核；更后的 Guardian / wn-agent。
 ```
 
-**0.2.1–0.2.7** 全部通过，才能把 **v0.2** 标成完成。v0.1 已按当前进度封版，不把 harness 欠账算回去。
+**2.1–2.7** 全部通过，才能把 **v2** 标成完成。v1 已按当前进度封版，不把 harness 欠账算回去。

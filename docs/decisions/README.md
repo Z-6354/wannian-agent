@@ -5,6 +5,6 @@
 | 文档 | 内容 |
 |------|------|
 | [01-contract.md](./01-contract.md) | 内核形状；含 **followup** 插话调度（2026-09-20） |
-| [02-node-tiers.md](./02-node-tiers.md) | 旧 L1–L4；不是 v0.2/v0.3 多核定义 |
+| [02-node-tiers.md](./02-node-tiers.md) | 旧 L1–L4；不是 v2/v3 多核定义 |
 
-记忆边界：[memory.md](../research/memory.md)。插话专题：[in-flight-user-message.md](../research/in-flight-user-message.md)。v0.3 拓扑：[multi-node](../research/multi-node-companion-world.md)。
+记忆边界：[memory.md](../research/memory.md)。插话专题：[in-flight-user-message.md](../research/in-flight-user-message.md)。v3 拓扑：[multi-node](../research/multi-node-companion-world.md)。

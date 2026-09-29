@@ -15,11 +15,11 @@ class ManageAuthFilterTest {
 
     @Test
     void remoteRequiresConfiguredToken() {
-        assertThat(ManageAuthFilter.decide("203.0.113.10", null, "")).isEqualTo(Decision.UNCONFIGURED);
-        assertThat(ManageAuthFilter.decide("203.0.113.10", "Bearer wrong", "dev-manage"))
+        assertThat(ManageAuthFilter.decide("203.2.113.10", null, "")).isEqualTo(Decision.UNCONFIGURED);
+        assertThat(ManageAuthFilter.decide("203.2.113.10", "Bearer wrong", "dev-manage"))
                 .isEqualTo(Decision.UNAUTHENTICATED);
         assertThat(ManageAuthFilter.decide("192.168.1.8", null, "dev-manage")).isEqualTo(Decision.UNAUTHENTICATED);
-        assertThat(ManageAuthFilter.decide("203.0.113.10", "Bearer dev-manage", "dev-manage"))
+        assertThat(ManageAuthFilter.decide("203.2.113.10", "Bearer dev-manage", "dev-manage"))
                 .isEqualTo(Decision.ALLOW);
     }
 }

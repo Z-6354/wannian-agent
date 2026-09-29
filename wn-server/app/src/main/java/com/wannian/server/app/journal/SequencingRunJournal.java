@@ -15,7 +15,7 @@ import javax.sql.DataSource;
 /**
  * 运行观察条目的 step 序号装饰器。
  *
- * <p>0.2.4-A：
+ * <p>2.4.1：
  * <ul>
  *   <li><b>SQLite 启用</b>（构造时传入 {@link DataSource}）：<strong>不</strong>分配 step_no；
  *       库内序号由 {@link SqliteTurnStepJournal} 在同连接事务中 {@code MAX+1} 决定。

@@ -45,7 +45,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.3-E 档 A：热路径 remember / 密钥拒 / 关系 tool 经 TurnEngine 正式落库（可控 ModelPort，非 live）。
+ * 2.3.5 档 A：热路径 remember / 密钥拒 / 关系 tool 经 TurnEngine 正式落库（可控 ModelPort，非 live）。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class TurnEngineMemoryHotpathTest {

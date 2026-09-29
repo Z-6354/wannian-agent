@@ -3,7 +3,7 @@ package com.wannian.server.app.http;
 import java.util.List;
 
 /**
- * 记忆 HTTP JSON 形状（0.2.3-D S11-a）。
+ * 记忆 HTTP JSON 形状（2.3.4 S11-a）。
  *
  * <p>与 {@link MemoryHttpController} 配套；字段名对前端/curl 稳定。禁止在本类写业务逻辑。
  */

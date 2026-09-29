@@ -1,6 +1,6 @@
 package com.wannian.server.kernel.journal;
 
-/** 行为账本 kind（0.2.3-L）。 */
+/** 行为账本 kind（2.3.6）。 */
 public enum JournalKind {
     PROCESS_START,
     PROCESS_SHUTDOWN,

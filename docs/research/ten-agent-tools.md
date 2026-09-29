@@ -1,7 +1,7 @@
 # 调研 · 十方 Agent 工具模块与去重目录
 
 `status`: **reference** — 2026-09-22  
-`purpose`: 对照 [agent-loop-survey](./agent-loop-survey.md) 十方的 **Tools 模块怎么挂**，以及 shipped / 内置工具的语义去重，供 **0.2.2 ToolRuntime + ToolProfile** 定边界。  
+`purpose`: 对照 [agent-loop-survey](./agent-loop-survey.md) 十方的 **Tools 模块怎么挂**，以及 shipped / 内置工具的语义去重，供 **2.2 ToolRuntime + ToolProfile** 定边界。  
 `not-authority`: 不改施工单；实施以日后 `k02-tools.md` 与清单为准。
 
 ---
@@ -257,13 +257,13 @@ Server：`web_search`, `web_fetch`, `code_execution`（含 bash/text_editor 子�
 
 ---
 
-## 5. 对 wannian 0.2.2 的直接启示
+## 5. 对 wannian 2.2 的直接启示
 
 1. **绑定用多对多表**，不要做成工具反选 Agent；对齐 L1 `toolIds` / L3 toolset / L2 profile。  
 2. **Runtime 深模块**对齐 L4/G4：校验→策略→执行→消毒；Loop 只 `execute`。  
 3. **首批工具**取语义交集的安全子集：`current_time` / `calculate` / 可选 `http_read`（≈ web_fetch 只读），**不要**首版上 shell/browser/computer。  
 4. **Profile** 预留 `chat.default` / 日后 `chat.mcp` / `schedule`；MCP 名空间可后加。  
-5. 大目录时的 tool_search / PTC 属增强，**不是** 0.2.2 必需。
+5. 大目录时的 tool_search / PTC 属增强，**不是** 2.2 必需。
 
 ---
 

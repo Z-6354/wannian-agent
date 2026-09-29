@@ -1,7 +1,7 @@
 # 02 · 节点能力分层
 
 `date`: 2026-09-17  
-`status`: **historical-ladder** — 2026-09-17。这张 L1–L4 是「节点变多才允许自更新」的旧分层，**不是**现行版本。现行是：v0.1 当前进度；v0.2 单核 harness + 单核节点；v0.3 世界树 + 多核节点（设备/节点/角色，见 [多核心](../research/multi-node-companion-world.md)）。L2 高可用与 L3 自更新属于更后，不要按本文把它们当成 v0.2 或 v0.3。
+`status`: **historical-ladder** — 2026-09-17。这张 L1–L4 是「节点变多才允许自更新」的旧分层，**不是**现行版本。现行是：v1 当前进度；v2 单核 harness + 单核节点；v3 世界树 + 多核节点（设备/节点/角色，见 [多核心](../research/multi-node-companion-world.md)）。L2 高可用与 L3 自更新属于更后，不要按本文把它们当成 v2 或 v3。
 
 ## 1. 分层结论
 

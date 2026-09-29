@@ -2,9 +2,9 @@
 
 `status`: **reference** — 2026-09-20  
 `purpose`:（1）其他 Agent 如何接微信；（2）世界树事件与用户聊天时间撞车时怎么排。  
-`related`: [in-flight-user-message](./in-flight-user-message.md) · [world-evolution](./world-evolution-and-extensions.md) · [multi-node](./multi-node-companion-world.md) · [roadmap v0.3](../plans/roadmap.md)
+`related`: [in-flight-user-message](./in-flight-user-message.md) · [world-evolution](./world-evolution-and-extensions.md) · [multi-node](./multi-node-companion-world.md) · [roadmap v3](../plans/roadmap.md)
 
-**档位提醒：** 微信通道与世界树均属 **v0.3 及更后 / 通道接入时**；本文定语义与借鉴，不授权 v0.2 开工接微信或跑世界树。
+**档位提醒：** 微信通道与世界树均属 **v3 及更后 / 通道接入时**；本文定语义与借鉴，不授权 v2 开工接微信或跑世界树。
 
 ---
 
@@ -33,7 +33,7 @@ Outbound 再经同一适配器发回微信
 |------|------|-------------|------|------------|-------------------|
 | **OpenClaw + `@tencent-weixin/openclaw-weixin`** | 腾讯 iLink；插件侧 monitor | `plugins install` + QR `channels login`；凭据在 `~/.openclaw` | 插件能力声明以私聊为主 | **核无微信码**；插件管 iLink/媒体/账号 | 最干净：wn-server 只收归一化 ingress |
 | **Hermes Weixin adapter** | 同系 iLink；**HTTP 长轮询**（无需公网 webhook） | `hermes gateway setup` 扫码；token **单实例锁** | 默认关；iLink bot 身份常收不到普通群事件 | 内置 messaging 适配器；有 **文本防抖合并**、typing、去重、context_token | 个人号友好；**防抖**可借（连发碎句合成一轮） |
-| **扣子托管 OpenClaw 微信** | ClawBot 私密通道 | 扫码绑定；微信 ≥8.0.70 | 不支持群；不自动化操作微信 | 托管侧接好通道 | 产品形态：一人一 bot，非客服矩阵 |
+| **扣子托管 OpenClaw 微信** | ClawBot 私密通道 | 扫码绑定；微信 ≥8.2.70 | 不支持群；不自动化操作微信 | 托管侧接好通道 | 产品形态：一人一 bot，非客服矩阵 |
 | **OpenClaw China / 企微系** | 企微长连接、自建应用、**微信客服 webhook** | 需 corpId/Secret、公网回调（客服） | 视产品线 | 面向中国 IM 的渠道包 | 若「对外任意微信用户」走客服，不走个人 iLink |
 | **wxauto 类桌面自动化** | 本机操控微信客户端 | 昵称/群监听；易掉线 | 可做群 | 绕过官方 bot API | **个人项目慎用**：风控、稳定性差；wannian 不推荐作主路径 |
 | **HermesClaw 代理** | 独占一个 iLink poller，再本地代理给 Hermes/OpenClaw/OpenCode | 解决「一号不能双 gateway」 | — | 多脑抢同一微信令牌会 403 | 证明：**传输层单写者**；wannian 也应一账号一 poller，多 Agent 在 Owner 内排队而非多进程抢 iLink |
@@ -109,7 +109,7 @@ app.channel.weixin（或独立 sidecar 只做传输）
 
 ---
 
-## 3. 推荐冲突策略（v0.3 语义草案）
+## 3. 推荐冲突策略（v3 语义草案）
 
 ### 3.1 总规则
 
@@ -156,7 +156,7 @@ USER-B: receive → RECEIVED
 若要更顺：分享策略在「会话空闲」才 deliverToUser=true（空闲=无非终态 USER Turn）
 ```
 
-### 3.3 优先级表（建议写进 v0.3）
+### 3.3 优先级表（建议写进 v3）
 
 | 优先级 | 工作 | 说明 |
 |--------|------|------|
@@ -192,11 +192,11 @@ USER-B: receive → RECEIVED
 
 | 能力 | 最早档 | 动作 |
 |------|--------|------|
-| `TurnSource` 预留 WORLD | 0.2.1 契约缝 | 已规划；不实现 |
-| 用户 FIFO / 不拒收 | 0.2.1–0.2.4 | 插话专题 |
-| 微信 Channel | 通道接入时（非 v0.2 必达） | 插件式；iLink 或企微/客服择一主路径 |
-| 世界树 + 冲突策略 | **v0.3** | WorldAgent 只投事件；烟火调度 §3 |
-| Jev / DecisionPort | v0.3 可选 | 默认不分享，进一步减少冲突 |
+| `TurnSource` 预留 WORLD | 2.1 契约缝 | 已规划；不实现 |
+| 用户 FIFO / 不拒收 | 2.1–2.4 | 插话专题 |
+| 微信 Channel | 通道接入时（非 v2 必达） | 插件式；iLink 或企微/客服择一主路径 |
+| 世界树 + 冲突策略 | **v3** | WorldAgent 只投事件；烟火调度 §3 |
+| Jev / DecisionPort | v3 可选 | 默认不分享，进一步减少冲突 |
 
 ---
 

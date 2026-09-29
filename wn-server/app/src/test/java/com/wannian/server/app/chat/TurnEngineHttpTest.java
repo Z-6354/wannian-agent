@@ -3,6 +3,7 @@ package com.wannian.server.app.chat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.wannian.server.app.WannianTestProps;
 import com.wannian.server.app.http.CreateConversationResponse;
 import com.wannian.server.app.http.ReceiveTurnResponse;
 import java.nio.file.Path;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,19 +30,19 @@ import org.springframework.test.context.DynamicPropertySource;
 /**
  * HTTP 经 TurnEngine 完成回合：已启用模型应带回 reply；未启用则停在 RECEIVED。
  *
- * <p>本类用 {@code mode=fake} 作接线回归；0.2.1 Loop 行为验收仍须另走 live。
+ * <p>本类用 {@code mode=fake} 作接线回归；2.1 Loop 行为验收仍须另走 live。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TurnEngineHttpTest {
 
     private static final String TOKEN = "turn-engine-token";
 
-    @TempDir
+    @TempDir(cleanup = CleanupMode.NEVER)
     static Path tempDataDir;
 
     @DynamicPropertySource
     static void register(DynamicPropertyRegistry registry) {
-        registry.add("wannian.data-dir", () -> tempDataDir.toAbsolutePath().toString());
+        WannianTestProps.registerIsolatedDataDir(registry, tempDataDir);
         registry.add("wannian.manage.token", () -> TOKEN);
         registry.add("wannian.model.mode", () -> "fake");
     }
@@ -54,6 +56,7 @@ class TurnEngineHttpTest {
     @BeforeEach
     void clear() throws Exception {
         try (Connection connection = dataSource.getConnection()) {
+            com.wannian.server.app.persistence.TestDbCleanup.deleteTaskTables(connection);
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
             connection.createStatement().executeUpdate("DELETE FROM turn_step");

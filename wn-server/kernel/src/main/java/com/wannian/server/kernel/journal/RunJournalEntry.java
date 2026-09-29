@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 一条行为账本条目（0.2.3-L）。
+ * 一条行为账本条目（2.3.6）。
  *
  * <p>{@code requestJson}/{@code resultJson} 须为脱敏后的 JSON 文本；不得含密钥或堆栈。
  * 进程级事件 {@code turnId} 可为 null（仅 JSONL / process_event，不进 turn_step）。

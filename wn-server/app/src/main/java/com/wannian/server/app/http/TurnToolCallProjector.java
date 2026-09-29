@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 /**
  * 从 turn_step 投影本回合工具调用，供 /chat/ HTTP 回传。
  *
- * <p>0.2.4-A：默认拒绝原始参数；按工具白名单输出安全字段。历史与后续实时事件须复用
+ * <p>2.4.1：默认拒绝原始参数；按工具白名单输出安全字段。历史与后续实时事件须复用
  * {@link #safeArgumentsJson(String, String, String, String)}，禁止第二套规则。
  */
 @Component

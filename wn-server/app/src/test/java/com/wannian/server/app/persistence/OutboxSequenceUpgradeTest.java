@@ -136,12 +136,17 @@ class OutboxSequenceUpgradeTest {
                                         List.of(), List.of(), null)))
                 .isInstanceOf(CommitTurnResult.Committed.class);
         try (Connection connection = dataSource.getConnection()) {
+            // commit 会先写 MessageCommitted（占 sequence 1），再写 TurnCompleted
             assertThat(
                             scalarLong(
                                     connection,
-                                    "SELECT sequence_no FROM outbox_event WHERE aggregate_id = ?",
+                                    """
+                                    SELECT sequence_no FROM outbox_event
+                                    WHERE event_type = 'TurnCompleted' AND aggregate_id = ?
+                                    ORDER BY sequence_no DESC LIMIT 1
+                                    """,
                                     turnId.asString()))
-                    .isEqualTo(1L);
+                    .isEqualTo(2L);
         }
     }
 

@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 0.2.4-P：分层读盘与注释种子语义。 */
+/** 2.4.2：分层读盘与注释种子语义。 */
 class FilePromptLayerStoreTest {
 
     @TempDir Path tempDir;

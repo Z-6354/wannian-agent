@@ -10,7 +10,7 @@ import javax.sql.DataSource;
 import org.springframework.stereotype.Component;
 
 /**
- * 会话是否存在进行中/排队 Turn（0.2.4-B 归档/回收站门禁）。
+ * 会话是否存在进行中/排队 Turn（2.4.3 归档/回收站门禁）。
  *
  * <p>口径：status ∈ RECEIVED, CLAIMED, RUNNING, COMMITTING。
  */

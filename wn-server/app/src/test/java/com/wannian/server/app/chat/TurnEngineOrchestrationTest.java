@@ -59,7 +59,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.1-C：TurnEngine 编排验收（认领 → Assembler → Loop → 冻结 → 提交）。
+ * 2.1.3：TurnEngine 编排验收（认领 → Assembler → Loop → 冻结 → 提交）。
  *
  * <p>用 {@link RecordingAgentLoop} 断言「不重跑 Loop」类不变量；不把 Fake 模型当 Loop 行为通过证据。
  * R01–R05 持久化面由既有 {@code ReceiveTurnIdempotencyTest} / {@code RecoverableCommitPlanTest} 等覆盖，

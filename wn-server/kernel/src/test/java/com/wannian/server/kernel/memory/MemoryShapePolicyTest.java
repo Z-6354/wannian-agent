@@ -25,7 +25,7 @@ class MemoryShapePolicyTest {
     @Test
     void clampsImportanceAndLeavesRelativeOrDeicticClaimUntouched() {
         String unnormalizedClaim = "我今天在这里喜欢喝龙井";
-        MemoryToolDraft belowRange = draft(unnormalizedClaim, -0.25);
+        MemoryToolDraft belowRange = draft(unnormalizedClaim, -2.25);
         MemoryToolDraft aboveRange = draft("我喜欢喝咖啡", 1.25);
 
         MemoryToolDraft low = accepted(belowRange);

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/** 0.2.1-A：日志样例不含 key / SQL / 堆栈。 */
+/** 2.1.1：日志样例不含 key / SQL / 堆栈。 */
 class ErrorLogFieldsTest {
 
     @Test

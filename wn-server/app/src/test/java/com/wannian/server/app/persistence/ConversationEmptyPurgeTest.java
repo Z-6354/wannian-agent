@@ -21,7 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** 0.2.4-G：空会话可清；有消息的会话保留。 */
+/** 2.4.7：空会话可清；有消息的会话保留。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ConversationEmptyPurgeTest {
 

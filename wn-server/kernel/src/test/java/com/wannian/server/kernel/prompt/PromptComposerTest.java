@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/** 0.2.4-P：硬安全 + 分层合并顺序。 */
+/** 2.4.2：硬安全 + 分层合并顺序。 */
 class PromptComposerTest {
 
     @Test

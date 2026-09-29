@@ -22,7 +22,7 @@ import org.springframework.context.event.EventListener;
 /**
  * 行为账本装配与进程启停。
  *
- * <p>0.2.4-A 开关组合：
+ * <p>2.4.1 开关组合：
  *
  * <pre>
  * journal.enabled | jsonl | sqlite | RunJournal 行为              | SqliteTurnStepJournal Bean

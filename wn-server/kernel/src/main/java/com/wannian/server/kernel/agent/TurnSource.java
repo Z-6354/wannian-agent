@@ -3,7 +3,7 @@ package com.wannian.server.kernel.agent;
 /**
  * Turn 触发来源。
  *
- * <p>0.2.1-C 仅使用 {@link #USER}；其余值为契约预留，不得半套实现世界线 ingress。
+ * <p>2.1.3 仅使用 {@link #USER}；其余值为契约预留，不得半套实现世界线 ingress。
  */
 public enum TurnSource {
     /** 用户主动发话。 */

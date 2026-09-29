@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.4-P：load_skill 未知 id / 未接线失败语义。 */
+/** 2.4.2：load_skill 未知 id / 未接线失败语义。 */
 class LoadSkillToolAdapterTest {
 
     @Test

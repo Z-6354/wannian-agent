@@ -3,7 +3,7 @@ package com.wannian.server.kernel.error;
 import java.util.Objects;
 
 /**
- * 错误日志字段约定（0.2.1-A）。
+ * 错误日志字段约定（2.1.1）。
  *
  * <p>只记稳定 code、操作类别、关联 ID、耗时与脱敏原因。不含密钥、SQL、堆栈或原始敏感正文。
  * kernel 不依赖具体日志实现；app 把本记录格式化后写入 Logger。

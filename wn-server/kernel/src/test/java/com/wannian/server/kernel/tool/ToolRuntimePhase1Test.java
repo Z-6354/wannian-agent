@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-/** 0.2.2 阶段 1 出口：行为 1–6（识别/校验/幂等/执行/收口）。 */
+/** 2.2 阶段 1 出口：行为 1–6（识别/校验/幂等/执行/收口）。 */
 class ToolRuntimePhase1Test {
 
     private ToolRuntime runtime;

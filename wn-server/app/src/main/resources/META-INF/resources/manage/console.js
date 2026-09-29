@@ -2,6 +2,7 @@ import { getToken, isLocalHost, setToken } from "/manage/api.js?v=20260925a";
 import { clearBanner, clearStatus } from "/manage/page-feedback.js?v=20260920p";
 import { mountModelsPage } from "/manage/models-page.js?v=20260920p";
 import { mountSystem } from "/manage/system-panel.js?v=20260924a";
+import { mountTasksPage } from "/manage/tasks-page.js?v=20260928s";
 import { mountToolsPage } from "/manage/tools-page.js?v=20260923b";
 import { mountVendorsPage } from "/manage/vendors-page.js?v=20260925r";
 
@@ -46,6 +47,19 @@ export function createConsoleController(els) {
         actions: els.pageActions,
         status: els.enabledLine,
         banner: els.banner,
+      });
+      return;
+    }
+    if (route.path === "tasks") {
+      els.title.textContent = "任务";
+      clearStatus(els.enabledLine);
+      clearBanner(els.banner);
+      mountTasksPage({
+        main: els.panel,
+        actions: els.pageActions,
+        status: els.enabledLine,
+        banner: els.banner,
+        route: route.params,
       });
       return;
     }

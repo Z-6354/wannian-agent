@@ -1,6 +1,6 @@
 # 05 · Agent Loop 工作簿
 
-本工作簿属于 **v0.2 / 0.2.1 单核 harness**，不是 v0.1。验收以 [0.2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 为准：Loop 行为用真实模型，不用 Fake 当通过证据。
+本工作簿属于 **v2 / 2.1 单核 harness**，不是 v1。验收以 [2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 为准：Loop 行为用真实模型，不用 Fake 当通过证据。
 
 ## 1. 你要亲自完成什么
 
@@ -8,7 +8,7 @@
 
 ### 开工前防复发提示
 
-历史 H3/H4 已交付。约束来自 [缺陷定义](../reviews/01-defects.md)。排期见 [实施清单](01-checklist.md) 的 **0.2.1**。下文若仍写 Fake 练习，改按 0.2.1 计划改成同一断言、live `ModelPort`。
+历史 H3/H4 已交付。约束来自 [缺陷定义](../reviews/01-defects.md)。排期见 [实施清单](01-checklist.md) 的 **2.1**。下文若仍写 Fake 练习，改按 2.1 计划改成同一断言、live `ModelPort`。
 
 - TurnEngine 确认请求归属并持久化认领成功后才调用 Loop；合法请求重放不产生第二次模型执行。
 - `executionId` 是本次尝试身份，不能用固定节点名替代；旧调用迟到返回时不能靠读新 revision 重新获得提交权。
@@ -75,7 +75,7 @@ while budget 允许:
         if 没有调用:
             return ControlledFailure(INVALID_MODEL_OUTPUT)
 
-        for 每个调用（v0.1 可顺序执行）:
+        for 每个调用（v1 可顺序执行）:
             检查取消
             invocation = 形成 ToolInvocation
             result = toolRuntime.execute(invocation, context)
@@ -101,7 +101,7 @@ final class DefaultAgentLoop implements AgentLoop {
     @Override
     public AgentOutcome run(AgentInput input, AgentBudget budget) {
         // OWNER: USER
-        // TODO(v0.2): 根据本工作簿第 5—12 节实现。
+        // TODO(v2): 根据本工作簿第 5—12 节实现。
         throw new UnsupportedOperationException("OWNER: USER");
     }
 }
@@ -175,7 +175,7 @@ FakeModel 永远请求工具。验证：
 用户明确要求后台执行
 ```
 
-模型只能提出 BackgroundTask，`BackgroundPolicy` 最终裁决。Loop 返回 `BackgroundAccepted`；TurnEngine 调用 `TaskRuntime.prepare` 获得 TaskDraft，再把它放入 `CommitTurnPlan`，由 TurnCommitter 与确认回复原子提交。
+模型只能提出 BackgroundTask，`BackgroundPolicy` 最终裁决。Loop 返回 `BackgroundAccepted`；TurnEngine 写入 `task_review_pending` 并回复「待确认」。**用户确认后** `TaskReviewService` 调用 `TaskRuntime.prepare` 得到 `TaskDraft`，再经 `commitTaskReviewAcceptance` 放入 `CommitTurnPlan`，由 TurnCommitter 与确认回复原子提交。未确认不落 `background_task`。
 
 ## 13. 错误处理
 
@@ -219,4 +219,4 @@ FakeModel 永远请求工具。验证：
 - 返回值覆盖所有路径且不返回 null；
 - 代码能由你逐行解释。
 
-接线还必须通过 [测试工作簿](07-testing.md) R01—R05：重复请求不增加模型调用；错误 owner 不写正式结果；提交响应丢失只回放；失去内存 Outcome 后仍能从冻结计划完成；同会话串行、跨会话有界。单独 Loop 单测通过不等于整条 Turn 事务已通过（属 **0.2.1-C**）。
+接线还必须通过 [测试工作簿](07-testing.md) R01—R05：重复请求不增加模型调用；错误 owner 不写正式结果；提交响应丢失只回放；失去内存 Outcome 后仍能从冻结计划完成；同会话串行、跨会话有界。单独 Loop 单测通过不等于整条 Turn 事务已通过（属 **2.1.3**）。

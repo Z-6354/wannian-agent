@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.2 阶段 3：工具往返 + 预算打满。 */
+/** 2.2 阶段 3：工具往返 + 预算打满。 */
 class DefaultAgentLoopToolContinueTest {
 
     @Test
@@ -161,7 +161,7 @@ class DefaultAgentLoopToolContinueTest {
                                                 "{\"claim\":\"事实" + n + "\","
                                                         + "\"subjectKey\":\"fact." + n + "\","
                                                         + "\"contentKind\":\"USER_FACT\","
-                                                        + "\"importance\":\"0.7\"}")),
+                                                        + "\"importance\":\"2.7\"}")),
                                 null);
                     }
                     return new ModelOutcome.FinalAnswer("记完了", null);

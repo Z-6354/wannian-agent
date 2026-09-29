@@ -15,7 +15,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 0.2.4-P：人设服务拼装顺序与硬安全不可被清空 SOUL 去掉。 */
+/** 2.4.2：人设服务拼装顺序与硬安全不可被清空 SOUL 去掉。 */
 class CompanionPromptServiceTest {
 
     @TempDir Path tempDir;

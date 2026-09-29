@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * <p>协议 {@code openai-compatible} → {@code POST /chat/completions}；
  * {@code openai-responses} → {@code POST /responses}（Codex / gpt-6-*）。
  *
- * <p>0.2.4-C：默认走 {@code stream:true} SSE，累积完整 {@link ModelOutcome}，并向观察者推送正文
+ * <p>2.4.4：默认走 {@code stream:true} SSE，累积完整 {@link ModelOutcome}，并向观察者推送正文
  * delta；不透出 {@code reasoning_content} / 隐藏推理。
  */
 public final class OpenAiCompatibleModelAdapter implements ModelPort {

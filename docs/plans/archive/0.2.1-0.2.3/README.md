@@ -22,7 +22,7 @@
 | **0.2.3-R** | — | `SqliteFrozenPlanStore` 抽取 | 已交付 | [k03-turn-committer-split.md](./k03-turn-committer-split.md) |
 | **0.2.3-L** | — | 运行日志 / turn_step 窄版 | 已交付 | [k03-l-run-journal.md](./k03-l-run-journal.md) |
 
-设计稿（仍在 research，未迁）：[memory-system-0.2.3.md](../../../research/memory-system-0.2.3.md)。  
+设计稿（仍在 research）：[memory-system-2.3.md](../../../research/memory-system-2.3.md)。  
 关闭复核：`0.2.1` → [04-reverify](../../../reviews/04-reverify-0.2.1.md)。
 
 ---

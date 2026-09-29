@@ -5,17 +5,19 @@ import {
   emptyTrash,
   emptyArchive,
   purgeEmptyConversations,
-} from "/chat/api.js?v=20260925l";
+} from "/chat/api.js?v=20260928n";
 import {
   upsertConversation,
   setConversationHeader,
   selectConversation,
   rememberConversationId,
-} from "/chat/state.js?v=20260925k";
-import { confirmDestructive, confirmDialog, promptDialog } from "/shell/dialog.js?v=20260925r";
+} from "/chat/state.js?v=20260928n";
+import { confirmDestructive, confirmDialog } from "/shell/dialog.js?v=20260925r";
+
+const TITLE_MAX_LEN = 80;
 
 /**
- * 会话侧栏：列表 / 搜索 / 归档 / 回收站 / 改名。
+ * 会话侧栏：列表 / 搜索 / 归档 / 回收站；双击标题就地改名（对齐 DSH TerminalTitle）。
  */
 export function createSidebar({
   state,
@@ -59,7 +61,18 @@ export function createSidebar({
   }
 
   if (els.renameBtn) {
-    els.renameBtn.addEventListener("click", () => renameActive());
+    // 改名改为双击标题；按钮保留 DOM 兼容，始终隐藏。
+    els.renameBtn.hidden = true;
+  }
+
+  if (els.title) {
+    els.title.title = "双击改名";
+    els.title.classList.add("is-renameable");
+    els.title.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      beginHeaderRename();
+    });
   }
 
   if (els.archiveBtn) {
@@ -205,6 +218,15 @@ export function createSidebar({
     const title = document.createElement("span");
     title.className = "conv-item-title";
     title.textContent = item.title || "未命名会话";
+    if (!isHit && (item.status || state.listStatus) !== "TRASHED") {
+      title.classList.add("is-renameable");
+      title.title = "双击改名";
+      title.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        beginRowRename(title, item, conversationId);
+      });
+    }
     btn.append(title);
     if (isHit) {
       const snippet = document.createElement("span");
@@ -325,24 +347,46 @@ export function createSidebar({
     return null;
   }
 
-  async function renameActive() {
+  function beginHeaderRename() {
     const id = state.activeConversationId;
-    if (!id) return;
-    const current = state.header.title || "";
-    const next = await promptDialog({
-      title: "会话改名",
-      label: "会话标题",
-      defaultValue: current,
-      confirmLabel: "保存",
-      emptyMessage: "标题不能为空",
-      trigger: els.renameBtn,
+    if (!id || !els.title) return;
+    if ((state.header.status || "") === "TRASHED") return;
+    startInlineTitleEdit({
+      hostEl: els.title,
+      displayText: state.header.title || els.title.textContent || "",
+      onCommit: (next) => commitRename(id, next, state.header.revision),
     });
-    if (next == null) return;
-    const title = next.trim();
-    const res = await patchConversation(id, "rename", state.header.revision, title);
+  }
+
+  function beginRowRename(titleEl, item, conversationId) {
+    if (!titleEl || !conversationId || !item) return;
+    const known = Number.isInteger(item.revision)
+      ? item
+      : (state.listItems || []).find((entry) => entry.id === conversationId);
+    const expectedRevision =
+      known && Number.isInteger(known.revision)
+        ? known.revision
+        : conversationId === state.activeConversationId
+          ? state.header.revision
+          : null;
+    if (!Number.isInteger(expectedRevision)) {
+      setNotice("无法改名：缺少会话版本，请刷新后再试", "error");
+      return;
+    }
+    startInlineTitleEdit({
+      hostEl: titleEl,
+      displayText: item.title || titleEl.textContent || "",
+      onCommit: (next) => commitRename(conversationId, next, expectedRevision),
+    });
+  }
+
+  async function commitRename(id, title, expectedRevision) {
+    const res = await patchConversation(id, "rename", expectedRevision, title);
     if (!res.ok) {
       setNotice(res.detail || mutationHint(res.code, busyHint), "error");
-      return;
+      await refreshList();
+      requestRender();
+      return false;
     }
     if (res.conversation) {
       if (titleCtrl) {
@@ -352,15 +396,17 @@ export function createSidebar({
           res.conversation.revision
         );
       }
-      setConversationHeader(state, {
-        ...res.conversation,
-        titleSource: res.conversation.titleSource || "MANUAL",
-      });
       upsertConversation(state, {
         ...res.conversation,
         titleSource: res.conversation.titleSource || "MANUAL",
       });
-    } else {
+      if (id === state.activeConversationId) {
+        setConversationHeader(state, {
+          ...res.conversation,
+          titleSource: res.conversation.titleSource || "MANUAL",
+        });
+      }
+    } else if (id === state.activeConversationId) {
       if (titleCtrl) {
         titleCtrl.markManualTitle(id, title, state.header.revision + 1);
       }
@@ -371,6 +417,7 @@ export function createSidebar({
     setNotice("");
     await refreshList();
     requestRender();
+    return true;
   }
 
   async function lifecycleActive(op) {
@@ -495,11 +542,16 @@ export function createSidebar({
   function updateHeaderActions() {
     const status = state.header.status || "";
     const has = Boolean(state.activeConversationId);
-    if (els.renameBtn) els.renameBtn.hidden = !has || status === "TRASHED";
+    if (els.renameBtn) els.renameBtn.hidden = true;
     if (els.archiveBtn) els.archiveBtn.hidden = !has || status !== "ACTIVE";
     if (els.unarchiveBtn) els.unarchiveBtn.hidden = !has || status !== "ARCHIVED";
     if (els.trashBtn) els.trashBtn.hidden = !has || status === "TRASHED";
     if (els.restoreBtn) els.restoreBtn.hidden = !has || status !== "TRASHED";
+    if (els.title) {
+      const canRename = has && status !== "TRASHED";
+      els.title.classList.toggle("is-renameable", canRename);
+      els.title.title = canRename ? "双击改名" : "";
+    }
   }
 
   return {
@@ -508,6 +560,75 @@ export function createSidebar({
     createNew,
     updateHeaderActions,
   };
+}
+
+/**
+ * 就地改名（对齐 deepseek-harness TerminalTitle）：
+ * 双击 → input；Enter/blur 提交；Escape 取消；IME composing 不截获。
+ */
+function startInlineTitleEdit({ hostEl, displayText, onCommit }) {
+  if (!hostEl || hostEl.dataset.editing === "1") return;
+  const previous = displayText != null ? String(displayText) : hostEl.textContent || "";
+  hostEl.dataset.editing = "1";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "conv-title-edit";
+  input.value = previous;
+  input.maxLength = TITLE_MAX_LEN;
+  input.setAttribute("aria-label", "会话标题");
+  input.autocomplete = "off";
+  let cancelled = false;
+  let settled = false;
+
+  hostEl.replaceChildren(input);
+  input.focus();
+  input.select();
+
+  function restoreLabel(text) {
+    hostEl.dataset.editing = "";
+    delete hostEl.dataset.editing;
+    hostEl.textContent = text;
+  }
+
+  async function finish(commit) {
+    if (settled) return;
+    settled = true;
+    const next = input.value.trim();
+    if (!commit || cancelled || !next || next === previous.trim()) {
+      restoreLabel(previous || "未命名会话");
+      return;
+    }
+    input.disabled = true;
+    try {
+      const ok = await onCommit(next);
+      if (ok === false) {
+        restoreLabel(previous || "未命名会话");
+        return;
+      }
+      restoreLabel(next);
+    } catch (_) {
+      restoreLabel(previous || "未命名会话");
+    }
+  }
+
+  input.addEventListener("pointerdown", (event) => event.stopPropagation());
+  input.addEventListener("click", (event) => event.stopPropagation());
+  input.addEventListener("dblclick", (event) => event.stopPropagation());
+  input.addEventListener("blur", () => {
+    void finish(true);
+  });
+  input.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Escape") {
+      cancelled = true;
+      event.preventDefault();
+      input.blur();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    }
+  });
 }
 
 function mutationHint(code, busyHint) {

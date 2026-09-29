@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** 0.2.4-P：提示词分层与 Skill 目录装配。 */
+/** 2.4.2：提示词分层与 Skill 目录装配。 */
 @Configuration
 public class PromptConfig {
 

@@ -3,7 +3,7 @@
 `status`: **设计指导稿 · 0.2.4 已按本文交付** — 2026-09-25 收口（[F REVIEW](./k04-f-draft/REVIEW.md)）  
 `scope`: 单用户、单核烟火节点的 `/chat/`；不得外推到世界树、多节点或 IM  
 `approved scope`: [0.2.4 已审计划](./k04-conversation-system-draft.md)  
-`sources`: [对标研究](../../../research/agent-chat-ux-0.2.4.md) · [行为账本立项](./k04-behavior-journal.md) · [followup 决议](../../../research/in-flight-user-message.md) · [版本工作流](../../version-stage-workflow.md)
+`sources`: [对标研究](../../../research/agent-chat-ux-2.4.md) · [行为账本立项](./k04-behavior-journal.md) · [followup 决议](../../../research/in-flight-user-message.md) · [版本工作流](../../version-stage-workflow.md)
 
 > 本文给方向、契约、风险与验收，不预写实现代码。实施者可以决定类名、局部算法和 UI 细节，但不得自行改变这里的状态语义、事务边界、流式可见性或阶段顺序。遇到现有代码与本文冲突，先记录具体冲突并修订施工单；不得悄悄绕过。
 

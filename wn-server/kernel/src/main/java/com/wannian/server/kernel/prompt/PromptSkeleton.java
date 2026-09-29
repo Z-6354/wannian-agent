@@ -3,7 +3,7 @@ package com.wannian.server.kernel.prompt;
 /**
  * 代码级硬安全分区（不可被 data-dir Markdown 关闭或覆盖）。
  *
- * <p>0.2.4-P：人设层只能追加在本段之后；冲突时以本段为准。
+ * <p>2.4.2：人设层只能追加在本段之后；冲突时以本段为准。
  */
 public final class PromptSkeleton {
 

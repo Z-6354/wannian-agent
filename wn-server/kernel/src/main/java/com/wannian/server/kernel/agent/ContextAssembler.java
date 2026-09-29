@@ -36,11 +36,11 @@ import java.util.Objects;
  * <p>只读 {@link ConversationStore}，不改原文。当前用户句单独放入 {@code userMessage}，
  * 不重复进 {@code conversationExcerpt}。
  *
- * <p>0.2.2：可选注入 {@link ToolVisibilityResolver}，默认杜小洛 + 聊天面相可见工具；兼容角色 ID `yanhuo`。
+ * <p>2.2：可选注入 {@link ToolVisibilityResolver}，默认杜小洛 + 聊天面相可见工具；兼容角色 ID `yanhuo`。
  *
- * <p>0.2.3-B：注入 Mem0 式 Observation Date（{@link #OBSERVATION_ZONE}）与地点「未说明」锚块。
+ * <p>2.3.2：注入 Mem0 式 Observation Date（{@link #OBSERVATION_ZONE}）与地点「未说明」锚块。
  *
- * <p>0.2.3-D / D+：
+ * <p>2.3.4 / D+：
  *
  * <ul>
  *   <li>可选 {@link MemoryRecall} + {@link MemoryRecallLimits}（yml）→ {@code memoryContext}；

@@ -6,7 +6,7 @@ import com.wannian.server.kernel.model.ModelOutcome;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.4-E：标题抽取拒垃圾 / 截断；失败路径不写库（由 extract 返回 null 保证）。 */
+/** 2.4.6：标题抽取拒垃圾 / 截断；失败路径不写库（由 extract 返回 null 保证）。 */
 class ConversationAutoTitleServiceTest {
 
     @Test

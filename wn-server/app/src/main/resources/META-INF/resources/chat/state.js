@@ -1,5 +1,5 @@
 /**
- * 0.2.4-D 页面状态：selectionEpoch、按会话缓存、流式合并 reducer。
+ * 2.4.5 页面状态：selectionEpoch、按会话缓存、流式合并 reducer。
  */
 
 export const STORAGE_KEY = "wannian.chat.conversationId";
@@ -242,22 +242,51 @@ export function applyCommittedMessage(state, conversationId, payload) {
   const messageId = stringOf(payload.messageId);
   const role = stringOf(payload.role).toUpperCase();
   const preview = stringOf(payload.textPreview);
+  const fullText = stringOf(payload.text);
   const bucket = getCommitted(state, conversationId);
+  const isTaskDelivery =
+    payload.taskDelivery === true ||
+    fullText.startsWith("───") ||
+    preview.startsWith("───");
+  const deliveryTaskId =
+    stringOf(payload.taskId) || extractTaskIdFromText(fullText || preview);
 
-  if (role === "ASSISTANT" && hasOfficialAssistantTurn(bucket, turnId)) {
+  // 同 turn 主回复已落地时忽略重复 ASSISTANT；Busy 虚线附带（2.5.6）除外
+  if (role === "ASSISTANT" && !isTaskDelivery && hasOfficialAssistantTurn(bucket, turnId)) {
     return { changed: false };
   }
 
   if (role === "USER") {
+    const text = fullText || preview;
     const item = {
       kind: "user",
       messageId,
       turnId,
-      text: preview,
+      text,
       sequenceNo: null,
       temporary: false,
+      idleWake: text.startsWith("[后台任务完成]"),
+      createdAt: stringOf(payload.createdAt) || new Date().toISOString(),
     };
     mergeItem(bucket, item);
+    return { changed: true };
+  }
+
+  if (isTaskDelivery) {
+    mergeItem(bucket, {
+      kind: "assistant-turn",
+      turnId,
+      messageId,
+      text: fullText || preview,
+      toolCalls: [],
+      status: "completed",
+      temporary: false,
+      sequenceNo: null,
+      taskDelivery: true,
+      taskId: deliveryTaskId,
+      executionId: "",
+      createdAt: stringOf(payload.createdAt) || new Date().toISOString(),
+    });
     return { changed: true };
   }
 
@@ -277,6 +306,7 @@ export function applyCommittedMessage(state, conversationId, payload) {
     temporary: false,
     sequenceNo: null,
     executionId: inflight ? inflight.executionId : "",
+    createdAt: stringOf(payload.createdAt) || new Date().toISOString(),
   };
   mergeItem(bucket, item);
   if (turnId && state.inflightByTurnId[turnId]) {
@@ -298,6 +328,7 @@ export function appendOptimisticUser(state, conversationId, text, turnId, status
     temporary: true,
     optimistic: true,
     queueStatus: queued ? "queued" : "",
+    createdAt: new Date().toISOString(),
   };
   mergeItem(bucket, item);
   state.inflightByTurnId[turnId] = {
@@ -317,6 +348,7 @@ export function appendOptimisticUser(state, conversationId, text, turnId, status
     status: queued ? "queued" : "running",
     temporary: true,
     executionId: "",
+    createdAt: new Date().toISOString(),
   });
 }
 
@@ -506,16 +538,25 @@ function applyTurnTerminal(state, payload, status) {
     delete state.inflightByTurnId[turnId];
   }
   // 失败/取消：保留为临时未完成投影，不得写入已提交历史语义；随后 refetch 校准
+  const err = stringOf(payload.errorCode) || stringOf(payload.code) || "";
+  let text = (inflight && inflight.text) || (existing && existing.text) || "";
+  if (!text && status === "failed") {
+    const code = err.toUpperCase();
+    text =
+      code === "MODEL_TIMEOUT" || code === "SOFT_DEADLINE" || code === "HARD_DEADLINE"
+        ? "回复超时，请重试。"
+        : "生成失败" + (err ? "（" + err + "）" : "") + "，请重试。";
+  }
   mergeItem(bucket, {
     kind: "assistant-turn",
     turnId,
     messageId: (existing && existing.messageId) || "local-assistant-" + turnId,
-    text: (inflight && inflight.text) || (existing && existing.text) || "",
+    text,
     toolCalls: (inflight && inflight.toolCalls) || (existing && existing.toolCalls) || [],
     status,
     temporary: true,
     unfinished: true,
-    errorCode: stringOf(payload.errorCode) || stringOf(payload.code) || "",
+    errorCode: err,
     executionId: (inflight && inflight.executionId) || (existing && existing.executionId) || "",
   });
   return {
@@ -533,28 +574,39 @@ function mapHistoryMessage(raw) {
   const turnId = stringOf(raw.turnId);
   const messageId = stringOf(raw.id) || stringOf(raw.messageId);
   if (role === "USER") {
+    const text = stringOf(raw.text);
     return {
       kind: "user",
       messageId,
       turnId,
-      text: stringOf(raw.text),
+      text,
       sequenceNo: typeof raw.sequenceNo === "number" ? raw.sequenceNo : null,
       temporary: false,
+      // 2.5.7：Idle 唤模合成触发句，不展示为用户气泡
+      idleWake: text.startsWith("[后台任务完成]"),
+      createdAt: stringOf(raw.createdAt) || "",
     };
   }
   if (role === "ASSISTANT") {
-    const toolCalls = (Array.isArray(raw.toolCalls) ? raw.toolCalls : []).map((tool, index) =>
-      mapTool(tool, turnId, index)
-    );
+    const text = stringOf(raw.text);
+    const taskDelivery = text.startsWith("───");
+    const toolCalls = taskDelivery
+      ? []
+      : (Array.isArray(raw.toolCalls) ? raw.toolCalls : []).map((tool, index) =>
+          mapTool(tool, turnId, index)
+        );
     return {
       kind: "assistant-turn",
       turnId,
       messageId,
-      text: stringOf(raw.text),
+      text,
       toolCalls,
       status: "completed",
       temporary: false,
       sequenceNo: typeof raw.sequenceNo === "number" ? raw.sequenceNo : null,
+      taskDelivery,
+      taskId: taskDelivery ? extractTaskIdFromText(text) : "",
+      createdAt: stringOf(raw.createdAt) || "",
     };
   }
   return null;
@@ -603,6 +655,7 @@ function mergeItem(bucket, item) {
           : prev.messageId && !String(prev.messageId).startsWith("local-")
             ? prev.messageId
             : item.messageId || prev.messageId,
+      createdAt: item.createdAt || prev.createdAt || "",
       temporary: item.temporary === false ? false : item.temporary ?? prev.temporary,
       optimistic: item.optimistic === false ? false : undefined,
     };
@@ -617,6 +670,10 @@ function itemKey(item) {
     return "u:" + (item.turnId || item.messageId);
   }
   if (item.kind === "assistant-turn") {
+    // Busy 虚线附带与主回复可同 turnId，必须按 messageId 分键
+    if (item.taskDelivery) {
+      return "d:" + (item.messageId || item.turnId);
+    }
     return "t:" + (item.turnId || item.messageId);
   }
   if (item.messageId) {
@@ -631,8 +688,17 @@ function hasOfficialAssistantTurn(bucket, turnId) {
     (item) =>
       item.kind === "assistant-turn" &&
       item.turnId === turnId &&
-      item.temporary === false
+      item.temporary === false &&
+      !item.taskDelivery
   );
+}
+
+/** 从虚线正文解析「任务：{uuid}」（2.5.9 侧栏关联）。 */
+export function extractTaskIdFromText(text) {
+  const m = String(text || "").match(
+    /任务：([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  );
+  return m ? m[1] : "";
 }
 
 /**
@@ -683,6 +749,7 @@ export function ensureInflightAssistant(state, turnId, turnStatus) {
     status,
     temporary: true,
     executionId: state.inflightByTurnId[turnId].executionId,
+    createdAt: new Date().toISOString(),
   });
   return true;
 }

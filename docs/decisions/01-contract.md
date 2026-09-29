@@ -3,24 +3,24 @@
 `date`: 2026-09-18  
 `status`: **amended** — 2026-09-20 版本重置。本文后半仍是内核形状（Turn、提交、工具、探针）。**交付档次以 [产品概览 §3](../product/01-overview.md) 为准：**
 
-- **v0.1** 已停在直接回答，不含 Agent Loop
-- **v0.2** 做成单核 harness 与单核节点（原「v0.1 必须含 Loop」整包改记到这里）
-- **v0.3** 世界树与多核节点
-- Guardian、wn-agent、代际换代在更后，不是产品 v0.2
+- **v1** 已停在直接回答，不含 Agent Loop
+- **v2** 做成单核 harness 与单核节点（原「v1 必须含 Loop」整包改记到这里）
+- **v3** 世界树与多核节点
+- Guardian、wn-agent、代际换代在更后，不是产品 v2
 
-进度见 [实施清单](../guide/01-checklist.md)。不要按文内旧句「v0.1 必须有工具循环」把未做的 harness 算成 v0.1 欠账。
+进度见 [实施清单](../guide/01-checklist.md)。不要按文内旧句「v1 必须有工具循环」把未做的 harness 算成 v1 欠账。
 
 ## 1. 审查结论
 
-v0.2 的单核 harness 不能只有一次 LLM 调用。没有工具决策、观察回送、预算和终止条件，它只是聊天。聊天直接回答已经在 v0.1 交付。
+v2 的单核 harness 不能只有一次 LLM 调用。没有工具决策、观察回送、预算和终止条件，它只是聊天。聊天直接回答已经在 v1 交付。
 
 版本恢复不能放进 Kernel。Kernel 可以暴露版本号和探针，但不得拥有稳定版本指针、回退策略或 Guardian 状态。
 
-Turn 提交必须先于可靠交付。回答正文、状态变化和 outbox 事件在同一事务边界内提交。SSE 断开不能导致重新执行模型或有副作用工具。此条在 v0.2 接 Outbox 时生效；v0.1 还没有这条产品路径。
+Turn 提交必须先于可靠交付。回答正文、状态变化和 outbox 事件在同一事务边界内提交。SSE 断开不能导致重新执行模型或有副作用工具。此条在 v2 接 Outbox 时生效；v1 还没有这条产品路径。
 
-工具属于 harness，节点角色属于部署。v0.2 在**同一个节点**上做受控工具。v0.3 才做多节点与世界树。跨设备 Worker、Guardian、代际换代更后，且 Guardian 必须与普通 Agent 分开。
+工具属于 harness，节点角色属于部署。v2 在**同一个节点**上做受控工具。v3 才做多节点与世界树。跨设备 Worker、Guardian、代际换代更后，且 Guardian 必须与普通 Agent 分开。
 
-生产路径在对应版本必须是真模型、真持久化，不能靠 stub 宣称完成。v0.2 Loop 验收不用 Fake。Companion 与 Memory 可以算法简单，但不能只有空接口——这是 v0.2 的完成线，不是 v0.1。
+生产路径在对应版本必须是真模型、真持久化，不能靠 stub 宣称完成。v2 Loop 验收不用 Fake。Companion 与 Memory 可以算法简单，但不能只有空接口——这是 v2 的完成线，不是 v1。
 
 ### 会话内执行中新输入（2026-09-20 增补）
 
@@ -35,13 +35,13 @@ Turn 提交必须先于可靠交付。回答正文、状态变化和 outbox 事�
 正文与通道表现见 [in-flight-user-message.md](../research/in-flight-user-message.md)。
 ## 3. 清单改记到哪一档
 
-下面原「v0.1 必须完成」清单不删，只改归属。已在 v0.1 落地的不再重做。
+下面原「v1 必须完成」清单不删，只改归属。已在 v1 落地的不再重做。
 
 | 原条目 | 现行 |
 |--------|------|
-| 1–4、9 的内嵌页、10 的会话库 | **v0.1 已有**（直接回答，不是 Loop） |
-| 5–8、9 的 SSE/outbox、11 探针 | **v0.2** 单核 harness |
-| 多节点、世界树 | **v0.3** |
+| 1–4、9 的内嵌页、10 的会话库 | **v1 已有**（直接回答，不是 Loop） |
+| 5–8、9 的 SSE/outbox、11 探针 | **v2** 单核 harness |
+| 多节点、世界树 | **v3** |
 | wn-agent、Guardian、artifact、代际升级、EVOLVER | **其后** |
 
 ### 3.1 原必须清单（归属见上表）
@@ -58,10 +58,10 @@ Turn 提交必须先于可靠交付。回答正文、状态变化和 outbox 事�
 10. SQLite 权威存储、WAL、启动迁移、备份导出和重启恢复。
 11. 外部可判定的存活、就绪和版本探针。探针不等于 Guardian。
 
-### 3.2 不再叫 v0.2 的延期项
+### 3.2 不再叫 v2 的延期项
 
 ```text
-v0.3:
+v3:
   世界树
   多核节点（设备 / 节点 / 角色）
 
@@ -112,7 +112,7 @@ wn-server-app → wannian-ui
 - `app` 只做适配、装配与进程宿主，不在 Controller 编写 Agent 决策。页面 HTML、页面 JavaScript 与 API adapter 也在 `app` 内。
 - `wannian-ui` 只拥有共享视觉资源。`app` 直接依赖它，不经过另一个 Web 模块。
 - 页面与样式都使用 `META-INF/resources/`，因此 `/manage/`、`/chat/`、`/ui/` URL 保持不变；不引入 Node/Vite 或独立 Web 进程。
-- v0.1 不创建 `node`、`generation`、`guardian` 包或空占位工程。
+- v1 不创建 `node`、`generation`、`guardian` 包或空占位工程。
 
 ## 5. 最小 Agent Loop
 
@@ -174,7 +174,7 @@ CREATED → LEASED → RUNNING → SUCCEEDED
                          └→ LOST
 ```
 
-v0.1 的 Run 只在同一个 wn-server 进程或其受控本机执行器中运行，不涉及远程 Worker Node。Task 重试必须创建新 Run，不复活旧 Run。
+v1 的 Run 只在同一个 wn-server 进程或其受控本机执行器中运行，不涉及远程 Worker Node。Task 重试必须创建新 Run，不复活旧 Run。
 
 SubAgentRun 只能提交 TaskResult、ArtifactReference 和 Evidence；不能直接写长期 Memory、Relationship，不能直接冒充烟火向用户发送最终表达。
 
@@ -208,11 +208,11 @@ operationId
 errorCode
 ```
 
-v0.1 不创建 `generation`、`kernel_replica`、`serving_lease` 或 Guardian ref 表。运行版本只作为只读 build metadata 暴露。
+v1 不创建 `generation`、`kernel_replica`、`serving_lease` 或 Guardian ref 表。运行版本只作为只读 build metadata 暴露。
 
 ## 8. SQLite 决策与边界
 
-v0.1 采用 SQLite，理由是单用户、单服务节点和 2 核 2 GB 环境下更简单，并且不把数据库运维变成内核首版前置条件。
+v1 采用 SQLite，理由是单用户、单服务节点和 2 核 2 GB 环境下更简单，并且不把数据库运维变成内核首版前置条件。
 
 必须满足：
 
@@ -222,13 +222,13 @@ v0.1 采用 SQLite，理由是单用户、单服务节点和 2 核 2 GB 环境�
 - migration 前自动备份；
 - 数据文件不放在 artifact 或可替换运行目录内；
 - 提供一致性备份命令，不直接复制正在写入的主文件；
-- 美国节点恢复与状态高可用不在 v0.1 承诺范围内。
+- 美国节点恢复与状态高可用不在 v1 承诺范围内。
 
-如果实测写入竞争、备份窗口或未来接班需求超出 SQLite 边界，再通过持久化 Adapter 迁移；不得为了未来假设在 v0.1 提前搭建数据库集群。
+如果实测写入竞争、备份窗口或未来接班需求超出 SQLite 边界，再通过持久化 Adapter 迁移；不得为了未来假设在 v1 提前搭建数据库集群。
 
 ## 9. 外部生命周期协议预留
 
-v0.1 只提供 Guardian 将来需要的稳定、小型接口：
+v1 只提供 Guardian 将来需要的稳定、小型接口：
 
 ```text
 GET /internal/live
@@ -244,12 +244,12 @@ POST /internal/drain
 - `version`：返回 build ID、source revision、protocol version；
 - `drain`：停止接收新 Turn，并等待当前 Turn 到达终态。
 
-这些接口不包含升级、稳定版本登记或回退命令。v0.1 Kernel 不知道 `STABLE/PREVIOUS/ACTIVE` 指针。
+这些接口不包含升级、稳定版本登记或回退命令。v1 Kernel 不知道 `STABLE/PREVIOUS/ACTIVE` 指针。
 
 ## 10. 禁止的错误修法
 
 - 把 Guardian 写成 Spring Bean 放进 wn-server。
-- 为了将来多节点，在 v0.1 实现选主、共识或跨云写入。
+- 为了将来多节点，在 v1 实现选主、共识或跨云写入。
 - 用 SSE 连接存活表示 Turn 是否成功。
 - 先向用户返回“后台任务已创建”，再异步写 Task。
 - 工具超时后无条件重复执行有副作用请求。
@@ -257,7 +257,7 @@ POST /internal/drain
 - 把模型原始自由文本当作内部状态机命令。
 - 将 SQLite 数据文件放在构建输出或版本 artifact 目录。
 - 以 Git commit 替代实际运行 artifact digest。
-- 在 v0.1 建设只有接口、没有真实行为的大量空模块。
+- 在 v1 建设只有接口、没有真实行为的大量空模块。
 
 ## 11. 可控复现与验收断言
 
@@ -294,12 +294,12 @@ POST /internal/drain
 全档顺序以 [路线图](../plans/roadmap.md) 为准；勾选以 [实施清单](../guide/01-checklist.md) 为准。下列为合同**原编号**（历史对照，不要按此表当现行开工单）：
 
 ```text
-原 K01–K02  → 历史 H1–H2（已在 v0.1）
-原 K03 模型/Loop 等 → 现行 v0.2 的 **0.2.1** 起（别名 K01；见路线图）
+原 K01–K02  → 历史 H1–H2（已在 v1）
+原 K03 模型/Loop 等 → 现行 v2 的 **2.1** 起（别名 K01；见路线图）
 …
 ```
 
-依赖：Task 复用 Turn、工具、outbox 和持久化语义；不能先搭独立任务框架再反向拼接。世界树与多核属 **v0.3**，不在 v0.2 提前做。
+依赖：Task 复用 Turn、工具、outbox 和持久化语义；不能先搭独立任务框架再反向拼接。世界树与多核属 **v3**，不在 v2 提前做。
 
 ## 13. 执行授权与交付格式
 
@@ -308,7 +308,7 @@ POST /internal/drain
 - 创建产品代码；
 - 修改生产或部署配置；
 - commit、push、发布；
-- 启动 0.2 Guardian 实施。
+- 启动 2.2 Guardian 实施。
 
 执行 Agent 每个 K 项应回传：
 
@@ -325,4 +325,4 @@ POST /internal/drain
 
 ## 14. 下一决策
 
-在代码实施前只剩一个产品级范围选择：v0.1 的第一个真实服务端工具具体选什么。默认建议采用无副作用、容易稳定验收的“当前时间/计算”与受限 HTTP 读取工具；Shell、任意文件写入、桌面操作和跨设备工具全部推迟。
+在代码实施前只剩一个产品级范围选择：v1 的第一个真实服务端工具具体选什么。默认建议采用无副作用、容易稳定验收的“当前时间/计算”与受限 HTTP 读取工具；Shell、任意文件写入、桌面操作和跨设备工具全部推迟。

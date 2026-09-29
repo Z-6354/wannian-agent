@@ -40,7 +40,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 /**
- * 首轮成功完成 Turn 后的异步标题任务（0.2.4-E）。
+ * 首轮成功完成 Turn 后的异步标题任务（2.4.6）。
  *
  * <p>独立于主回复与 SSE 终态；CAS 仅当 {@code title_source=AUTO}；失败保留临时标题。
  * 幂等键：conversationId + turnId + revision。

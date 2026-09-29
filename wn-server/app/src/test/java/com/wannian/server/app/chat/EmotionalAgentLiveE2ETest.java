@@ -3,6 +3,7 @@ package com.wannian.server.app.chat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wannian.server.app.WannianTestProps;
 import com.wannian.server.app.http.CreateConversationResponse;
 import com.wannian.server.app.http.ReceiveTurnResponse;
 import com.wannian.server.app.manage.ManageReason;
@@ -53,7 +54,7 @@ class EmotionalAgentLiveE2ETest {
 
     @DynamicPropertySource
     static void register(DynamicPropertyRegistry registry) {
-        registry.add("wannian.data-dir", () -> tempDataDir.toAbsolutePath().toString());
+        WannianTestProps.registerIsolatedDataDir(registry, tempDataDir);
         registry.add("wannian.manage.token", () -> TOKEN);
         registry.add("wannian.model.mode", () -> "live");
     }
@@ -65,6 +66,7 @@ class EmotionalAgentLiveE2ETest {
     @BeforeEach
     void clearIsolatedDatabase() throws Exception {
         try (var connection = dataSource.getConnection()) {
+            com.wannian.server.app.persistence.TestDbCleanup.deleteTaskTables(connection);
             var statement = connection.createStatement();
             statement.executeUpdate("DELETE FROM outbox_event");
             statement.executeUpdate("DELETE FROM turn_commit_plan");

@@ -2,10 +2,10 @@ const CONVERSATIONS = "/api/conversations";
 
 /**
  * 对话页唯一的 HTTP 出口。页面模块不得自行 fetch。
- * 0.2.4-B：列表/最近/详情/历史/搜索/生命周期。
- * 0.2.4-C：async receive / SSE / stop / turn status。
- * 0.2.4-D：AbortSignal 透传；SSE 订阅 options 形态。
- * 0.2.4-E：cancelQueuedTurn 封装（与 stop 同路径；仅 RECEIVED 语义由服务端裁定）。
+ * 2.4.3：列表/最近/详情/历史/搜索/生命周期。
+ * 2.4.4：async receive / SSE / stop / turn status。
+ * 2.4.5：AbortSignal 透传；SSE 订阅 options 形态。
+ * 2.4.6：cancelQueuedTurn 封装（与 stop 同路径；仅 RECEIVED 语义由服务端裁定）。
  */
 
 export function createConversation(title, options) {
@@ -75,12 +75,24 @@ export function emptyArchive(confirm, batchLimit, options) {
   return post(CONVERSATIONS + "/archive/empty", body, options);
 }
 
-/** 0.2.4-G：清理无消息的空 ACTIVE 会话。 */
+/** 2.4.7：清理无消息的空 ACTIVE 会话。 */
 export function purgeEmptyConversations(options) {
   return post(CONVERSATIONS + "/empty/purge", {}, options);
 }
 
-/** 0.2.4-G：自动归档占位通知（完整消息中心 → 0.2.5）。 */
+/** 2.5.10：统一消息中心。 */
+export function listNotices(options) {
+  return get("/api/notices", options);
+}
+
+export function dismissNotice(noticeId, options) {
+  return post("/api/notices/" + encodeURIComponent(noticeId) + "/dismiss", {}, options);
+}
+
+/**
+ * 2.4.7 兼容：归档 HTTP（消息中心撤销仍用 undo）。
+ * 旧 notices.js UI 已删除；列表/关闭请走 listNotices / dismissNotice。
+ */
 export function listArchiveNotices(options) {
   return get(CONVERSATIONS + "/notices/archive", options);
 }
@@ -105,7 +117,7 @@ export function sendTurn(conversationId, text, clientRequestId, options) {
   );
 }
 
-/** 0.2.4-C：异步 receive，快速返回 turnId/status，不阻塞等模型。 */
+/** 2.4.4：异步 receive，快速返回 turnId/status，不阻塞等模型。 */
 export function sendTurnAsync(conversationId, text, clientRequestId, options) {
   return post(
     CONVERSATIONS + "/" + encodeURIComponent(conversationId) + "/turns/async",
@@ -123,6 +135,146 @@ export function getTurnStatus(conversationId, turnId, options) {
       encodeURIComponent(turnId),
     options
   );
+}
+
+/** 2.5.5：待审后台任务列表。 */
+export function listTaskReviews(conversationId, options) {
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/task-reviews",
+    "GET",
+    null,
+    options
+  );
+}
+
+export function confirmTaskReview(conversationId, reviewId, options) {
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/task-reviews/" +
+      encodeURIComponent(reviewId) +
+      "/confirm",
+    "POST",
+    {},
+    options
+  );
+}
+
+export function rejectTaskReview(conversationId, reviewId, reason, options) {
+  const body = {};
+  if (typeof reason === "string" && reason !== "") {
+    body.reason = reason;
+  }
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/task-reviews/" +
+      encodeURIComponent(reviewId) +
+      "/reject",
+    "POST",
+    body,
+    options
+  );
+}
+
+/** 2.5.9：后台 Task 列表（当前会话）。 */
+export async function listBackgroundTasks(conversationId, options) {
+  const q = new URLSearchParams();
+  if (options && options.activeOnly) {
+    q.set("activeOnly", "true");
+  }
+  const suffix = q.toString() ? "?" + q.toString() : "";
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/background-tasks" +
+      suffix,
+    "GET",
+    null,
+    options
+  );
+}
+
+export async function getBackgroundTask(conversationId, taskId, options) {
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/background-tasks/" +
+      encodeURIComponent(taskId),
+    "GET",
+    null,
+    options
+  );
+}
+
+export async function cancelBackgroundTask(conversationId, taskId, options) {
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/background-tasks/" +
+      encodeURIComponent(taskId) +
+      "/cancel",
+    "POST",
+    {},
+    options
+  );
+}
+
+/** 删除终态任务（从列表移除）。 */
+export async function deleteBackgroundTask(conversationId, taskId, options) {
+  return taskApiFetch(
+    CONVERSATIONS +
+      "/" +
+      encodeURIComponent(conversationId) +
+      "/background-tasks/" +
+      encodeURIComponent(taskId),
+    "DELETE",
+    null,
+    options
+  );
+}
+
+/** Task API：透传 JSON 字段（normalize 会丢 taskType 等）。 */
+async function taskApiFetch(path, method, body, options) {
+  let response;
+  try {
+    const init = {
+      method,
+      headers: { Accept: "application/json" },
+      signal: options && options.signal,
+    };
+    if (method !== "GET") {
+      init.headers["Content-Type"] = "application/json";
+      init.body = JSON.stringify(body == null ? {} : body);
+    }
+    response = await fetch(path, init);
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      return aborted();
+    }
+    return failed(0, "NETWORK", "无法连接服务");
+  }
+  const payload = await response.json().catch(() => null);
+  const httpOk = response.status >= 200 && response.status < 300;
+  const base = payload && typeof payload === "object" ? payload : {};
+  return {
+    ok: httpOk,
+    status: response.status,
+    aborted: false,
+    code: typeof base.code === "string" ? base.code : "",
+    detail: typeof base.detail === "string" ? base.detail : httpOk ? "" : "请求失败",
+    items: Array.isArray(base.items) ? base.items : [],
+    task: httpOk ? base : null,
+    ...base,
+  };
 }
 
 export function stopTurn(conversationId, turnId, options) {
@@ -365,7 +517,8 @@ async function post(path, body, options) {
 
 function normalize(response, payload) {
   const result = stringField(payload, "result");
-  const code = stringField(payload, "reasonCode");
+  const code =
+    stringField(payload, "reasonCode") || stringField(payload, "code");
   const detail = stringField(payload, "detail") || (response.ok ? "" : "请求失败");
   const conversationId = stringField(payload, "conversationId") || null;
   const turnId = stringField(payload, "turnId") || null;

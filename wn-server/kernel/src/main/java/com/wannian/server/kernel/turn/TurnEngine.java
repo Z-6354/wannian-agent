@@ -2,6 +2,7 @@ package com.wannian.server.kernel.turn;
 
 import com.wannian.server.api.common.ConversationId;
 import com.wannian.server.api.common.MessageId;
+import com.wannian.server.api.common.TaskReviewId;
 import com.wannian.server.api.common.TurnId;
 import com.wannian.server.api.conversation.MessageRole;
 import com.wannian.server.api.turn.TurnStatus;
@@ -22,6 +23,11 @@ import com.wannian.server.kernel.memory.InMemoryTurnMemoryPending;
 import com.wannian.server.kernel.memory.CompanionIdentity;
 import com.wannian.server.kernel.memory.MemoryStore;
 import com.wannian.server.kernel.memory.TurnMemoryPending;
+import com.wannian.server.kernel.task.TaskDraft;
+import com.wannian.server.kernel.task.TaskReviewPending;
+import com.wannian.server.kernel.task.TaskReviewPendingRepository;
+import com.wannian.server.kernel.task.TaskReviewStatus;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,7 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * 单次 USER 回合的调度（0.2.1-C）。
+ * 单次 USER 回合的调度（2.1.3）。
  *
  * <p>认领成功后才调用 {@link ContextAssembler} 与 {@link AgentLoop#run}，再经
  * {@link TurnCommitter} 冻结并提交。不调用模型、不拼 SQL、不发 SSE。
@@ -52,6 +58,9 @@ public final class TurnEngine {
 
     private static final System.Logger LOG = System.getLogger(TurnEngine.class.getName());
 
+    /** 确认回合固定助手短文：与模型 acknowledgementText、任务结果交付解耦。 */
+    static final String TASK_REVIEW_CONFIRM_REPLY = "好，已确认后台任务，开始执行。";
+
     private final TurnRepository turns;
     private final TurnCommitter turnCommitter;
     private final ContextAssembler assembler;
@@ -63,6 +72,9 @@ public final class TurnEngine {
     private final TurnRunListener runListener;
     /** 近讯条数；生产由 app {@code wannian.context.recent-message-limit} 注入，测试可省略用默认。 */
     private final int recentMessageLimit;
+    /** 2.5.5：可空；null 时 BackgroundAccepted 仍 Held。 */
+    private final TaskReviewPendingRepository taskReviews;
+    private final Duration taskReviewTtl;
     private final ConcurrentHashMap<String, ReentrantLock> conversationLocks =
             new ConcurrentHashMap<>();
 
@@ -164,6 +176,34 @@ public final class TurnEngine {
             TurnTerminalWriter terminalWriter,
             TurnRunListener runListener,
             int recentMessageLimit) {
+        this(
+                turns,
+                turnCommitter,
+                assembler,
+                agentLoop,
+                memoryStore,
+                journal,
+                journalSettings,
+                terminalWriter,
+                runListener,
+                recentMessageLimit,
+                null,
+                Duration.ofMinutes(30));
+    }
+
+    public TurnEngine(
+            TurnRepository turns,
+            TurnCommitter turnCommitter,
+            ContextAssembler assembler,
+            AgentLoop agentLoop,
+            MemoryStore memoryStore,
+            RunJournal journal,
+            JournalSettings journalSettings,
+            TurnTerminalWriter terminalWriter,
+            TurnRunListener runListener,
+            int recentMessageLimit,
+            TaskReviewPendingRepository taskReviews,
+            Duration taskReviewTtl) {
         this.turns = Objects.requireNonNull(turns, "turns");
         this.turnCommitter = Objects.requireNonNull(turnCommitter, "turnCommitter");
         this.assembler = Objects.requireNonNull(assembler, "assembler");
@@ -177,6 +217,11 @@ public final class TurnEngine {
             throw new IllegalArgumentException("recentMessageLimit 须为正");
         }
         this.recentMessageLimit = recentMessageLimit;
+        this.taskReviews = taskReviews;
+        this.taskReviewTtl =
+                taskReviewTtl == null || taskReviewTtl.isZero() || taskReviewTtl.isNegative()
+                        ? Duration.ofMinutes(30)
+                        : taskReviewTtl;
     }
 
     /**
@@ -287,12 +332,15 @@ public final class TurnEngine {
                         ? new InMemoryTurnMemoryPending(Map.of(), command.personaSnapshot()==null?CompanionIdentity.YANHUO:command.personaSnapshot().companionIdentity(), command.userMessage(),turn.conversationId(),turn.id())
                         : new InMemoryTurnMemoryPending(
                                 memoryStore.subjectGenerations(command.personaSnapshot()==null?CompanionIdentity.YANHUO:command.personaSnapshot().companionIdentity()), command.personaSnapshot()==null?CompanionIdentity.YANHUO:command.personaSnapshot().companionIdentity(), command.userMessage(),turn.conversationId(),turn.id());
+        // 2.5.7：idle-task: 前缀 → SYSTEM（有界唤模）；其余仍 USER
+        TurnSource turnSource =
+                isIdleTaskDelivery(turn.clientRequestId()) ? TurnSource.SYSTEM : TurnSource.USER;
         AgentInput input =
                 assembler.assemble(
                         new ContextAssembler.AssemblyRequest(
                                 turn.conversationId(),
                                 turn.id(),
-                                TurnSource.USER,
+                                turnSource,
                                 turn.inputMessageId(),
                                 command.userMessage(),
                                 command.systemInstructions(),
@@ -334,16 +382,52 @@ public final class TurnEngine {
                 journalFinalize(turn, "CANCELLED", ErrorCodes.CANCELLED, journalStep);
                 yield cancelled;
             }
-            case AgentOutcome.BackgroundAccepted ignored -> {
-                failAttempt(
-                        turn.id(),
-                        claim.executionId(),
-                        ErrorCodes.BACKGROUND_NOT_ENABLED,
-                        Instant.now());
-                notifyAborted(turn,claim.executionId());
-                journalFinalize(turn, "FAILED", ErrorCodes.BACKGROUND_NOT_ENABLED, journalStep);
-                yield new ExecuteTurnResult.Held(
-                        ErrorCodes.BACKGROUND_NOT_ENABLED, "本轮尚未启用后台任务");
+            case AgentOutcome.BackgroundAccepted accepted -> {
+                if (taskReviews == null) {
+                    failAttempt(
+                            turn.id(),
+                            claim.executionId(),
+                            ErrorCodes.BACKGROUND_NOT_ENABLED,
+                            Instant.now());
+                    notifyAborted(turn, claim.executionId());
+                    journalFinalize(turn, "FAILED", ErrorCodes.BACKGROUND_NOT_ENABLED, journalStep);
+                    yield new ExecuteTurnResult.Held(
+                            ErrorCodes.BACKGROUND_NOT_ENABLED, "本轮尚未启用后台任务审核");
+                }
+                Instant pendingNow = Instant.now();
+                TaskReviewId reviewId = TaskReviewId.generate();
+                TaskReviewPending pendingReview =
+                        new TaskReviewPending(
+                                reviewId,
+                                turn.conversationId(),
+                                turn.id(),
+                                accepted.proposal(),
+                                accepted.acknowledgementText(),
+                                TaskReviewStatus.PENDING,
+                                pendingNow,
+                                pendingNow.plus(taskReviewTtl));
+                try {
+                    taskReviews.insert(pendingReview);
+                } catch (RuntimeException ex) {
+                    failAttempt(
+                            turn.id(),
+                            claim.executionId(),
+                            ErrorCodes.PERSISTENCE_FAILED,
+                            Instant.now());
+                    notifyAborted(turn, claim.executionId());
+                    journalFinalize(turn, "FAILED", ErrorCodes.PERSISTENCE_FAILED, journalStep);
+                    yield new ExecuteTurnResult.Held(
+                            ErrorCodes.PERSISTENCE_FAILED, "无法保存待审后台提案");
+                }
+                String pendingText = "待你确认输入框上方的后台任务卡片。确认后才会开始执行。";
+                ExecuteTurnResult sealed =
+                        sealReply(turn, claim.executionId(), pendingText, pending);
+                if (sealed instanceof ExecuteTurnResult.Replied) {
+                    journalFinalize(turn, "COMPLETED", null, journalStep);
+                } else if (sealed instanceof ExecuteTurnResult.Held held) {
+                    journalFinalize(turn, "FAILED", held.code(), journalStep);
+                }
+                yield sealed;
             }
         };
     }
@@ -409,14 +493,21 @@ public final class TurnEngine {
 
     private ExecuteTurnResult sealReply(
             Turn turn, String executionId, String replyText, TurnMemoryPending pending) {
+        return sealReply(turn, executionId, replyText, pending, null);
+    }
+
+    private ExecuteTurnResult sealReply(
+            Turn turn,
+            String executionId,
+            String replyText,
+            TurnMemoryPending pending,
+            TaskDraft taskDraft) {
         MessageId assistantId = MessageId.generate();
         var assistant =
                 new CommitTurnPlan.AssistantMessageDraft(
                         assistantId, MessageRole.ASSISTANT, contentEnvelope(replyText), 0);
         Instant now = Instant.now();
         long revision = turn.revision();
-        // Freeze 前重读 generation（Mem0/OpenClaw：写前刷新观察点），缩短 Loop 窗口；
-        // commit 仍按冻结代次 CAS，Freeze 之后的 correct 不会被旧草案覆盖。
         List<ApprovedMemoryChange> memories =
                 refreshMemoryGenerations(pending.snapshotMemories());
         FreezeCommitResult frozen =
@@ -429,7 +520,8 @@ public final class TurnEngine {
                                 assistant,
                                 List.of(),
                                 memories,
-                                pending.snapshotRelationshipOrNull()));
+                                pending.snapshotRelationshipOrNull(),
+                                taskDraft));
         if (frozen instanceof FreezeCommitResult.Frozen frozenOk) {
             CommitTurnPlan plan =
                     turnCommitter
@@ -443,26 +535,229 @@ public final class TurnEngine {
                                                     assistant,
                                                     List.of(),
                                                     memories,
-                                                    pending.snapshotRelationshipOrNull()));
+                                                    pending.snapshotRelationshipOrNull(),
+                                                    taskDraft));
             CommitTurnResult committed = turnCommitter.commit(plan);
             if (!(committed instanceof CommitTurnResult.Committed)) {
-                notifyAborted(turn,executionId);
+                notifyAborted(turn, executionId);
                 return mapCommitFailure(committed);
             }
-            notifyCompleted(turn,executionId);
+            notifyCompleted(turn, executionId);
             return new ExecuteTurnResult.Replied(replyText);
         }
         if (frozen instanceof FreezeCommitResult.RevisionConflict conflict) {
             failAttempt(turn.id(), executionId, ErrorCodes.REVISION_CONFLICT, Instant.now());
-            notifyAborted(turn,executionId);
+            notifyAborted(turn, executionId);
             return new ExecuteTurnResult.Held(
                     ErrorCodes.REVISION_CONFLICT,
                     "revision 冲突，实际 " + conflict.actualRevision());
         }
         FreezeCommitResult.Rejected rejected = (FreezeCommitResult.Rejected) frozen;
         failAttempt(turn.id(), executionId, rejected.reasonCode(), Instant.now());
-        notifyAborted(turn,executionId);
+        notifyAborted(turn, executionId);
         return new ExecuteTurnResult.Held(rejected.reasonCode(), rejected.detail());
+    }
+
+    /**
+     * 2.5.5：用户确认后台提案后，开短 Turn 提交<strong>系统确认短文</strong> + {@link TaskDraft}（不跑 Loop）。
+     *
+     * <p>{@code acknowledgementText} 仅用于非空校验（卡片预览仍用提案时存库的原文）；
+     * 确认回合助手气泡与任务执行结果解耦，固定为系统文案，不回显模型自拟结果。
+     */
+    public ExecuteTurnResult commitTaskReviewAcceptance(
+            ConversationId conversationId,
+            String clientRequestId,
+            String acknowledgementText,
+            TaskDraft taskDraft,
+            Duration claimLease) {
+        Objects.requireNonNull(conversationId, "conversationId");
+        Objects.requireNonNull(clientRequestId, "clientRequestId");
+        Objects.requireNonNull(acknowledgementText, "acknowledgementText");
+        Objects.requireNonNull(taskDraft, "taskDraft");
+        Objects.requireNonNull(claimLease, "claimLease");
+        if (claimLease.isZero() || claimLease.isNegative()) {
+            throw new IllegalArgumentException("claimLease 须为正");
+        }
+        if (acknowledgementText.trim().isEmpty()) {
+            return new ExecuteTurnResult.Held(ErrorCodes.ILLEGAL_ARGUMENT, "确认文案不能为空");
+        }
+        // 与提案 acknowledgementText / 任务结果解耦：确认气泡只用系统短文
+        String ack = TASK_REVIEW_CONFIRM_REPLY;
+
+        TurnId turnId = TurnId.generate();
+        MessageId userMessageId = MessageId.generate();
+        ReceiveTurnResult received =
+                turnCommitter.receive(
+                        new ReceiveTurnPlan(
+                                conversationId,
+                                clientRequestId,
+                                turnId,
+                                new ReceiveTurnPlan.UserMessageDraft(
+                                        userMessageId,
+                                        MessageRole.USER,
+                                        contentEnvelope("[确认后台任务]"),
+                                        0)));
+        if (!(received instanceof ReceiveTurnResult.Accepted accepted)) {
+            if (received instanceof ReceiveTurnResult.Rejected rejected) {
+                return new ExecuteTurnResult.Held(rejected.reasonCode(), rejected.detail());
+            }
+            if (received instanceof ReceiveTurnResult.Conflict conflict) {
+                return new ExecuteTurnResult.Held(
+                        ErrorCodes.CLIENT_REQUEST_CONFLICT,
+                        "确认请求冲突: " + conflict.existingTurnId().asString());
+            }
+            return new ExecuteTurnResult.Held(ErrorCodes.PERSISTENCE_FAILED, "无法接收确认回合");
+        }
+        turnId = accepted.turnId();
+
+        String lockKey = conversationId.asString();
+        ReentrantLock lock = conversationLocks.computeIfAbsent(lockKey, ignored -> new ReentrantLock(true));
+        lock.lock();
+        try {
+            Optional<Turn> found = turns.find(turnId);
+            if (found.isEmpty()) {
+                return new ExecuteTurnResult.Held(ErrorCodes.TURN_NOT_FOUND, "确认回合不存在");
+            }
+            Turn turn = found.get();
+            Instant now = Instant.now();
+            ExecutionClaim claim = ExecutionClaim.attempt(now.plus(claimLease));
+            long revision = turn.revision();
+            try {
+                turn.claim(revision, claim, now);
+            } catch (TurnTransitionException ex) {
+                return held(ex);
+            }
+            ExecuteTurnResult claimSave = mapSaveFailure(turns.save(turn, revision, now));
+            if (claimSave != null) {
+                return claimSave;
+            }
+            turn = turns.find(turn.id()).orElse(turn);
+            revision = turn.revision();
+            now = Instant.now();
+            try {
+                turn.start(now);
+            } catch (TurnTransitionException ex) {
+                failAttempt(turn.id(), claim.executionId(), ex.reasonCode(), now);
+                return held(ex);
+            }
+            ExecuteTurnResult startSave = mapSaveFailure(turns.save(turn, revision, now));
+            if (startSave instanceof ExecuteTurnResult.Held held) {
+                failAttempt(turn.id(), claim.executionId(), held.code(), Instant.now());
+                return held;
+            }
+            turn = turns.find(turn.id()).orElse(turn);
+            TurnMemoryPending emptyPending =
+                    new InMemoryTurnMemoryPending(
+                            Map.of(),
+                            CompanionIdentity.YANHUO,
+                            "[确认后台任务]",
+                            turn.conversationId(),
+                            turn.id());
+            return sealReply(turn, claim.executionId(), ack, emptyPending, taskDraft);
+        } finally {
+            lock.unlock();
+            if (!lock.hasQueuedThreads()) {
+                conversationLocks.remove(lockKey, lock);
+            }
+        }
+    }
+
+    /**
+     * 2.5.5 / G3：用户驳回后台提案后，开短 Turn 落「已拒绝」助手文案（无 {@link TaskDraft}）。
+     */
+    public ExecuteTurnResult commitTaskReviewRejection(
+            ConversationId conversationId,
+            String clientRequestId,
+            String rejectionText,
+            Duration claimLease) {
+        Objects.requireNonNull(conversationId, "conversationId");
+        Objects.requireNonNull(clientRequestId, "clientRequestId");
+        Objects.requireNonNull(rejectionText, "rejectionText");
+        Objects.requireNonNull(claimLease, "claimLease");
+        if (claimLease.isZero() || claimLease.isNegative()) {
+            throw new IllegalArgumentException("claimLease 须为正");
+        }
+        String text = rejectionText.trim();
+        if (text.isEmpty()) {
+            return new ExecuteTurnResult.Held(ErrorCodes.ILLEGAL_ARGUMENT, "驳回文案不能为空");
+        }
+
+        TurnId turnId = TurnId.generate();
+        MessageId userMessageId = MessageId.generate();
+        ReceiveTurnResult received =
+                turnCommitter.receive(
+                        new ReceiveTurnPlan(
+                                conversationId,
+                                clientRequestId,
+                                turnId,
+                                new ReceiveTurnPlan.UserMessageDraft(
+                                        userMessageId,
+                                        MessageRole.USER,
+                                        contentEnvelope("[驳回后台任务]"),
+                                        0)));
+        if (!(received instanceof ReceiveTurnResult.Accepted accepted)) {
+            if (received instanceof ReceiveTurnResult.Rejected rejected) {
+                return new ExecuteTurnResult.Held(rejected.reasonCode(), rejected.detail());
+            }
+            if (received instanceof ReceiveTurnResult.Conflict conflict) {
+                return new ExecuteTurnResult.Held(
+                        ErrorCodes.CLIENT_REQUEST_CONFLICT,
+                        "驳回请求冲突: " + conflict.existingTurnId().asString());
+            }
+            return new ExecuteTurnResult.Held(ErrorCodes.PERSISTENCE_FAILED, "无法接收驳回回合");
+        }
+        turnId = accepted.turnId();
+
+        String lockKey = conversationId.asString();
+        ReentrantLock lock = conversationLocks.computeIfAbsent(lockKey, ignored -> new ReentrantLock(true));
+        lock.lock();
+        try {
+            Optional<Turn> found = turns.find(turnId);
+            if (found.isEmpty()) {
+                return new ExecuteTurnResult.Held(ErrorCodes.TURN_NOT_FOUND, "驳回回合不存在");
+            }
+            Turn turn = found.get();
+            Instant now = Instant.now();
+            ExecutionClaim claim = ExecutionClaim.attempt(now.plus(claimLease));
+            long revision = turn.revision();
+            try {
+                turn.claim(revision, claim, now);
+            } catch (TurnTransitionException ex) {
+                return held(ex);
+            }
+            ExecuteTurnResult claimSave = mapSaveFailure(turns.save(turn, revision, now));
+            if (claimSave != null) {
+                return claimSave;
+            }
+            turn = turns.find(turn.id()).orElse(turn);
+            revision = turn.revision();
+            now = Instant.now();
+            try {
+                turn.start(now);
+            } catch (TurnTransitionException ex) {
+                failAttempt(turn.id(), claim.executionId(), ex.reasonCode(), now);
+                return held(ex);
+            }
+            ExecuteTurnResult startSave = mapSaveFailure(turns.save(turn, revision, now));
+            if (startSave instanceof ExecuteTurnResult.Held held) {
+                failAttempt(turn.id(), claim.executionId(), held.code(), Instant.now());
+                return held;
+            }
+            turn = turns.find(turn.id()).orElse(turn);
+            TurnMemoryPending emptyPending =
+                    new InMemoryTurnMemoryPending(
+                            Map.of(),
+                            CompanionIdentity.YANHUO,
+                            "[驳回后台任务]",
+                            turn.conversationId(),
+                            turn.id());
+            return sealReply(turn, claim.executionId(), text, emptyPending);
+        } finally {
+            lock.unlock();
+            if (!lock.hasQueuedThreads()) {
+                conversationLocks.remove(lockKey, lock);
+            }
+        }
     }
 
     /**
@@ -720,5 +1015,10 @@ public final class TurnEngine {
         }
         String t = userMessage.strip();
         return "换一种说法".equals(t);
+    }
+
+    /** 2.5.7 Idle 唤模：clientRequestId = idle-task:{taskId}:{terminal}。 */
+    static boolean isIdleTaskDelivery(String clientRequestId) {
+        return clientRequestId != null && clientRequestId.startsWith("idle-task:");
     }
 }

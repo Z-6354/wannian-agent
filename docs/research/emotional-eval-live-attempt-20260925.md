@@ -18,7 +18,7 @@
 - System 提示词按 `PromptComposer` 顺序构造：代码硬安全骨架 + SOUL + VOICE + IDENTITY + USER + SAFETY。磁盘快照文件字节 SHA-256 `1F6CBAD42B22810E11699AC72C85DB1B4453A77D6C44C00F6D17FAC34F0DE810`；采样器读取后实际发送的 UTF-8 文本 SHA-256 `585365db56b518e1c29628f71ae343787adea13727d847cef76035f27388cc30`（文本换行规范化后）。
 - 源文件 SHA-256：`PromptSkeleton.java` `3FE615A6113278AA1D215CD843E90CF57A8937F35DC72BDF7C5C27594F1BC483`；`SOUL.md` `AC45E9A4CC93AC4C62AB0CAB152E528513C4A0BFE79A0D02B0BC49497FB3B46D`；`VOICE.md` `69AC2BE013D61A86EA69E6E368A2CD060BC3A92B05464196C740079A4EF59F1E`；`IDENTITY.md` `1F6AD07EC8998F8C5E14F9570A10698E7C53853247C5C783C85C8D99F7D06270`；`USER.md` `4600AD093C5B69C82E1C67BCB39678F737F6004A3A116D320DCC176273959D00`；`SAFETY.md` `CCF50A81AF9E280E47796B5D1E9BB7F3D355442F57E0868DD2DD48F03998ED62`。
 - DeepSeek：`https://api.deepseek.com/v1/chat/completions`，模型 ID `deepseek-flash`；智谱探测：`https://open.bigmodel.cn/api/paas/v4/chat/completions`，模型 ID `glm-4-flash`。
-- 采样参数：temperature 0.85、top_p 0.95、presence_penalty 0.35；每例一次；超时 45 秒。采样器只写凭据变量名，不写密钥值。
+- 采样参数：temperature 0.85、top_p 0.95、presence_penalty 2.35；每例一次；超时 45 秒。采样器只写凭据变量名，不写密钥值。
 - 本次不是完整服务 turn：Maven/Maven Wrapper 均不可用；请求直连供应商 API，未经过应用中的记忆、Facet、`VoiceNudge`、工具控制或 SSE 交付链路。
 - 最初失败请求 JSONL 和合并 system 快照保留在 `%TEMP%\wannian-emotional-eval-20260925`。成功响应 JSONL 已归档到本报告链接文件，仅包含合成输入对应模型回复与请求元数据，无凭据，也无私人数据。
 

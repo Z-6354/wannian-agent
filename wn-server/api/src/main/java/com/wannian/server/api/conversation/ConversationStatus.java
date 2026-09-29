@@ -3,7 +3,7 @@ package com.wannian.server.api.conversation;
 /**
  * 会话生命周期状态，对应表 {@code conversation.status}。
  *
- * <p>0.2.4-B：{@link #ACTIVE} / {@link #ARCHIVED} / {@link #TRASHED}。
+ * <p>2.4.3：{@link #ACTIVE} / {@link #ARCHIVED} / {@link #TRASHED}。
  */
 public enum ConversationStatus {
 

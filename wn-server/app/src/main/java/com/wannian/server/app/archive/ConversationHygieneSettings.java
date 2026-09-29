@@ -5,7 +5,7 @@ import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** 会话卫生 / 自动归档配置（0.2.4-G）。 */
+/** 会话卫生 / 自动归档配置（2.4.7）。 */
 @Component
 public class ConversationHygieneSettings {
 

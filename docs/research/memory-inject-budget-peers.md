@@ -1,4 +1,4 @@
-# 记忆注入超限：他者做法对照（0.2.3-D 讨论用）
+# 记忆注入超限：他者做法对照（2.3.4 讨论用）
 
 `status`: 研究摘记 · 2026-09-23  
 `question`: Top-N / 字符（或 token）预算打满后，其它 Agent 怎么避免「重要记忆进不了上下文」  
@@ -41,8 +41,8 @@
 | D. **身份/规则强制带**（可破预算） | OpenClaw `identityAlwaysInclude` | 需 ContentKind/标签；身份高 importance 已部分覆盖 | 可讨论：对 `USER_FACT` 身份类或 importance≥阈值豁免 |
 | E. **超预算 skip 单条继续试下一条** | OpenClaw（非身份） | 现行是 **break**，一条过长会堵死后面短高分条 | **小改、高价值** |
 | F. **分桶预算**（user vs context） | Open WebUI | 本仓 ContentKind / Scope 可映射 | 可讨论 |
-| G. **core 常驻 + 其余按需** | Letta | 需 curated 块 / 工具再查；接近旧 S8 curated 叙事 | 0.2.3 末段或更后 |
-| H. **历史总结压窗** | Letta / WebUI compaction | 管的是 **对话** 不是记忆条；正交 | 属 0.2.4+ 上下文工程 |
+| G. **core 常驻 + 其余按需** | Letta | 需 curated 块 / 工具再查；接近旧 S8 curated 叙事 | 2.3 末段或更后 |
+| H. **历史总结压窗** | Letta / WebUI compaction | 管的是 **对话** 不是记忆条；正交 | 属 2.4+ 上下文工程 |
 
 ---
 

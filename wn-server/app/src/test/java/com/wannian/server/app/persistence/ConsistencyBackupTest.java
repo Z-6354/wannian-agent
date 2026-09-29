@@ -119,11 +119,11 @@ class ConsistencyBackupTest {
         BackupSnapshot snapshot = consistencyBackup.createSnapshot(restoreDir);
         Path liveDb = tempDataDir.resolve("wannian.db").toAbsolutePath().normalize();
         assertThat(snapshot.backupFile().toAbsolutePath().normalize()).isNotEqualTo(liveDb);
-        assertThat(snapshot.schemaVersion()).isEqualTo("013");
+        assertThat(snapshot.schemaVersion()).isEqualTo("029");
         assertThat(snapshot.applicationBuildId()).isEqualTo("unknown");
         assertThat(snapshot.databaseDigest()).isEqualTo(sha256(snapshot.backupFile()));
         String metadata = Files.readString(restoreDir.resolve("wannian-backup.json"));
-        assertThat(metadata).contains("\"schemaVersion\":\"013\"");
+        assertThat(metadata).contains("\"schemaVersion\":\"029\"");
         assertThat(metadata).contains("\"source\":\"wannian-auto-snapshot\"");
         assertThat(metadata).contains("\"status\":\"complete\"");
         assertThat(metadata).contains("\"applicationBuildId\":\"unknown\"");
@@ -133,7 +133,7 @@ class ConsistencyBackupTest {
                 DriverManager.getConnection("jdbc:sqlite:" + snapshot.backupFile().toAbsolutePath())) {
             assertThat(scalar(restored, "PRAGMA integrity_check")).isEqualTo("ok");
             assertThat(scalar(restored, "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"))
-                    .isEqualTo("013");
+                    .isEqualTo("029");
             assertThat(count(restored, "SELECT COUNT(*) FROM conversation")).isEqualTo(1);
             assertThat(scalar(restored, "SELECT title FROM conversation WHERE id = '" + conversationId.asString() + "'"))
                     .isEqualTo("会话1");
@@ -142,7 +142,8 @@ class ConsistencyBackupTest {
             assertThat(scalar(restored, "SELECT input_message_id FROM turn WHERE id = '" + turnId.asString() + "'"))
                     .isEqualTo(userMessageId.asString());
             assertThat(count(restored, "SELECT COUNT(*) FROM message")).isEqualTo(2);
-            assertThat(count(restored, "SELECT COUNT(*) FROM outbox_event")).isEqualTo(1);
+            // MessageCommitted + TurnCompleted
+            assertThat(count(restored, "SELECT COUNT(*) FROM outbox_event")).isEqualTo(2);
         }
 
         try (Connection live = dataSource.getConnection()) {

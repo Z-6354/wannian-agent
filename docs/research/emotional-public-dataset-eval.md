@@ -22,7 +22,7 @@ OASST1 使用官方 Hugging Face 数据集快照 `fdf72ae0827c1cda404aff25b6603a
 
 ### SOUL-only 同范围配对
 
-两轮均使用样本 JSON 中完全相同的 10 条中文输入、`deepseek-flash`、Base URL `https://api.deepseek.com/v1`、temperature `0.85`、top_p `0.95`、presence_penalty `0.35`、一次采样、seed `20260925`、45 秒超时及 `--direct`。每轮成功 10/10。
+两轮均使用样本 JSON 中完全相同的 10 条中文输入、`deepseek-flash`、Base URL `https://api.deepseek.com/v1`、temperature `0.85`、top_p `0.95`、presence_penalty `2.35`、一次采样、seed `20260925`、45 秒超时及 `--direct`。每轮成功 10/10。
 
 | 条件 | system 内容 | system 文本 SHA-256 | 输出 |
 |---|---|---|---|
@@ -63,7 +63,7 @@ python scripts/emotional_eval.py sample `
 
 ### 最后一轮全栈复测（SOUL/VOICE 更新后）
 
-按相同 `PromptComposer` 静态层次与预算，使用相同的 10 条样本、`deepseek-flash`、temperature `0.85`、top_p `0.95`、presence_penalty `0.35`、一次采样、seed `20260925`、45 秒超时及 `--direct` 再测一轮。10/10 均返回。当前提示层规范化 SHA-256：SOUL `b1b28ed351d4b0ce7771d7daddb9f0126c2f1e16bb7d37a2f4d87c82a3ed0141`，VOICE `746f626a6bdacf70882ec4fd79558d1c9d9603a53803f04e6e31839e2adec338`，IDENTITY `1f6ad07ec8998f8c5e14f9570a10698e7c53853247c5c783c85c8d99f7d06270`，USER `f67eb08d20b3877c75fc671e4590c9a698dec8b16ede72910d35bd1325c73ce5`，SAFETY `48834faaf3db7f3fb9e376bc184cdb737e951c2294bc608ef5ff4f6b448910a2`。实际发送 system SHA-256 为 `5fea2ab5c971f31f5c1e67c7e827574a5406e46bad79da6e03fa85f944ba35bd`；静态快照见 最终全栈 system（未入仓），输出见 最终全栈输出 JSONL（未入仓）。逐条单评审对照见 最终全栈评分 CSV（未入仓）。
+按相同 `PromptComposer` 静态层次与预算，使用相同的 10 条样本、`deepseek-flash`、temperature `0.85`、top_p `0.95`、presence_penalty `2.35`、一次采样、seed `20260925`、45 秒超时及 `--direct` 再测一轮。10/10 均返回。当前提示层规范化 SHA-256：SOUL `b1b28ed351d4b0ce7771d7daddb9f0126c2f1e16bb7d37a2f4d87c82a3ed0141`，VOICE `746f626a6bdacf70882ec4fd79558d1c9d9603a53803f04e6e31839e2adec338`，IDENTITY `1f6ad07ec8998f8c5e14f9570a10698e7c53853247c5c783c85c8d99f7d06270`，USER `f67eb08d20b3877c75fc671e4590c9a698dec8b16ede72910d35bd1325c73ce5`，SAFETY `48834faaf3db7f3fb9e376bc184cdb737e951c2294bc608ef5ff4f6b448910a2`。实际发送 system SHA-256 为 `5fea2ab5c971f31f5c1e67c7e827574a5406e46bad79da6e03fa85f944ba35bd`；静态快照见 最终全栈 system（未入仓），输出见 最终全栈输出 JSONL（未入仓）。逐条单评审对照见 最终全栈评分 CSV（未入仓）。
 
 同一评审下，前一全栈与当前全栈自然度均为 1.9/2，简洁度由 0.8/2 变为 1.0/2；未经证据支持的心理推断标记由 5 降到 4，无依据事实断言标记由 4 降到 2。主要改善是儿童安慰回答不再提薰衣草喷雾，且较前一全栈短；哀伤回答不再说重大决定容易后悔。仍有缺口：积极消息和支持朋友回答继续使用 `ta`；约会回答继续对小众兴趣遇到同好的概率作断言；社交焦虑回答把用户沉默解释成选择更稳妥的路线；支持朋友回答继续把怕说错归因于在意。平均文本字符数从 375.9 降到 324.9，但 completion token 均值从 809.6 升到 924.9；约会与支持朋友回答分别为 1,712、1,817 tokens，生成长度波动很大。
 
@@ -95,7 +95,7 @@ python scripts/emotional_eval.py sample `
 ## 模型调用与复现
 
 - 方式：`scripts/emotional_eval.py sample` 的 `--direct` 模式，禁用环境代理直连官方 DeepSeek API；没有经过 Maven、HTTP 服务、会话记忆或工具调用路径。
-- 模型：`deepseek-flash`；Base URL：`https://api.deepseek.com/v1`；temperature `0.85`、top_p `0.95`、presence_penalty `0.35`；每条 1 次，种子 `20260925`，超时 45 秒。
+- 模型：`deepseek-flash`；Base URL：`https://api.deepseek.com/v1`；temperature `0.85`、top_p `0.95`、presence_penalty `2.35`；每条 1 次，种子 `20260925`，超时 45 秒。
 - 首轮系统提示只传入候选 `SOUL.md`，不是 `SOUL/VOICE/IDENTITY/SAFETY` 完整提示栈；首轮 system SHA-256 为 `d98fc26ca0c62a0ba7199cd750c65dd2545f3df2f88188c41e31a09e940dd884`。随后 SOUL-only 配对及全栈横截面的范围、哈希和输出见前一节。
 - 密钥只通过环境变量 `DEEPSEEK_API_KEY` 读取。运行前只检查变量是否存在；从不打印、写入文件或记录其值。
 - 成功率：10/10 返回模型文本，无调用错误。

@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 会话创建与 0.2.4-B 读写 API（列表/历史/搜索/生命周期）。
+ * 会话创建与 2.4.3 读写 API（列表/历史/搜索/生命周期）。
  *
  * <p>不接收 Turn、不调用模型。
  */

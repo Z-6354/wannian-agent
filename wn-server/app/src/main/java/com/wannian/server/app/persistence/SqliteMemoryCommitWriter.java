@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 减少热路径与 Review/HTTP 交错。冻结计划里的 {@code expectedGeneration} 仍作 CAS 期望值：
  * 若 Freeze 之后已被 correct 等推进，则跳过本条记忆、不挡 Turn（避免覆盖更新的人工更正）。
  *
- * <p>0.2.4-A：{@link #applyAll} 返回实际落库结果，供同事务 {@code MEMORY_WRITE} 记账；
+ * <p>2.4.1：{@link #applyAll} 返回实际落库结果，供同事务 {@code MEMORY_WRITE} 记账；
  * 跳过（代次过期 / 旧冻结计划无观察点）不进入列表，不伪造成功。
  */
 final class SqliteMemoryCommitWriter {

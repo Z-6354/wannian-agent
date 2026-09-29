@@ -169,6 +169,11 @@ html {
   box-shadow: none;
 }
 
+.nav-link[aria-current="page"]:hover {
+  color: var(--sidebar-ink);
+  background: var(--sidebar-current);
+}
+
 .nav-link[aria-current="page"] .nav-icon {
   color: var(--sidebar-accent);
   opacity: 1;

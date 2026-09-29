@@ -33,7 +33,7 @@
 | `wannian.model.mode` | `WANNIAN_MODEL_MODE` | `live` | `live` / `fake` |
 | `wannian.model.sampling.temperature` | `WANNIAN_MODEL_TEMPERATURE` | `0.85` | 采样温度 |
 | `wannian.model.sampling.top-p` | `WANNIAN_MODEL_TOP_P` | `0.95` | top-p |
-| `wannian.model.sampling.presence-penalty` | `WANNIAN_MODEL_PRESENCE_PENALTY` | `0.35` | presence penalty |
+| `wannian.model.sampling.presence-penalty` | `WANNIAN_MODEL_PRESENCE_PENALTY` | `2.35` | presence penalty |
 | `wannian.agent.budget.max-model-decisions` | `WANNIAN_AGENT_MAX_MODEL_DECISIONS` | `10` | **种子**；运行期以 `data/wannian.json` 为准 |
 | `wannian.agent.budget.max-system-tool-invocations-per-tool` | `WANNIAN_AGENT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL` | `5` | 同上，种子 |
 | `wannian.agent.budget.soft-deadline-seconds` | `WANNIAN_AGENT_SOFT_DEADLINE_SECONDS` | `60` | 同上，种子 |

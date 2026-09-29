@@ -1,5 +1,6 @@
-import { activeTranscript } from "/chat/state.js?v=20260925n";
+import { activeTranscript } from "/chat/state.js?v=20260928n";
 import { mountAssistantMarkdown } from "/chat/markdown/markdown-text.js?v=20260925n";
+import { formatMessageClock } from "/chat/time-format.js?v=20260928r";
 
 const NEAR_BOTTOM_PX = 96;
 
@@ -8,7 +9,12 @@ const NEAR_BOTTOM_PX = 96;
  * 安全：助手正文经 mountAssistantMarkdown；用户气泡与工具输出仅 textContent；
  * 禁止 innerHTML 直插不可信内容。
  */
-export function createRenderer({ transcriptEl, state, onScrollPinChange }) {
+export function createRenderer({
+  transcriptEl,
+  state,
+  onScrollPinChange,
+  onTaskDeliveryClick,
+}) {
   let listEl = null;
 
   transcriptEl.addEventListener("scroll", () => {
@@ -21,6 +27,15 @@ export function createRenderer({ transcriptEl, state, onScrollPinChange }) {
         onScrollPinChange(pinned);
       }
     }
+  });
+
+  transcriptEl.addEventListener("click", (ev) => {
+    const node = ev.target.closest(".chat-message.chat-task-delivery");
+    if (!node || !transcriptEl.contains(node)) return;
+    const taskId = node.dataset.taskId || "";
+    if (!taskId || typeof onTaskDeliveryClick !== "function") return;
+    ev.preventDefault();
+    onTaskDeliveryClick(taskId);
   });
 
   function render(options = {}) {
@@ -117,11 +132,21 @@ function domKey(item) {
   if (item.kind === "user") {
     return "user:" + (item.messageId || item.turnId);
   }
+  if (item.taskDelivery) {
+    return "delivery:" + (item.messageId || item.turnId);
+  }
   return "turn:" + (item.turnId || item.messageId);
 }
 
 function patchItem(node, item, state, isNew) {
   if (item.kind === "user") {
+    if (item.idleWake) {
+      node.hidden = true;
+      node.dataset.idleWake = "";
+      return;
+    }
+    node.hidden = false;
+    delete node.dataset.idleWake;
     node.dataset.role = "user";
     if (item.messageId) node.dataset.messageId = item.messageId;
     let role = node.querySelector(":scope > .chat-role");
@@ -129,15 +154,22 @@ function patchItem(node, item, state, isNew) {
     if (!role) {
       role = document.createElement("p");
       role.className = "chat-role";
-      node.append(role);
+      node.prepend(role);
+    } else if (role !== node.firstElementChild) {
+      node.prepend(role);
     }
     if (!body) {
       body = document.createElement("p");
       body.className = "chat-text";
-      node.append(body);
+      role.after(body);
     }
-    role.textContent = "你";
+    role.textContent = "";
+    role.append(document.createTextNode("用户"));
     body.textContent = item.text || "";
+    paintMessageTime(node, item.createdAt, "user");
+    // 清掉旧版塞在气泡内的独立 time 节点
+    const strayTime = node.querySelector(":scope > .chat-msg-time");
+    if (strayTime) strayTime.remove();
     let queueBadge = node.querySelector(":scope > .chat-queue-badge");
     if (item.queueStatus === "queued") {
       if (!queueBadge) {
@@ -160,6 +192,28 @@ function patchItem(node, item, state, isNew) {
   node.dataset.role = "assistant";
   if (item.turnId) node.dataset.turnId = item.turnId;
   if (item.messageId) node.dataset.messageId = item.messageId;
+  if (item.taskDelivery) {
+    node.dataset.taskDelivery = "";
+    node.classList.add("chat-task-delivery");
+    if (item.taskId) {
+      node.dataset.taskId = item.taskId;
+      node.setAttribute("role", "button");
+      node.tabIndex = 0;
+      node.title = "查看关联任务";
+    } else {
+      delete node.dataset.taskId;
+      node.removeAttribute("role");
+      node.removeAttribute("tabindex");
+      node.removeAttribute("title");
+    }
+  } else {
+    delete node.dataset.taskDelivery;
+    delete node.dataset.taskId;
+    node.classList.remove("chat-task-delivery");
+    node.removeAttribute("role");
+    node.removeAttribute("tabindex");
+    node.removeAttribute("title");
+  }
 
   let role = node.querySelector(":scope > .chat-role");
   if (!role) {
@@ -167,7 +221,9 @@ function patchItem(node, item, state, isNew) {
     role.className = "chat-role";
     node.prepend(role);
   }
-  role.textContent = labelForAssistant(item);
+  role.textContent = "";
+  role.append(document.createTextNode(labelForAssistant(item)));
+  paintMessageTime(node, item.createdAt, "assistant");
 
   let status = node.querySelector(":scope > .chat-turn-status");
   // 任一非空字符（含空白）即关占位，避免只来空白 delta 时卡住
@@ -185,7 +241,7 @@ function patchItem(node, item, state, isNew) {
       role.after(status);
     }
     status.dataset.turnStatus = "failed";
-    status.textContent = "生成失败" + (item.errorCode ? " · " + item.errorCode : "");
+    status.textContent = formatFailedTurnStatus(item.errorCode);
     delete status.dataset.active;
   } else if (item.status === "queued") {
     if (!status) {
@@ -228,8 +284,8 @@ function patchItem(node, item, state, isNew) {
       if (body.dataset.unfinished) next.dataset.unfinished = body.dataset.unfinished;
       body.replaceWith(next);
     } else {
-      const process = node.querySelector(":scope > .chat-turn-process");
-      const after = process || status || role;
+      // 正文在过程前：role/status → body → process
+      const after = status || role;
       after.after(next);
     }
     body = next;
@@ -248,11 +304,56 @@ function patchItem(node, item, state, isNew) {
   ensureTurnProcess(node, item, state);
 }
 
+/** 角色行旁显示 HH:mm（用户/助手同一套，对标 DSH formatMessageClock）。 */
+function paintMessageTime(node, createdAt, _role) {
+  const label = formatMessageClock(createdAt);
+  const roleEl = node.querySelector(":scope > .chat-role");
+  if (!roleEl) return;
+  let timeEl = roleEl.querySelector(":scope > .chat-msg-time");
+  const stray = node.querySelector(":scope > .chat-msg-time");
+  if (stray && stray !== timeEl) stray.remove();
+  if (!label) {
+    if (timeEl) timeEl.remove();
+    return;
+  }
+  if (!timeEl) {
+    timeEl = document.createElement("time");
+    timeEl.className = "chat-msg-time";
+    roleEl.append(timeEl);
+  }
+  timeEl.dateTime = String(createdAt || "");
+  timeEl.textContent = label;
+  timeEl.title = String(createdAt || label);
+}
+
 function labelForAssistant(item) {
+  if (item.taskDelivery) return "杜小洛 · 后台任务";
   if (item.unfinished && item.status === "failed") return "杜小洛 · 未完成";
   if (item.unfinished && item.status === "cancelled") return "杜小洛 · 已取消";
   if (item.temporary || item.status === "running") return "杜小洛";
   return "杜小洛";
+}
+
+function formatFailedTurnStatus(errorCode) {
+  const code = String(errorCode || "").toUpperCase();
+  if (code === "MODEL_TIMEOUT" || code === "SOFT_DEADLINE" || code === "HARD_DEADLINE") {
+    return "回复超时 · 可重试发送";
+  }
+  if (!code) return "生成失败";
+  return "生成失败 · " + code;
+}
+
+/** 把回合过程钉在正文之后、操作区之前。 */
+function placeTurnProcess(node, details) {
+  const bodyEl = node.querySelector(":scope > .chat-text");
+  const actions = node.querySelector(":scope > .chat-actions");
+  if (bodyEl) {
+    bodyEl.after(details);
+  } else if (actions) {
+    node.insertBefore(details, actions);
+  } else if (details.parentNode !== node) {
+    node.append(details);
+  }
 }
 
 function ensureTurnProcess(node, item, state) {
@@ -275,12 +376,6 @@ function ensureTurnProcess(node, item, state) {
     const panel = document.createElement("div");
     panel.className = "chat-turn-process-panel";
     details.append(panel);
-    // 过程在正文前：role → process → body，工具先出时不把空正文顶下去
-    const bodyEl = node.querySelector(":scope > .chat-text");
-    const actions = node.querySelector(":scope > .chat-actions");
-    if (bodyEl) node.insertBefore(details, bodyEl);
-    else if (actions) node.insertBefore(details, actions);
-    else node.append(details);
     details.addEventListener("toggle", () => {
       if (!turnId) return;
       if (details.open) state.expandedTurnIds[turnId] = true;
@@ -288,6 +383,8 @@ function ensureTurnProcess(node, item, state) {
       summary.setAttribute("aria-expanded", details.open ? "true" : "false");
     });
   }
+  // 过程在正文后：role → body → process → actions（对标 Codex/DSH 正文优先）
+  placeTurnProcess(node, details);
   details.dataset.status = processStatusFromTools(tools, item);
   details.open = Boolean(state.expandedTurnIds[turnId]);
   const summary = details.querySelector(".chat-turn-process-summary");

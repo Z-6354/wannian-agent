@@ -25,7 +25,7 @@
 | 资料 | 已测内容 | 对产品设计的意义 | 限制 |
 |---|---|---|---|
 | [LoCoMo (ACL 2024)](https://aclanthology.org/2024.acl-long.747/)；[官方数据与代码](https://github.com/snap-research/locomo) | 很长的多会话对话，问答、事件摘要、多模态对话生成；问题含跨会话证据。 | 给“几周/几个月后还能否引用用户讲过的事”提供可复现起点；答案最好连来源 turn 一起评分。 | 官方发布的是 10 段对话的评测子集；对话由人机流水线生成并人工校订，不等于自然部署中真实用户群体；多模态图片不包含在公开包中。 |
-| [LongMemEval (2024)](https://arxiv.org/abs/2410.10813)；[作者代码](https://github.com/xiaowu0162/LongMemEval) | 500 个人工编写问题，覆盖事实提取、跨会话推理、时序推理、知识更新、无答案时 abstention。 | 必须测“用户纠正后用新值”“旧值有时间范围”“证据不足时不编造”，不能只测找回率。 | 仍是离线问答/评分任务，未测陪伴关系体验；答案判断及提示/模型变化都可能影响分数。 |
+| [LongMemEval (2024)](https://arxiv.org/abs/2412.10813)；[作者代码](https://github.com/xiaowu0162/LongMemEval) | 500 个人工编写问题，覆盖事实提取、跨会话推理、时序推理、知识更新、无答案时 abstention。 | 必须测“用户纠正后用新值”“旧值有时间范围”“证据不足时不编造”，不能只测找回率。 | 仍是离线问答/评分任务，未测陪伴关系体验；答案判断及提示/模型变化都可能影响分数。 |
 | [Generative Agents (2023)](https://arxiv.org/abs/2304.03442) | 记忆流记录观察，检索按相关性、近期性、重要性加权，反思把多条观察压成高层概念，计划据此行动；展示 Smallville 仿真。 | 适合把“原始经历记录”“可检索记忆”“压缩出的总结”分层理解；反思只能是衍生观点，不能悄悄替代用户明说的事实。 | 论文是受控小镇仿真和质性案例，不是陪伴产品临床/长期用户研究；重要性分数也不是事实真伪。 |
 | [MemoryBank (2024)](https://arxiv.org/abs/2305.10250) | 将对话压缩到记忆库并用遗忘曲线模拟人类记忆；在长期对话任务评估个性化回应。 | 可把时间衰减/过期作为召回排序信号，避免把一次性状态当永久属性。 | “遗忘曲线”是系统设计类比；论文实验不意味着模拟衰减就一定更像人，明确纠正和高风险信息不可由衰减覆盖。 |
 
@@ -35,7 +35,7 @@
 
 **公开社区讨论（非实证）**：围绕 LoCoMo 的 [LocalLLaMA 讨论帖](https://www.reddit.com/r/LocalLLaMA/comments/1mon8it/woah_letta_vs_mem0_for_ai_memory_nerds/)讨论不同记忆实现的跑分、上下文长度与部署体验；另有[ benchmark 审计讨论](https://www.reddit.com/r/AIMemory/comments/1s1jlnd/serious_flaws_in_two_popular_ai_memory_benchmarks/)质疑自动裁判宽松和数据标注问题。这些帖子的数字/指控未在此独立复验，适合当作“评测可能被提示、裁判和数据质量影响”的风险线索，不应引用为系统性能结论。核心结论仍以公开论文、数据卡和代码为准。
 
-本仓库已有的实现方向更适合保持**来源可追溯、生命周期显式、注入预算有界**（详见 [memory-system-0.2.3.md](./memory-system-0.2.3.md) 与 `ContextAssembler`）。建议将长期记忆评估串成一条闭环：
+本仓库已有的实现方向更适合保持**来源可追溯、生命周期显式、注入预算有界**（详见 [memory-system-2.3.md](./memory-system-2.3.md) 与 `ContextAssembler`）。建议将长期记忆评估串成一条闭环：
 
 ```text
 用户表达 / 观察 → 候选与来源 → 门槛和冲突裁决 → 生效版本
@@ -106,7 +106,7 @@
 | 目标 | 起点 | 可用于 | 不可据此声称 |
 |---|---|---|---|
 | 超长记忆 | [LoCoMo](https://github.com/snap-research/locomo) | 跨会话 QA、事件摘要、时间和证据定位。 | 真实自然用户长期体验已解决；数据涵盖完整多模态资产。 |
-| 记忆更新/克制 | [LongMemEval](https://arxiv.org/abs/2410.10813) | 新旧事实冲突、时序、跨会话推理、无证据时拒答。 | 个性化的关系质量或用户隐私控制正确。 |
+| 记忆更新/克制 | [LongMemEval](https://arxiv.org/abs/2412.10813) | 新旧事实冲突、时序、跨会话推理、无证据时拒答。 | 个性化的关系质量或用户隐私控制正确。 |
 | 人格事实一致性 | [PersonaChat](https://parl.ai/projects/personachat/) + [Dialogue NLI](https://github.com/facebookresearch/ParlAI/tree/main/projects/dialogue_nli)；可参考 [ConsisTest](https://aclanthology.org/2022.gem-1.47/) | 设定事实是否自相矛盾、是否与上下文冲突。 | 长期身份/独特语言风格/情绪表达完整度。 |
 | 多轮角色表现 | [RAIDEN](https://aclanthology.org/2025.coling-main.735/)、[RMTBench](https://aclanthology.org/2025.findings-emnlp.730/)、[SocialBench](https://aclanthology.org/2024.findings-acl.125/) | 对话阶段、用户目标、社交互动等评测设计。 | 指标能完全代替目标用户盲评；所有基准语料许可适合生产训练。 |
 | 情绪保真 | [EmoCharacter](https://aclanthology.org/2025.naacl-long.316/) | 角色情绪反应的单轮/多轮评估。 | 对真实求助者提供了有效心理支持。 |
@@ -148,7 +148,7 @@
 ## 9. 参考链接
 
 - [LoCoMo paper (ACL 2024)](https://aclanthology.org/2024.acl-long.747/) · [data/code](https://github.com/snap-research/locomo)
-- [LongMemEval (2024)](https://arxiv.org/abs/2410.10813) · [code](https://github.com/xiaowu0162/LongMemEval)
+- [LongMemEval (2024)](https://arxiv.org/abs/2412.10813) · [code](https://github.com/xiaowu0162/LongMemEval)
 - [Generative Agents (2023)](https://arxiv.org/abs/2304.03442) · [MemoryBank (2024)](https://arxiv.org/abs/2305.10250)
 - [Will I Sound Like Me? (EMNLP 2020)](https://aclanthology.org/2020.emnlp-main.65/) · [EmoCharacter (NAACL 2025)](https://aclanthology.org/2025.naacl-long.316/)
 - [RAIDEN (COLING 2025)](https://aclanthology.org/2025.coling-main.735/) · [RMTBench (Findings EMNLP 2025)](https://aclanthology.org/2025.findings-emnlp.730/) · [SocialBench (Findings ACL 2024)](https://aclanthology.org/2024.findings-acl.125/)

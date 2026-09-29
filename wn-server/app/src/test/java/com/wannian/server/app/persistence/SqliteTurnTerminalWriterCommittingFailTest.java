@@ -26,7 +26,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.4-C：COMMITTING 缺冻结计划时可 FAILED + Outbox，解除会话堵塞。
+ * 2.4.4：COMMITTING 缺冻结计划时可 FAILED + Outbox，解除会话堵塞。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class SqliteTurnTerminalWriterCommittingFailTest {

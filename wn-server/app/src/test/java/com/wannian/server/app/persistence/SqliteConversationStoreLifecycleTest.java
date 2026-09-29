@@ -33,7 +33,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** 0.2.4-B/E：改名 CAS、busy、自动标题 vs MANUAL、清空回收站。 */
+/** 2.4.3/E：改名 CAS、busy、自动标题 vs MANUAL、清空回收站。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class SqliteConversationStoreLifecycleTest {
 

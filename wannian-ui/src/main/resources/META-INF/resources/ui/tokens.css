@@ -10,6 +10,11 @@
     "Liberation Mono", Menlo, Courier, "PingFang SC", "Microsoft YaHei";
   --font-size-body: 14px;
   --line-height-body: 1.55;
+  /* Chat transcript: Codex/DSH 式主次字阶 — 正文大、工具过程小 */
+  --chat-content-font-size: 15px;
+  --chat-content-line-height: 1.7;
+  --chat-secondary-font-size: 12px;
+  --chat-secondary-line-height: 18px;
 
   --heading-size: clamp(21px, 2.4vw, 28px);
   --heading-tracking: -0.02em;
@@ -44,6 +49,7 @@
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
   --z-dialog: 1000;
   --mask-blur: blur(2px);
+  /* Hover 唯一入口：工作区/列表用 --interactive-hover；侧栏用 --sidebar-hover；选中底用 --accent-subtle。禁止组件内再写 color-mix 深浅。 */
   --interactive-hover: rgba(38, 49, 72, 0.06);
   --interactive-active: rgba(38, 49, 72, 0.1);
   --send: rgb(65, 118, 230);

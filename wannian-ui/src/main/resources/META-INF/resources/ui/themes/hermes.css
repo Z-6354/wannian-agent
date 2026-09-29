@@ -29,7 +29,7 @@
   --sidebar-ink: #ffe6cb;
   --sidebar-muted: #8aaa9a;
   --sidebar-current: #0c3838;
-  --sidebar-hover: rgb(12 56 56 / 65%);
+  --sidebar-hover: rgb(12 56 56 / 18%);
   --sidebar-border: rgb(255 230 203 / 15%);
   --sidebar-accent: #ffe6cb;
   --sidebar-pattern: none;
@@ -37,7 +37,7 @@
   --surface-banner: rgb(6 36 36 / 82%);
   --surface-subtle: rgb(6 36 36 / 52%);
   --surface-card: rgb(6 36 36 / 92%);
-  --surface-hover: rgb(12 56 56 / 65%);
+  --surface-hover: rgb(12 56 56 / 18%);
 
   --font-sans: "Arial Narrow", "Aptos Narrow", "Microsoft YaHei UI", sans-serif;
   --font-display: "Arial Narrow", "Aptos Narrow", "Microsoft YaHei UI", sans-serif;
@@ -75,8 +75,8 @@
   --scrollbar-thumb-hover: rgb(255 230 203 / 36%);
   --elevation-stroke-color: rgb(255 230 203 / 22%);
   --brand-mark-rotate: -3deg;
-  --interactive-hover: rgb(12 56 56 / 65%);
-  --interactive-active: rgb(12 56 56 / 85%);
+  --interactive-hover: rgb(12 56 56 / 18%);
+  --interactive-active: rgb(12 56 56 / 28%);
   --send: #ffe6cb;
   --send-hover: #fff1e2;
   --send-foreground: #041c1c;

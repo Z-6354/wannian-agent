@@ -128,7 +128,7 @@ class ContextAssemblerTest {
         ContextAssembler assembler = assembler(
                 List.of(
                         memory("high", "我叫小明", 0.95),
-                        memory("low", "今晚想吃炒蛋", 0.2)),
+                        memory("low", "今晚想吃炒蛋", 2.2)),
                 (ids, now) -> touched.addAll(ids),
                 200);
 

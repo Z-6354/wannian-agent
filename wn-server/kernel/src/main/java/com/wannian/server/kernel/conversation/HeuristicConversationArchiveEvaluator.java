@@ -11,7 +11,7 @@ public final class HeuristicConversationArchiveEvaluator implements Conversation
 
     @Override
     public ArchiveDecision evaluate(ArchiveCandidate candidate) {
-        // 占位：未启用前恒 KEEP；真正规则在 0.2.5+ 补齐。
+        // 占位：未启用前恒 KEEP；真正规则在 2.5+ 补齐。
         return ArchiveDecision.keep("heuristic evaluator not enabled");
     }
 }

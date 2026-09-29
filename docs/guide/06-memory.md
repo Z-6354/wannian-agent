@@ -1,6 +1,6 @@
 # 06 · Memory 与 Relationship 工作簿
 
-已确认产品边界见 [memory.md](../research/memory.md)。本工作簿是 **v0.2 / 0.2.3** 的实现练习。
+已确认产品边界见 [memory.md](../research/memory.md)。本工作簿是 **v2 / 2.3** 的实现练习。
 
 ## 1. 目标
 
@@ -16,13 +16,13 @@ Memory 让杜小洛在未来 Turn 中记得有依据的信息；Relationship 描
 
 原始消息是证据，Memory 和 Relationship 是经过规则产生的派生状态。
 
-### 0.2.3 防复发提示
+### 2.3 防复发提示
 
 依据 [缺陷定义 T1/T2/T7 与 §6.3](../reviews/01-defects.md)。K03-P（历史 H3）已放行，这些约束仍然有效：
 
 - ID 存在不等于绑定正确。来源 Turn 必须对应预期身份、事实与作用域；允许的跨会话长期记忆按许可共享，不能简单要求来源会话永远等于当前会话。
 - 不 trim/改写原始证据以便通过比较；归一化只发生在派生候选中，并保留来源。
-- 历史 H2 的 `List<?>/Object` 是拒绝非空的临时占位。**0.2.3** 换成具体不可变 ApprovedChange，包含来源、作用域与需要的 expected revision，不以强制类型转换长期保留占位。
+- 历史 H2 的 `List<?>/Object` 是拒绝非空的临时占位。**2.3** 换成具体不可变 ApprovedChange，包含来源、作用域与需要的 expected revision，不以强制类型转换长期保留占位。
 - 统一错误 code 不代表统一成无类型 Result；策略决策保留 ACCEPT/REJECT/NEEDS_CONFIRMATION/COEXIST 等具名结果。
 
 ## 3. Memory 生命周期

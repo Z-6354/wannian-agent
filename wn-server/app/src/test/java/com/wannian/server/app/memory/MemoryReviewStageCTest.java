@@ -50,7 +50,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** 0.2.3-C：Review enqueue / Worker / 假 LLM / 短事务 APPLY。 */
+/** 2.3.3：Review enqueue / Worker / 假 LLM / 短事务 APPLY。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Import(MemoryReviewStageCTest.ReviewTestConfig.class)
 class MemoryReviewStageCTest {

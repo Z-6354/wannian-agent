@@ -3,7 +3,7 @@
 `status`: **decided** — 2026-09-20  
 `purpose`: 执行中新输入的会话调度策略。  
 `decision`: **followup（FIFO）**；不拒收；不做默认 Steer；不用 Jev 做调度。  
-`authority`: 本决策已定；实施写入 [0.2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 与 [内核合同](../decisions/01-contract.md)。细节论证仍供查阅。  
+`authority`: 本决策已定；实施写入 [2.1 施工单](../plans/archive/0.2.1-0.2.3/k01-agent-loop.md) 与 [内核合同](../decisions/01-contract.md)。细节论证仍供查阅。  
 `related`: [agent-loop-survey](./agent-loop-survey.md) · [wannian-loop-modules §2.8](./wannian-loop-modules.md) · [缺陷 §6.1](../reviews/01-defects.md) · [Turn 状态机](../guide/04-kernel-reference.md) · OpenClaw `followup` 模式
 
 ---
@@ -61,14 +61,14 @@
 
 ### 1.2 技术上何时真的会发生
 
-| 触发面 | 今日 wannian（v0.1） | 0.2.1+ Loop | 0.2.4 SSE 异步页 |
+| 触发面 | 今日 wannian（v1） | 2.1+ Loop | 2.4 SSE 异步页 |
 |--------|----------------------|-------------|------------------|
 | 单页同步 HTTP | 少见：请求未返回前浏览器通常发不出第二帖 | 仍可能被长耗时卡住；双标签可并发 POST | 常见：流式中可再点发送 |
 | 双标签 / 手机+网页 | 已可能两条 `receive` | 同左 | 同左 |
 | Bot / IM 通道 | 通道可连收 | 同左 | 同左 |
 | 「停止」按钮 | 无产品路径 | `cancelToken` 可接 | UI 显式 Stop |
 
-**结论：** 哪怕 0.2.1 的 `/chat/` 仍同步，**服务端协议也必须先定义同会话插话规则**，否则双端与日后 SSE 会各写各的。
+**结论：** 哪怕 2.1 的 `/chat/` 仍同步，**服务端协议也必须先定义同会话插话规则**，否则双端与日后 SSE 会各写各的。
 
 ---
 
@@ -82,7 +82,7 @@
 | 网络丢响应后客户端重试同 key | 回放 | **否** |
 | A 已 COMPLETED，用户再发新 key | 普通下一回合 | **否**（正常串行） |
 | A 在 COMMITTING，进程崩溃后恢复提交 | 冻结计划提交，不重跑 Loop | **否**（恢复专题） |
-| 后台 Task 跑着，用户继续聊天 | 0.2.5：长任务不占聊 | **相邻**（见 §8） |
+| 后台 Task 跑着，用户继续聊天 | 2.5：长任务不占聊 | **相邻**（见 §8） |
 
 本专题只讨论：
 
@@ -234,7 +234,7 @@ Loop 在工具结束后 / 下次 decide 前 drain steering：
 | Cursor Steer / L5 `_drain_steering` | 陪伴场景「改口」常被理解成打断，不是改道 |
 | | 实现重；易焊进 Loop（Hermes 反面） |
 
-**wannian 建议：** 明确 **不做进 0.2.1**；若日后再做，Steer 必须是 Loop **外**模块，经明确缝注入，且默认关闭。
+**wannian 建议：** 明确 **不做进 2.1**；若日后再做，Steer 必须是 Loop **外**模块，经明确缝注入，且默认关闭。
 
 ---
 
@@ -308,7 +308,7 @@ t3  claim(B) → Loop(B) → 投递 B 的回复
 ### 6.5.3 网页
 
 - 适合做：**队列条、停止、撤掉某条未跑排队**。  
-- HTTP 可同步等 A（v0.1），或 0.2.4 起 SSE 推 A 完成再自动拉 B 的结果。  
+- HTTP 可同步等 A（v1），或 2.4 起 SSE 推 A 完成再自动拉 B 的结果。  
 - 表现可以花，**语义仍等于库里的 RECEIVED 列表**。
 
 ### 6.5.4 微信 / IM（没有队列 UI 时）
@@ -349,8 +349,8 @@ IM 做不到「侧边排队列表」，但策略不变：
 
 | 阶段 | 网页 | 微信 / 游戏 |
 |------|------|-------------|
-| **0.2.1** | 串行 + cancel 能力（可先测夹具） | 协议层已 FIFO；通道未接也不改内核 |
-| **0.2.4** | 队列 UI + Stop + SSE | — |
+| **2.1** | 串行 + cancel 能力（可先测夹具） | 协议层已 FIFO；通道未接也不改内核 |
+| **2.4** | 队列 UI + Stop + SSE | — |
 | **通道接入时** | — | IM：默认静默 FIFO + 可选回执；游戏：结构化 `queued`；指令 cancel 可选 |
 
 ---
@@ -365,14 +365,14 @@ IM 做不到「侧边排队列表」，但策略不变：
 | B 在 A 的 COMMITTING 期间 receive | 允许排队；**禁止** cancel A |
 | A COMPLETED 后 B 才 claim | B 上下文含 A 助手句 |
 
-### 7.2 与工具（0.2.2）
+### 7.2 与工具（2.2）
 
 | 情况 | 处理 |
 |------|------|
 | A 工具已派出、结果未归 | cancel 不保证撤销外部副作用；观察可审计；不越权写正式记忆 |
 | FIFO：B 等 A 终态 | B 不看见未提交的 tool observation |
 
-### 7.3 与记忆 / 关系（0.2.3）
+### 7.3 与记忆 / 关系（2.3）
 
 | 情况 | 处理 |
 |------|------|
@@ -386,7 +386,7 @@ IM 做不到「侧边排队列表」，但策略不变：
 |------|----------------|
 | 端1 发 A，端2 发 B（含网页+微信） | 两次 receive 都成功；**同一会话**执行按库内顺序 |
 | 两端同 key | 幂等或冲突（已有规则） |
-| 端1 Stop，端2 仍显示「生成中」 | 0.2.4 SSE / IM 终态事件对齐；此前至少以库为准 |
+| 端1 Stop，端2 仍显示「生成中」 | 2.4 SSE / IM 终态事件对齐；此前至少以库为准 |
 | IM 无队列 UI | 仍入库排队；靠有序回复或短回执，不拒收 |
 
 ### 7.5 队列脏数据（Claude 教训）
@@ -413,9 +413,9 @@ IM 做不到「侧边排队列表」，但策略不变：
 | 专题 | 关系 |
 |------|------|
 | **幂等 / clientRequestId** | 同键不是插话 |
-| **BackgroundTask（0.2.5）** | 长任务不占聊天 flight；聊天插话规则仍管对话 Turn |
-| **世界树 WORLD ingress（0.3）** | 另一 `TurnSource`；与用户抢的是烟火单 RUNNING / 出站序，不是两路微信。处理见 [wechat-and-world-timing.md](./wechat-and-world-timing.md) |
-| **Outbox/SSE（0.2.4）** | 插话体验的主战场；协议先定、UI 后做 |
+| **BackgroundTask（2.5）** | 长任务不占聊天 flight；聊天插话规则仍管对话 Turn |
+| **世界树 WORLD ingress（2.3）** | 另一 `TurnSource`；与用户抢的是烟火单 RUNNING / 出站序，不是两路微信。处理见 [wechat-and-world-timing.md](./wechat-and-world-timing.md) |
+| **Outbox/SSE（2.4）** | 插话体验的主战场；协议先定、UI 后做 |
 | **多核（更后）** | 取消决胜仍在持久化 CAS，不在各核内存各判 |
 
 ---
@@ -438,7 +438,7 @@ IM 做不到「侧边排队列表」，但策略不变：
 
 ## 10. 与当前代码的差距（事实）
 
-- v0.1：`TurnController` 同请求内 `receive` + 直接回答；**无**会话执行队列、**无**对外 cancel API。  
+- v1：`TurnController` 同请求内 `receive` + 直接回答；**无**会话执行队列、**无**对外 cancel API。  
 - SQLite `busy` 是库锁重试，**不是**「会话正在生成」的产品 busy。  
 - Turn 状态机已支持 `cancel`（COMMITTING 前）；缺的是产品路径与调度器。  
 - `/chat/` 同步 UI 掩盖了问题；**双 POST 已能打到服务端**。
@@ -469,15 +469,15 @@ IM 做不到「侧边排队列表」，但策略不变：
 5. 可取消尚未 claim 的排队项。
 6. B 上下文只含已提交历史。
 7. DecisionPort / Jev 不裁决排队 vs 打断。
-8. 满队是容量保护；0.2.1 可先不设硬顶。
+8. 满队是容量保护；2.1 可先不设硬顶。
 `
 
 ### 11.3 分阶段
 
 | 阶段 | 交付 | 不做 |
 |------|------|------|
-| **0.2.1** | 同会话串行 claim（followup）；cancelToken；双 POST 不双跑；最小 cancel | Steer；Jev 调度；发送即取消；busy 拒收 |
-| **0.2.4** | 队列 UI、「停止」、可撤排队项；SSE | — |
+| **2.1** | 同会话串行 claim（followup）；cancelToken；双 POST 不双跑；最小 cancel | Steer；Jev 调度；发送即取消；busy 拒收 |
+| **2.4** | 队列 UI、「停止」、可撤排队项；SSE | — |
 | **更后** | 可选 Steer（默认仍关） | 默认 Hard interrupt / Jev 调度 |
 
 ### 11.4 已收敛

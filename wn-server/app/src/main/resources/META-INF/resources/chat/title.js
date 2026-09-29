@@ -1,5 +1,5 @@
 /**
- * 首轮自动标题消费与 MANUAL 守卫（0.2.4-E）。
+ * 首轮自动标题消费与 MANUAL 守卫（2.4.6）。
  */
 
 const TITLE_FAIL_KEY = "wannian.chat.titleFailNoticed";

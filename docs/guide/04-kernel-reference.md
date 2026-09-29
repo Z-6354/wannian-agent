@@ -147,7 +147,7 @@ public interface TurnCommitter {
 
 `CommitTurnPlan` 是不可变数据，包含 turnId、expectedExecutionId、expected revisions、助手 Message、批准的 Memory/Relationship 变化、可选 TaskDraft 与附加事件。SQLite Implementation 在单一事务内验证并提交，并保证生成匹配当前 Turn 的必需完成事件、分配权威消息/Outbox 序号。不能把空附加事件列表解释为允许无完成事件。它不是允许调用者任意拼装 SQL 的通用 `UnitOfWork`。
 
-执行身份、COMMITTING 冻结计划与恢复协议统一见 [29 号 §2/§8](04-kernel-reference.md)。K03-P 已放行；接真实模型属于 **0.2.1**，尚未开始。本节之后的接口是后续阶段的目标，不表示已经实现。
+执行身份、COMMITTING 冻结计划与恢复协议统一见 [29 号 §2/§8](04-kernel-reference.md)。K03-P 已放行；接真实模型属于 **2.1**，尚未开始。本节之后的接口是后续阶段的目标，不表示已经实现。
 
 ## 5. AgentLoop Module
 
@@ -244,7 +244,7 @@ ToolCatalog
 → ToolOperationStore.complete
 ```
 
-内部 ToolAdapter Interface 规则：每次调用携带 operationId；输入已经校验；结果可序列化且有大小上限；不返回 Stream、线程、文件句柄或 SDK 对象。该内部 seam 在 v0.2 有 Local/Fake Adapter；远程 Worker Adapter 更后，不暴露给 Agent Loop。
+内部 ToolAdapter Interface 规则：每次调用携带 operationId；输入已经校验；结果可序列化且有大小上限；不返回 Stream、线程、文件句柄或 SDK 对象。该内部 seam 在 v2 有 Local/Fake Adapter；远程 Worker Adapter 更后，不暴露给 Agent Loop。
 
 ## 8. Task Module
 
@@ -252,14 +252,15 @@ ToolCatalog
 
 ```java
 public interface TaskRuntime {
-    TaskDraft prepare(TaskProposal proposal, OriginTurn origin);
+    /** origin 已在 proposal 内（2.5.2 钉死单参）。 */
+    TaskDraft prepare(TaskProposal proposal);
     DispatchOutcome dispatchNext(DispatchBudget budget);
     CompletionOutcome acceptResult(SubAgentRunResult result);
     CancelTaskResult requestCancel(BackgroundTaskId id);
 }
 ```
 
-`TaskRuntime` 隐藏 Task/Run 状态转换、lease、attempt、retry 与取消顺序。`TaskDraft` 不直接落库，而是进入 `CommitTurnPlan`，与确认回复原子提交。
+`TaskRuntime` 隐藏 Task/Run 状态转换、lease、attempt、retry 与取消顺序。`TaskDraft` 不直接由 prepare 落库：2.5.2 只产出 Draft；同事务插入属 **2.5.3**（经 `CommitTurnPlan`）。`dispatchNext` / `acceptResult` / `requestCancel` 在 2.5.2 明确未启用。
 
 ### TaskExecutor 内部 seam
 
@@ -270,8 +271,8 @@ public interface TaskExecutor {
 }
 ```
 
-0.1 Adapter：`LocalTaskExecutor`。  
-0.2 Adapter：`RemoteTaskExecutor`。
+2.1 Adapter：`LocalTaskExecutor`。  
+2.2 Adapter：`RemoteTaskExecutor`。
 
 `SubAgentRunSpec` 禁止包含不可序列化闭包或 Bean 引用。
 
@@ -363,7 +364,7 @@ Adapter 负责技术转换，不重新实现业务策略。
 
 ## 14. 错误模型
 
-分类如下。实施排期见 [`33`](01-checklist.md) **0.2.1**：在该阶段收成全进程唯一的错误 code 与日志约定，之后各模块只引用，不各自另建。
+分类如下。实施排期见 [`33`](01-checklist.md) **2.1**：在该阶段收成全进程唯一的错误 code 与日志约定，之后各模块只引用，不各自另建。
 
 ```text
 ValidationError       用户输入不合法
@@ -457,7 +458,7 @@ leaseExpiresAt
 attemptNumber
 ```
 
-v0.2 单核节点的 `executorId` 可以固定为 `local-primary`，但状态含义不得省略。
+v2 单核节点的 `executorId` 可以固定为 `local-primary`，但状态含义不得省略。
 
 结果必须绑定 taskId、runId、attempt 与该次 lease token；revision 正确或 executorId 相同不等于该尝试仍有效。旧/LOST/已取消尝试的迟到结果不得推进新尝试，重复回报不重复交付。
 
@@ -558,15 +559,26 @@ finished_at           TEXT NULL
 ```text
 id                    TEXT PK
 origin_turn_id        TEXT NOT NULL FK
-status                TEXT NOT NULL
+conversation_id       TEXT NOT NULL FK
+companion_id          TEXT NULL
+source                TEXT NOT NULL          -- USER_LOOP | SYSTEM
 task_type             TEXT NOT NULL
+status                TEXT NOT NULL          -- 含 SCHEDULED/CREATED/…（V024 CHECK）
 input_json            TEXT NOT NULL
+result_json           TEXT NULL
+notify_policy         TEXT NOT NULL
 retry_policy_json     TEXT NOT NULL
+schedule_spec_json    TEXT NULL             -- 立即 NULL；定时 JSON（2.5.2）
+timezone              TEXT NOT NULL
+next_fire_at          TEXT NULL             -- ISO；立即 NULL
+last_fired_at         TEXT NULL
 revision              INTEGER NOT NULL
 created_at            TEXT NOT NULL
 updated_at            TEXT NOT NULL
 completed_at          TEXT NULL
 ```
+
+索引（V024）：`(status, updated_at)`；`(conversation_id, created_at)`；`(status, next_fire_at)`。
 
 ### sub_agent_run
 
@@ -717,13 +729,13 @@ additionalOutboxEvents（可空；不免除 committer 生成必需完成事件�
 
 SQLite `TurnCommitter` Implementation 必须先校验全部前置条件，再执行写入；任一校验或写入失败则整体回滚。
 
-Memory/Relationship 在 **0.2.3**、Task 在 **0.2.5** 接入具体不可变类型；在各自阶段以前继续拒绝非空占位。正式 change 需验证来源/身份/作用域和全部 revision。冲突不能通过替换成最新 revision 强行覆盖。
+Memory/Relationship 在 **2.3**、Task 在 **2.5** 接入具体不可变类型；在各自阶段以前继续拒绝非空占位。正式 change 需验证来源/身份/作用域和全部 revision。冲突不能通过替换成最新 revision 强行覆盖。
 
 ### 消息顺序与 Outbox cursor（T3）
 
 序号分配与事实写入在同一数据库写事务中完成，不能由 HTTP 客户端、Loop 或进程内计数器决定；禁止事务外 `MAX+1`。允许跳号，但不允许游标已经看到更大序号后，又提交更小序号。Outbox 清理后不复用历史序号；UUID 去重身份与有序 cursor 分工不同。
 
-v0.2 按 [实施清单](01-checklist.md) 同会话串行执行、跨会话有界并行；不要靠限制为一个线程代替数据库约束。逆序完成、重复提交、事务回滚必须单独验证。
+v2 按 [实施清单](01-checklist.md) 同会话串行执行、跨会话有界并行；不要靠限制为一个线程代替数据库约束。逆序完成、重复提交、事务回滚必须单独验证。
 
 ## 9. 不应放进事务的操作
 
@@ -790,4 +802,4 @@ databaseDigest
 
 摘要使用固定缓冲流式计算，不将整个库读进堆；metadata 用 JSON 序列化器，不手拼不完整转义。正常重启是否备份与保留淘汰规则须明确，不因反复启动失败丢失最后可用恢复点。
 
-打包运行的数据目录采用固定绝对路径，独立于 cwd 与制品目录；只拦 `target` 路径组件不能证明已满足此要求。现行 **0.2.6**（别名 K06）验证从两个 cwd 打开同库，现行 **0.2.7**（别名 K07）再做真正进程重启和故障恢复。
+打包运行的数据目录采用固定绝对路径，独立于 cwd 与制品目录；只拦 `target` 路径组件不能证明已满足此要求。现行 **2.6**（别名 K06）验证从两个 cwd 打开同库，现行 **2.7**（别名 K07）再做真正进程重启和故障恢复。

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 会话存储口：创建、只读近讯、列表/生命周期/搜索（0.2.4-B）。
+ * 会话存储口：创建、只读近讯、列表/生命周期/搜索（2.4.3）。
  *
  * <p>实现放在 app（SQLite）；kernel 不依赖 JDBC。
  * 写入消息仍走 {@code TurnCommitter}；本接口不提供改写正文的方法。

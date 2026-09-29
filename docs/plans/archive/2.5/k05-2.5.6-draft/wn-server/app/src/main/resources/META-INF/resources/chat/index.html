@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-app-shell="1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>万年</title>
+  <link rel="stylesheet" href="/ui/tokens.css?v=20260925r">
+  <link rel="stylesheet" href="/ui/themes/paper.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/components.css?v=20260920p">
+  <link rel="stylesheet" href="/ui/layouts/app-shell.css?v=20260925a">
+  <link rel="stylesheet" href="/ui/layouts/chat.css?v=20260928a">
+  <link rel="stylesheet" href="/ui/layouts/console.css?v=20260925r">
+</head>
+<body>
+  <a class="skip-link" href="#transcript">跳到主要内容</a>
+  <header class="mobile-head">
+    <button type="button" class="mobile-nav-toggle ghost" id="mobile-nav-toggle" aria-label="打开导航" aria-controls="app-sidebar" aria-expanded="false">☰</button>
+    <strong>万年</strong>
+  </header>
+  <button type="button" class="mobile-nav-backdrop" id="mobile-nav-backdrop" aria-label="关闭导航" hidden></button>
+  <div class="shell chat-shell">
+    <aside class="sidebar chat-sidebar" id="app-sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">万</div>
+        <div class="brand-copy">
+          <div class="brand-name">万年</div>
+          <div class="brand-sub">本地数据工作台</div>
+        </div>
+      </div>
+      <nav id="app-nav" aria-label="主导航"></nav>
+      <section class="chat-conversation-sidebar" id="chat-conversation-sidebar" aria-label="会话列表">
+        <div class="conv-sidebar-head">
+          <label class="conv-search-field" for="conversation-search">
+            <span class="field-label">搜索会话</span>
+            <input id="conversation-search" type="search" placeholder="搜索标题或正文…" autocomplete="off">
+          </label>
+          <div class="conv-status-tabs" role="group" aria-label="会话范围">
+            <button type="button" id="list-status-active" class="ghost is-active" aria-pressed="true">进行中</button>
+            <button type="button" id="list-status-archived" class="ghost" aria-pressed="false">归档</button>
+            <button type="button" id="list-status-trashed" class="ghost" aria-pressed="false">回收站</button>
+          </div>
+        </div>
+        <div id="conversation-list" class="conversation-list" role="list" data-mobile-nav-close></div>
+        <div class="conv-sidebar-foot">
+          <button type="button" class="secondary" id="empty-archive" hidden>清空归档</button>
+          <button type="button" class="secondary" id="empty-trash" hidden>清空回收站</button>
+        </div>
+      </section>
+    </aside>
+    <div class="workspace-stack">
+      <div id="view-chat" class="workspace chat-workspace">
+        <div class="chat-main">
+          <header class="page-head content-frame">
+            <div class="page-head-text">
+              <h1 id="conversation-title">对话</h1>
+              <p id="conversation-subtitle" class="page-status"></p>
+            </div>
+            <div class="page-actions">
+              <button type="button" class="ghost" id="rename-conversation" hidden>改名</button>
+              <button type="button" class="ghost" id="archive-conversation" hidden>归档</button>
+              <button type="button" class="ghost" id="unarchive-conversation" hidden>取消归档</button>
+              <button type="button" class="ghost" id="trash-conversation" hidden>回收站</button>
+              <button type="button" class="ghost" id="restore-conversation" hidden>恢复</button>
+              <button type="button" class="secondary" id="new-conversation">新会话</button>
+            </div>
+          </header>
+          <p id="chat-notice" class="banner chat-notice content-frame" role="status" aria-live="polite"></p>
+          <main id="transcript" class="content-frame" tabindex="-1" aria-label="会话消息"></main>
+          <form id="composer" class="composer content-frame">
+            <label class="field composer-field" for="draft">
+              <span class="field-label">消息</span>
+              <div class="composer-input-row">
+                <textarea id="draft" name="text" rows="1" autocomplete="off" placeholder="写下一句…"></textarea>
+                <button type="submit" id="send">发送</button>
+                <button type="button" id="stop-turn" class="composer-stop" hidden>停止</button>
+              </div>
+              <span class="field-hint">Enter 发送，Shift+Enter 换行。空白不会提交。</span>
+            </label>
+            <div class="composer-toolbar" id="composer-toolbar" data-slot="e-followup-stop">
+              <div class="composer-toolbar-leading"></div>
+              <div class="composer-toolbar-trailing"></div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="view-console" class="workspace console-workspace" hidden>
+        <header class="page-head content-frame">
+          <div class="page-head-text">
+            <h1 id="page-title">管理</h1>
+            <p id="enabled-line" class="page-status"></p>
+          </div>
+          <div id="page-actions" class="page-actions"></div>
+        </header>
+        <form id="token-form" class="auth-bar content-frame" hidden>
+          <label class="field" for="token-input">
+            <span class="field-label">管理口令</span>
+            <input id="token-input" type="password" autocomplete="off">
+          </label>
+          <button type="submit">保存到本次会话</button>
+        </form>
+        <div id="banner" class="banner content-frame" role="status" aria-live="polite"></div>
+        <main id="panel" class="content-frame" tabindex="-1"></main>
+      </div>
+    </div>
+  </div>
+  <aside id="archive-notices" hidden aria-live="polite"></aside>
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (path === "/chat" || path === "/chat/") {
+        location.replace("/" + (location.hash && location.hash !== "#" ? location.hash : "#chat"));
+      }
+    })();
+  </script>
+  <script type="module" src="/shell/app.js?v=20260926c"></script>
+</body>
+</html>

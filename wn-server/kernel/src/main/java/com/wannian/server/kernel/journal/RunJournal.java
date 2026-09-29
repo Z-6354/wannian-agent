@@ -1,7 +1,7 @@
 package com.wannian.server.kernel.journal;
 
 /**
- * 行为账本写入口（0.2.3-L）。
+ * 行为账本写入口（2.3.6）。
  *
  * <p>实现可组合 JSONL 与 SQLite；失败须吞掉并记运维日志，不得抛回打断 Turn。
  * kernel 只依赖本接口，不依赖具体日志框架。

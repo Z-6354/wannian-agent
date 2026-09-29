@@ -1,11 +1,11 @@
-import { subscribeConversationEvents, getTurnStatus } from "/chat/api.js?v=20260925l";
-import { applyStreamEvent } from "/chat/state.js?v=20260925n";
-import { refreshHistoryTail } from "/chat/history.js?v=20260925i";
+import { subscribeConversationEvents, getTurnStatus } from "/chat/api.js?v=20260928n";
+import { applyStreamEvent } from "/chat/state.js?v=20260928n";
+import { refreshHistoryTail } from "/chat/history.js?v=20260928n";
 
 /**
  * 会话 SSE：按 selectionEpoch 防串线；有界指数退避重连。
  * 正常流结束（服务端超时等）静默续连；仅故障才显示「连接中断」。
- * 0.2.4-E：终态先喂 queue，再 render；titleChanged 交 title 守卫。
+ * 2.4.6：终态先喂 queue，再 render；titleChanged 交 title 守卫。
  */
 export function createStreamController({
   getState,

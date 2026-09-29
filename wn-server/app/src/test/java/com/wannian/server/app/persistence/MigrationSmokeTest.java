@@ -65,8 +65,12 @@ class MigrationSmokeTest {
                             "memory_subject_generation",
                             "relationship_state",
                             "turn_step",
-                            "process_event")
-                    .doesNotContain("background_task");
+                            "process_event",
+                            "background_task",
+                            "sub_agent_run",
+                            "task_review_pending",
+                            "task_delivery_pending",
+                            "idle_delivery_pending");
             assertThat(indexExists(connection, "idx_memory_one_active_subject")).isTrue();
             assertThat(planDetails(connection, "SELECT sequence_no FROM message WHERE conversation_id = 'x' ORDER BY sequence_no"))
                     .doesNotContain("idx_message_conversation_seq");

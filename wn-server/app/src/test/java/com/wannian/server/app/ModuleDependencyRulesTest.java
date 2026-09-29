@@ -88,7 +88,10 @@ class ModuleDependencyRulesTest {
                             "com.anthropic..");
 
     /**
-     * kernel 不得依赖 app、全部 Spring、JDBC、SQLite、Flyway 或厂商 SDK。
+     * kernel 不得依赖 app、全部 Spring、SQLite、Flyway 或厂商 SDK。
+     *
+     * <p>2.5：{@code kernel.task.*Repository} 允许 {@code java.sql.Connection} 作同事务 seam 参数；
+     * 其余 kernel 包仍禁止 JDBC（见 {@link #kernelOutsideTaskMustNotDependOnJdbc}）。
      */
     @ArchTest
     static final ArchRule kernelMustNotDependOnAppOrSpringWeb =
@@ -100,12 +103,22 @@ class ModuleDependencyRulesTest {
                     .resideInAnyPackage(
                             "com.wannian.server.app..",
                             "org.springframework..",
-                            "java.sql..",
-                            "javax.sql..",
                             "org.sqlite..",
                             "org.flywaydb..",
                             "com.openai..",
                             "com.anthropic..");
+
+    /** kernel 非 task 包不得依赖 JDBC；task 仓储同事务口除外。 */
+    @ArchTest
+    static final ArchRule kernelOutsideTaskMustNotDependOnJdbc =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.wannian.server.kernel..")
+                    .and()
+                    .resideOutsideOfPackage("com.wannian.server.kernel.task..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("java.sql..", "javax.sql..");
     /** 读取 api/pom.xml，断言无禁止依赖片段。 */
     @Test
     void apiPomMustNotDeclareForbiddenDependencies() throws Exception {
@@ -175,7 +188,7 @@ class ModuleDependencyRulesTest {
 
     @Test
     void isolatedViolationsFailAndLegalTypesPass() {
-        assertThatThrownBy(() -> kernelMustNotDependOnAppOrSpringWeb.check(classesOf(KernelJdbcViolation.class)))
+        assertThatThrownBy(() -> kernelOutsideTaskMustNotDependOnJdbc.check(classesOf(KernelJdbcViolation.class)))
                 .isInstanceOf(AssertionError.class);
         assertThatThrownBy(() -> kernelMustNotDependOnAppOrSpringWeb.check(classesOf(KernelSpringViolation.class)))
                 .isInstanceOf(AssertionError.class);
@@ -191,6 +204,8 @@ class ModuleDependencyRulesTest {
                 .isInstanceOf(AssertionError.class);
 
         kernelMustNotDependOnAppOrSpringWeb.check(
+                classesOf(Turn.class, SequentialConversationTitlePolicy.class));
+        kernelOutsideTaskMustNotDependOnJdbc.check(
                 classesOf(Turn.class, SequentialConversationTitlePolicy.class));
         apiMustNotDependOnSpringOrApp.check(classesOf(TurnId.class));
     }

@@ -6,6 +6,7 @@ import com.wannian.server.kernel.tool.builtin.HttpReadToolAdapter;
 import com.wannian.server.kernel.tool.builtin.ListToolsToolAdapter;
 import com.wannian.server.kernel.tool.builtin.LoadSkillToolAdapter;
 import com.wannian.server.kernel.tool.builtin.PowerShellResolveToolAdapter;
+import com.wannian.server.kernel.tool.builtin.ProposeBackgroundTaskToolAdapter;
 import com.wannian.server.kernel.tool.builtin.RememberFactToolAdapter;
 import com.wannian.server.kernel.tool.builtin.SearchMemoryToolAdapter;
 import com.wannian.server.kernel.tool.builtin.UpdateRelationshipToolAdapter;
@@ -184,6 +185,33 @@ public final class BuiltinToolPool {
                         Set.of(),
                         false,
                         LoadSkillToolAdapter::unavailable));
+        put(
+                map,
+                new Spec(
+                        BuiltinToolNames.PROPOSE_BACKGROUND_TASK,
+                        "提案后台任务（立即或可选 delay 相对延迟）。"
+                                + " 用户明确要求「后台任务 / 先确认再执行 / 定时提醒」时必须用本工具，"
+                                + " 禁止改用 calculate 等工具当场算完。"
+                                + " taskType=READ_ONLY_TOOL_BATCH|USER_SCHEDULED_NOTIFY；"
+                                + " READ_ONLY_TOOL_BATCH 的 inputJson 推荐："
+                                + " {\"tools\":[{\"name\":\"calculate\",\"arguments\":{\"expression\":\"9973*9967\"}}]}；"
+                                + " 也接受 {\"operations\":[{\"tool\":\"calculate\",\"expression\":\"9973*9967\"}]}。"
+                                + " acknowledgementText 仅作待审卡片预览短承接（如「好，确认后开始算」），"
+                                + " 确认后聊天里的系统短文与任务结果另写，勿在此写结果数字或「已完成」。"
+                                + " delay 可选如 20m（USER_SCHEDULED_NOTIFY 必填）。"
+                                + " USER_SCHEDULED_NOTIFY 的 inputJson 须含 message 或 reminder（提醒正文）；"
+                                + " 可选 title、delivery（默认 NOTICE_THEN_CHAT）；勿把 triggerAt 当调度依据。"
+                                + " 本工具不写库；须用户确认后才落库。",
+                        "{\"type\":\"object\",\"properties\":{"
+                                + "\"taskType\":{\"type\":\"string\",\"enum\":[\"READ_ONLY_TOOL_BATCH\",\"USER_SCHEDULED_NOTIFY\"]},"
+                                + "\"inputJson\":{\"type\":\"string\"},"
+                                + "\"acknowledgementText\":{\"type\":\"string\"},"
+                                + "\"notifyPolicy\":{\"type\":\"string\",\"enum\":[\"USER_VISIBLE\",\"SILENT\"]},"
+                                + "\"delay\":{\"type\":\"string\"}"
+                                + "},\"required\":[\"taskType\",\"inputJson\",\"acknowledgementText\"],\"additionalProperties\":false}",
+                        Set.of(),
+                        false,
+                        ProposeBackgroundTaskToolAdapter::new));
         return Map.copyOf(map);
     }
 

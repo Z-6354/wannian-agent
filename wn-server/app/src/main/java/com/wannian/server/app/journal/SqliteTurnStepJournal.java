@@ -15,7 +15,7 @@ import javax.sql.DataSource;
 /**
  * 将带 turnId 的条目写入 {@code turn_step}；进程级（无 turnId）跳过，交由 {@link ProcessEventWriter}。
  *
- * <p>0.2.4-A：{@code step_no} 仅在<strong>同一 JDBC 连接/事务</strong>内通过 {@code MAX(step_no)+1} 分配；
+ * <p>2.4.1：{@code step_no} 仅在<strong>同一 JDBC 连接/事务</strong>内通过 {@code MAX(step_no)+1} 分配；
  * 不得先在连接 A 读 MAX、再在连接 B INSERT。
  *
  * <ul>

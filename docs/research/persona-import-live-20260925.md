@@ -18,7 +18,7 @@
 - body: {"importId":"7d973d67-ed45-4636-88ff-a350e2e67d6b","status":"PENDING","target":"DEFAULT_YANHUO"}
 
 ## Step 2 轮询
-- elapsed: 00:00:00.1279851
+- elapsed: 00:00:02.1279851
 - polls:
   - [00:00] #1 status=FAILED progress=100 err=INVALID_MODEL_OUTPUT scan=384 matched=163 modelCh=0 windows=0 inputChars=0 unmodeled=0 candidate=
 - final_status: FAILED

@@ -1,7 +1,7 @@
 # Agent Run / Session Logging · 同业调研
 
 `date`: **2026-09-24**  
-`purpose`: 为 **wannian-agent 0.2.3-L**（行为/debug 日志）提供可落地的同业证据；对齐后续 **0.2.4-A `turn_step` 统一行为账本**（[`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md)），但不替代 ErrorCodes / SafeErrorLog 运维通道。
+`purpose`: 为 **wannian-agent 2.3.6**（行为/debug 日志）提供可落地的同业证据；对齐后续 **2.4.1 `turn_step` 统一行为账本**（[`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md)），但不替代 ErrorCodes / SafeErrorLog 运维通道。
 
 **用户诉求（本调研输入）：** 每次模型调用的完整内容、每次工具调用的完整细节、进程启动/关闭事件；可查询、可复盘，与运维错误日志分离。
 
@@ -49,7 +49,7 @@
 
 **来源：** [CLI audit](https://docs.openclaw.ai/cli/audit) · [config observability](https://docs.openclaw.ai/gateway/config-observability) · [gateway logging](https://docs.openclaw.ai/gateway/logging) · [FAQ 路径](https://docs.openclaw.ai/help/faq)
 
-**对 wannian 的启示：** **审计索引 vs 行为真源 vs 运维日志** 三分法；本仓已有 ErrorCodes/SafeErrorLog ≈ OpenClaw 文件日志+错误；**0.2.3-L 用户要的「全量模型/工具内容」应对标 transcript/DSH session，不是 metadata audit**。
+**对 wannian 的启示：** **审计索引 vs 行为真源 vs 运维日志** 三分法；本仓已有 ErrorCodes/SafeErrorLog ≈ OpenClaw 文件日志+错误；**2.3.6 用户要的「全量模型/工具内容」应对标 transcript/DSH session，不是 metadata audit**。
 
 ---
 
@@ -63,7 +63,7 @@
 
 **来源：** [Session Storage 官方文档](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage) · [hermes_state.py](https://github.com/NousResearch/hermes-agent/blob/main/hermes_state.py)
 
-**对 wannian 的启示：** 「消息表存全量 + 元数据索引」可行，但 wannian 已有 **Message/Turn 表**；0.2.3-L 更适合 **逐步骤 `turn_step` 账本** 补 Loop 内 MODEL/TOOL 明细，避免与 Message 双写语义冲突。
+**对 wannian 的启示：** 「消息表存全量 + 元数据索引」可行，但 wannian 已有 **Message/Turn 表**；2.3.6 更适合 **逐步骤 `turn_step` 账本** 补 Loop 内 MODEL/TOOL 明细，避免与 Message 双写语义冲突。
 
 ---
 
@@ -77,7 +77,7 @@
 
 **来源：** [mem0/memory/main.py](https://github.com/mem0ai/mem0/blob/main/mem0/memory/main.py) · [LLM.md](https://github.com/mem0ai/mem0/blob/main/LLM.md)
 
-**对 wannian 的启示：** `run_id` 作用域与 **append-only 事件** 模式可借鉴；Mem0 解决「记住什么」，不解决「debug 每一步」——本仓 Memory（0.2.3）与行为账本（0.2.4-A）应继续分工。
+**对 wannian 的启示：** `run_id` 作用域与 **append-only 事件** 模式可借鉴；Mem0 解决「记住什么」，不解决「debug 每一步」——本仓 Memory（2.3）与行为账本（2.4.1）应继续分工。
 
 ---
 
@@ -184,18 +184,18 @@
 
 ---
 
-## 4. 对 wannian 0.2.3-L 的建议
+## 4. 对 wannian 2.3.6 的建议
 
 ### 4.1 与现有设计对齐
 
 | 已有/计划 | 本阶段用法 |
 |-----------|------------|
-| [`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md) **`turn_step`** | 0.2.3-L **提前落地核心形状**（表 + 单一写入路径），避免 log.info 冒充审计；字段对齐 [`04-kernel-reference.md` §turn_step](../guide/04-kernel-reference.md)：`turn_id`, `step_no`, `kind`, `request_json`, `result_json`, `status`, `started_at`, `finished_at`。 |
+| [`k04-behavior-journal.md`](../plans/archive/0.2.4/k04-behavior-journal.md) **`turn_step`** | 2.3.6 **提前落地核心形状**（表 + 单一写入路径），避免 log.info 冒充审计；字段对齐 [`04-kernel-reference.md` §turn_step](../guide/04-kernel-reference.md)：`turn_id`, `step_no`, `kind`, `request_json`, `result_json`, `status`, `started_at`, `finished_at`。 |
 | **ErrorCodes / SafeErrorLog** | **禁止**把运维错误当 `turn_step`；失败 Turn 可在 step 上记 `error_code` **引用** ErrorCodes，不复制 SafeErrorLog 栈文本。 |
 | **AgentTrace** | 仅内存投影/UI；**不得**成唯一真相源（k04 验收项）。 |
 | **Message / Turn** | 继续表「提交后的对话事实」；`turn_step` 表「如何走到那里」（含中间 MODEL/TOOL）。 |
 
-### 4.2 建议的 `kind` 扩展（0.2.3-L）
+### 4.2 建议的 `kind` 扩展（2.3.6）
 
 在 k04 草案（`USER_INPUT`, `MODEL_CALL`, `TOOL_CALL`, `MEMORY_WRITE`, `FINALIZE`）上，为 **用户明确诉求** 增加：
 
@@ -208,7 +208,7 @@
 | `TOOL_CALL` | `agent` | **request**：tool 名 + **完整 arguments**；**result**：工具结果 + operationId（若有） | DSH `tool/call` + `tool/result` |
 | `FINALIZE` | `agent` | turn 终态、总 step 数 | DSH `turn/end` |
 
-**MEMORY_WRITE** 可在 0.2.3 Memory 已交付后按 k04 再补；0.2.3-L 优先 MODEL/TOOL/进程生命周期。
+**MEMORY_WRITE** 可在 2.3 Memory 已交付后按 k04 再补；2.3.6 优先 MODEL/TOOL/进程生命周期。
 
 ### 4.3 明细程度（回应「每次模型/工具都要详细」）
 
@@ -222,15 +222,15 @@
 2. **进程起停：** Spring `@EventListener` `ApplicationReadyEvent` / shutdown hook → `actor=system` 的 `PROCESS_*` 行；**无 turn_id** 时可使用 sentinel turn_id=`__system__` 或 nullable FK + 独立 `conversation_id`（实施时二选一，需在 migration 说明）。  
 3. **禁止：** 各模块独立 `log.info` 写 JSON 冒充账本；SSE/outbox **不**先于 commit 暴露未完成 step。
 
-### 4.5 查询与验收（0.2.3-L 最小）
+### 4.5 查询与验收（2.3.6 最小）
 
 - 仓储：`listStepsByTurnId(turn_id)` + `listSystemSteps(since)`。  
 - 断言：一次含 tool 的 Turn → step_no 单调且含 ≥1 `MODEL_CALL` + ≥1 `TOOL_CALL` + `FINALIZE`；重启进程 → 存在 `PROCESS_START`。  
 - 脱敏测试：含 `Authorization:` 的 tool result 不得原样出现在 `result_json`。
 
-### 4.6 与 0.2.4-A 的关系
+### 4.6 与 2.4.1 的关系
 
-0.2.3-L 可视为 **k04-A 的窄版提前交付**（MODEL/TOOL/进程 + SQLite + 单写路径 + 脱敏），**不**阻塞后续补 `MEMORY_WRITE`、Outbox 暴露策略、管理 UI。若 migration 编号暂用 V0xx 占位，合并 0.2.4-A 时保持 **`turn_step` 列兼容**，避免二次迁移。
+2.3.6 可视为 **k04-A 的窄版提前交付**（MODEL/TOOL/进程 + SQLite + 单写路径 + 脱敏），**不**阻塞后续补 `MEMORY_WRITE`、Outbox 暴露策略、管理 UI。若 migration 编号暂用 V0xx 占位，合并 2.4.1 时保持 **`turn_step` 列兼容**，避免二次迁移。
 
 ---
 

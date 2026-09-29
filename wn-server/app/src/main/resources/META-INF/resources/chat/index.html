@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>万年</title>
-  <link rel="stylesheet" href="/ui/tokens.css?v=20260925r">
+  <link rel="stylesheet" href="/ui/tokens.css?v=20260929a">
   <link rel="stylesheet" href="/ui/themes/paper.css?v=20260920p">
   <link rel="stylesheet" href="/ui/components.css?v=20260920p">
-  <link rel="stylesheet" href="/ui/layouts/app-shell.css?v=20260925a">
-  <link rel="stylesheet" href="/ui/layouts/chat.css?v=20260926c">
-  <link rel="stylesheet" href="/ui/layouts/console.css?v=20260925r">
+  <link rel="stylesheet" href="/ui/layouts/app-shell.css?v=20260928r">
+  <link rel="stylesheet" href="/ui/layouts/chat.css?v=20260929a">
+  <link rel="stylesheet" href="/ui/layouts/console.css?v=20260928r">
 </head>
 <body>
   <a class="skip-link" href="#transcript">跳到主要内容</a>
@@ -46,6 +46,7 @@
           <button type="button" class="secondary" id="empty-trash" hidden>清空回收站</button>
         </div>
       </section>
+      <section class="chat-task-sidebar" id="chat-task-sidebar" aria-label="任务缩略"></section>
     </aside>
     <div class="workspace-stack">
       <div id="view-chat" class="workspace chat-workspace">
@@ -56,7 +57,12 @@
               <p id="conversation-subtitle" class="page-status"></p>
             </div>
             <div class="page-actions">
-              <button type="button" class="ghost" id="rename-conversation" hidden>改名</button>
+              <div class="message-center" id="message-center">
+                <button type="button" class="ghost message-center-toggle" id="message-center-toggle" aria-expanded="false" aria-haspopup="dialog" title="通知">
+                  通知<span class="msg-center-badge" id="message-center-badge" hidden></span>
+                </button>
+              </div>
+              <button type="button" class="ghost" id="rename-conversation" hidden aria-hidden="true">改名</button>
               <button type="button" class="ghost" id="archive-conversation" hidden>归档</button>
               <button type="button" class="ghost" id="unarchive-conversation" hidden>取消归档</button>
               <button type="button" class="ghost" id="trash-conversation" hidden>回收站</button>
@@ -103,7 +109,6 @@
       </div>
     </div>
   </div>
-  <aside id="archive-notices" hidden aria-live="polite"></aside>
   <script>
     (function () {
       var path = location.pathname;
@@ -112,6 +117,6 @@
       }
     })();
   </script>
-  <script type="module" src="/shell/app.js?v=20260926c"></script>
+  <script type="module" src="/shell/app.js?v=20260928s"></script>
 </body>
 </html>

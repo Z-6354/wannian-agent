@@ -1,7 +1,7 @@
 # 调研 · 多核心拓扑：设备 / 节点 / 角色
 
 `status`: **reference** — 2026-09-20  
-`version`: **v0.3** — 世界树与多核节点。v0.2 只跑一个烟火节点上的 harness。  
+`version`: **v3** — 世界树与多核节点。v2 只跑一个烟火节点上的 harness。  
 `related`: [world-evolution](./world-evolution-and-extensions.md) · [wannian-loop-modules](./wannian-loop-modules.md) · [roadmap](../plans/roadmap.md) · [history/v02-multi-kernel](./history/v02-multi-kernel.md)（宿主主备，更后）
 
 ---

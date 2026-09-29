@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.2 阶段 2 + K02-R：可见集 A/B/C/D + PS family 求交。 */
+/** 2.2 阶段 2 + K02-R：可见集 A/B/C/D + PS family 求交。 */
 class ToolVisibilityPhase2Test {
 
     private ToolVisibilityResolver resolver;

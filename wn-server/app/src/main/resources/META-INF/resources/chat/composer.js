@@ -1,7 +1,7 @@
-import { stopTurn, cancelQueuedTurn, getTurnStatus } from "/chat/api.js?v=20260925i";
+import { stopTurn, cancelQueuedTurn, getTurnStatus } from "/chat/api.js?v=20260928f";
 
 /**
- * composer：Stop 替换发送按钮；排队提示 / 撤队仍走 toolbar（0.2.4-E）。
+ * composer：Stop 替换发送按钮；排队提示 / 撤队仍走 toolbar（2.4.6）。
  * 禁止在未确认服务端终态前显示「已停止」。
  */
 export function createComposerController({
@@ -154,7 +154,10 @@ export function createComposerController({
     const queued = snap.queued || [];
     const stopping = Boolean(snap.stoppingTurnId);
     const committing = Boolean(snap.committingTurnId);
-    const showStop = committing || stopping || queue.canStop();
+    const submitting = Boolean(getState().submitting);
+    const canStop = queue.canStop();
+    // 发送后直接进停止位；完毕后回发送。不再经过「发送中」文案态。
+    const showStop = submitting || committing || stopping || canStop;
 
     if (committing) {
       stopBtn.hidden = false;
@@ -166,11 +169,16 @@ export function createComposerController({
       stopBtn.disabled = true;
       stopBtn.textContent = "停止中";
       stopBtn.title = "正在停止…";
-    } else if (queue.canStop()) {
+    } else if (canStop) {
       stopBtn.hidden = false;
       stopBtn.disabled = false;
       stopBtn.textContent = "停止";
       stopBtn.title = "停止当前回合";
+    } else if (submitting) {
+      stopBtn.hidden = false;
+      stopBtn.disabled = true;
+      stopBtn.textContent = "停止";
+      stopBtn.title = "正在接通回合…";
     } else {
       stopBtn.hidden = true;
       stopBtn.disabled = true;
@@ -180,6 +188,10 @@ export function createComposerController({
 
     if (els.sendButton) {
       els.sendButton.hidden = showStop;
+      if (!showStop) {
+        els.sendButton.textContent = "发送";
+        els.sendButton.disabled = false;
+      }
     }
 
     if (queueHint && queueList) {

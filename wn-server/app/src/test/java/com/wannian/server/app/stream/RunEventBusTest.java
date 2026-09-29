@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
-/** 0.2.4-C：临时事件扇出；多订阅者各自收到（SSE 去重须按连接隔离，总线本身不吞事件）。 */
+/** 2.4.4：临时事件扇出；多订阅者各自收到（SSE 去重须按连接隔离，总线本身不吞事件）。 */
 class RunEventBusTest {
 
     @Test

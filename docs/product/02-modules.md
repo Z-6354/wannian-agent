@@ -3,7 +3,7 @@
 `last_updated`: 2026-09-20  
 `status`: **定稿** — `wn-server` 已按三层建立。未列模块仍不建。
 
-三层 Maven 和包名仍然有效。版本以 [产品概览 §3](./01-overview.md) 为准：**v0.1** 已有会话、直接回答和管理页；**v0.2** 在单节点上补 harness（Loop、工具、记忆、Outbox）；**v0.3** 才加世界树与多核。Guardian 与 wn-agent 更后。落地进度看 [实施清单](../guide/01-checklist.md)。
+三层 Maven 和包名仍然有效。版本以 [产品概览 §3](./01-overview.md) 为准：**v1** 已有会话、直接回答和管理页；**v2** 在单节点上补 harness（Loop、工具、记忆、Outbox）；**v3** 才加世界树与多核。Guardian 与 wn-agent 更后。落地进度看 [实施清单](../guide/01-checklist.md)。
 
 ## 1. 交付单元（Maven）
 
@@ -30,22 +30,22 @@ wn-server/
 
 ## 2. 逻辑模块（kernel + app 内）
 
-### 2.1 v0.1 已有 / v0.2 补齐
+### 2.1 v1 已有 / v2 补齐
 
 | 模块 ID | 所在层 | 职责 | 不做 |
 |---------|--------|------|------|
 | **session** | kernel | 会话身份、会话元数据、transcript 归属 | 多租户 |
-| **turn** | kernel | 认领、提交、状态机；v0.2 接到 Loop | 完整 Plan DAG |
-| **companion** | kernel | 情感成长快照、人设注入（v0.2 做实） | 复杂心理学模型 |
-| **memory** | kernel | 短长期记忆（v0.2 做实） | 大规模向量库 |
-| **llm / model** | kernel | 模型调用；v0.1 已有直接回答路径 | 绑死单一厂商 UI |
+| **turn** | kernel | 认领、提交、状态机；v2 接到 Loop | 完整 Plan DAG |
+| **companion** | kernel | 情感成长快照、人设注入（v2 做实） | 复杂心理学模型 |
+| **memory** | kernel | 短长期记忆（v2 做实） | 大规模向量库 |
+| **llm / model** | kernel | 模型调用；v1 已有直接回答路径 | 绑死单一厂商 UI |
 | **channel** | kernel SPI + app | 入站统一；embedded-web 为首个 | 具体 Bot |
 | **auth** | app | 个人 Token / 口令 | OAuth 多用户 |
 | **http-api** | app | health / turns / companion | 业务写进 Controller |
 | **web-embed** | app | `/chat/`、`/manage/` | 独立网页进程 |
 | **platform** | app | 配置、日志、版本、关闭 | 许可/Boss/Notify |
 
-### 2.2 v0.2 增加（仍是这一个节点）
+### 2.2 v2 增加（仍是这一个节点）
 
 | 模块 ID | 所在层 | 职责 |
 |---------|--------|------|
@@ -53,7 +53,7 @@ wn-server/
 | **tool** | kernel | 本节点可安全执行的工具；不派到第二台机器 |
 | **memory / relationship** | kernel | 杜小洛的成长与记忆，算法可简单，不能只有空接口 |
 
-### 2.3 v0.3 增加
+### 2.3 v3 增加
 
 | 模块 ID | 所在层 | 职责 |
 |---------|--------|------|
@@ -86,8 +86,8 @@ wn-server/
               │
               └──── channel SPI ←── embedded-web adapter
 
-        v0.2:  turn ──► loop ──► tool（仍在这一个节点）
-        v0.3:  世界树节点 ──事件──► 杜小洛节点；多节点共一份库
+        v2:  turn ──► loop ──► tool（仍在这一个节点）
+        v3:  世界树节点 ──事件──► 杜小洛节点；多节点共一份库
 ```
 
 **调用方向**：`wn-server-app → wannian-ui`（样式装配）与 `app → kernel → api`（服务端代码）；页面与 adapter 在 `app` 内，不另成模块。kernel 模块之间 turn 为中枢；companion/memory/llm 不直接依赖 HTTP。
@@ -114,8 +114,8 @@ com.wannian.server.app.http|auth|web|config
 | turn 流水线骨架 | 是（注释桩） | Agent 循环细节 |
 | companion / memory / llm 实现 | stub | **是** |
 | channel SPI + embedded-web | 是 | Bot 适配后期 |
-| tool / loop | v0.2 单核再搭 | 工具策略可共商 |
-| world / 多节点 | v0.3 | 见研究稿，不在本表展开 |
+| tool / loop | v2 单核再搭 | 工具策略可共商 |
+| world / 多节点 | v3 | 见研究稿，不在本表展开 |
 
 ---
 

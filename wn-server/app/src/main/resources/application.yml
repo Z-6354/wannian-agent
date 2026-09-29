@@ -38,7 +38,7 @@ wannian:
       soft-deadline-seconds: ${WANNIAN_AGENT_SOFT_DEADLINE_SECONDS:60}
       hard-deadline-seconds: ${WANNIAN_AGENT_HARD_DEADLINE_SECONDS:100}
   journal:
-    # 0.2.3-L：运行日志 / turn_step；关闭后 Loop 仍可跑，只是不落账本。
+    # 2.3.6：运行日志 / turn_step；关闭后 Loop 仍可跑，只是不落账本。
     enabled: ${WANNIAN_JOURNAL_ENABLED:true}
     jsonl-enabled: ${WANNIAN_JOURNAL_JSONL_ENABLED:true}
     sqlite-enabled: ${WANNIAN_JOURNAL_SQLITE_ENABLED:true}
@@ -60,12 +60,39 @@ wannian:
     search:
       default-limit: ${WANNIAN_MEMORY_SEARCH_DEFAULT_LIMIT:5}
       max-limit: ${WANNIAN_MEMORY_SEARCH_MAX_LIMIT:20}
+  # 2.5.4：后台 Task 执行 / 门闩 / tick（F9 可配置；F13：lease ≥ deadline+30s）
+  task:
+    dispatch:
+      tick-ms: ${WANNIAN_TASK_DISPATCH_TICK_MS:5000}
+    # 2.5.8：到期 SCHEDULED→CREATED 晋升（与 dispatch 分拍）
+    schedule:
+      promote-tick-ms: ${WANNIAN_TASK_SCHEDULE_PROMOTE_TICK_MS:5000}
+      promote-batch: ${WANNIAN_TASK_SCHEDULE_PROMOTE_BATCH:4}
+    run:
+      lease-duration: ${WANNIAN_TASK_RUN_LEASE_DURATION:5m}
+    executor:
+      deadline: ${WANNIAN_TASK_EXECUTOR_DEADLINE:4m}
+    result:
+      max-chars: ${WANNIAN_TASK_RESULT_MAX_CHARS:32768}
+    retry:
+      max-attempts: ${WANNIAN_TASK_RETRY_MAX_ATTEMPTS:2}
+    # 2.5.5：用户待审 TTL / 确认短 Turn 认领租约
+    review:
+      ttl: ${WANNIAN_TASK_REVIEW_TTL:30m}
+      claim-lease: ${WANNIAN_TASK_REVIEW_CLAIM_LEASE:60s}
+    # 2.5.6：Busy 虚线交付摘要截断
+    delivery:
+      preview-chars: ${WANNIAN_TASK_DELIVERY_PREVIEW_CHARS:2048}
+    # 2.5.7：Idle 系统唤模队列
+    idle-delivery:
+      tick-ms: ${WANNIAN_TASK_IDLE_DELIVERY_TICK_MS:3000}
+      drain-batch: ${WANNIAN_TASK_IDLE_DELIVERY_DRAIN_BATCH:2}
   # —— 上下文装配（禁止在 Java 再写死业务默认；改这里或环境变量）——
   # 说明见 docs/guide/09-configuration.md。相对 gpt-6-luna / DeepSeek ~1M token，下列为产品护栏，非模型硬顶。
   context:
     # 近讯条数（用户+助手合计进 excerpt 的上限）；不含本轮用户句。
     recent-message-limit: ${WANNIAN_CONTEXT_RECENT_MESSAGE_LIMIT:20}
-  # 0.2.4-P：可编辑提示词与 Skill 截断（kernel 只吃已截断文本）
+  # 2.4.2：可编辑提示词与 Skill 截断（kernel 只吃已截断文本）
   prompt:
     # 每层 SOUL/VOICE/IDENTITY/USER/SAFETY 独立字符上限；超长硬切尾部。
     layer-char-budget: ${WANNIAN_PROMPT_LAYER_CHAR_BUDGET:4000}
@@ -84,7 +111,7 @@ wannian:
   # SQLite 忙等待（毫秒）；禁止无限 SQLITE_BUSY 重试
   sqlite:
     busy-timeout-ms: ${WANNIAN_SQLITE_BUSY_TIMEOUT_MS:5000}
-  # 0.2.4-G：空会话清理 + 闲置自动归档（评估器可切换 llm|heuristic）
+  # 2.4.7：空会话清理 + 闲置自动归档（评估器可切换 llm|heuristic）
   conversation:
     idle-archive-days: ${WANNIAN_CONVERSATION_IDLE_ARCHIVE_DAYS:7}
     archive-schedule: ${WANNIAN_CONVERSATION_ARCHIVE_SCHEDULE:DAILY}

@@ -1,0 +1,127 @@
+# K02 1B-0/1B-1：本机 SQLite 文件库（非 MySQL）。
+# 数据目录可通过环境变量 WANNIAN_DATA_DIR 覆盖；禁止放到 target/ 或构建产物下。
+
+server:
+  # 默认 HTTP 端口；测试使用 RANDOM_PORT，不受此项影响。
+  port: 8080
+
+wannian:
+  # SQLite 所在目录；库文件为该目录下的 wannian.db。
+  # 默认：工程内 wn-server/data（相对路径，由 SqliteConfig 解析到模块根，不落用户主目录）。
+  # 仍可用 WANNIAN_DATA_DIR 指到任意绝对路径。
+  data-dir: ${WANNIAN_DATA_DIR:data}
+  # 写入备份元数据的构建标识。未接构建流水线时为 unknown，不用它做版本切换。
+  build-id: ${WANNIAN_BUILD_ID:unknown}
+  backup:
+    # backups/ 下保留的快照份数，超出后删除最旧的。至少为 1。可用 WANNIAN_BACKUP_RETAIN_COUNT 覆盖。
+    retain-count: ${WANNIAN_BACKUP_RETAIN_COUNT:7}
+  manage:
+    # 外网管理口令。空则使用数据目录 manage.properties（没有就写入默认值）。本机回环不校验。
+    # 不要把口令写进本文件；WANNIAN_MANAGE_TOKEN 非空时覆盖本地文件。
+    token: ${WANNIAN_MANAGE_TOKEN:}
+  model:
+    # live（默认）：真实 OpenAI 兼容调用，读供应商 apiKeyEnv。真人实机 / 产品路径验收必须用 live。
+    # fake：仅单测与管理页无模型冒烟；禁止当作实机或 Loop/工具收口证据。见 guide/07-testing.md §1.1。
+    mode: ${WANNIAN_MODEL_MODE:live}
+    # 陪伴向默认采样（减轻助手腔模板句）；可按环境覆盖。工作/科研分档后可再扩。
+    sampling:
+      temperature: ${WANNIAN_MODEL_TEMPERATURE:0.85}
+      top-p: ${WANNIAN_MODEL_TOP_P:0.95}
+      presence-penalty: ${WANNIAN_MODEL_PRESENCE_PENALTY:2.35}
+  agent:
+    budget:
+      # 下列为首次生成数据目录 wannian.json 中 agentBudget 时的种子；运行期以该文件为准，管理页可改。
+      # 环境变量可覆盖种子默认值（仅影响尚未写出的 wannian.json）。
+      # 种子默认：普通决策 10 / 系统工具每工具 5 / 软 60s / 硬 100s；运行期以数据目录 wannian.json 的 agentBudget 为准。
+      max-model-decisions: ${WANNIAN_AGENT_MAX_MODEL_DECISIONS:10}
+      max-system-tool-invocations-per-tool: ${WANNIAN_AGENT_MAX_SYSTEM_TOOL_INVOCATIONS_PER_TOOL:5}
+      soft-deadline-seconds: ${WANNIAN_AGENT_SOFT_DEADLINE_SECONDS:60}
+      hard-deadline-seconds: ${WANNIAN_AGENT_HARD_DEADLINE_SECONDS:100}
+  journal:
+    # 2.3.6：运行日志 / turn_step；关闭后 Loop 仍可跑，只是不落账本。
+    enabled: ${WANNIAN_JOURNAL_ENABLED:true}
+    jsonl-enabled: ${WANNIAN_JOURNAL_JSONL_ENABLED:true}
+    sqlite-enabled: ${WANNIAN_JOURNAL_SQLITE_ENABLED:true}
+    include-full-messages: ${WANNIAN_JOURNAL_INCLUDE_FULL_MESSAGES:true}
+    max-payload-chars: ${WANNIAN_JOURNAL_MAX_PAYLOAD_CHARS:65536}
+  memory:
+    # 阶段 C：Review tick（毫秒）
+    review:
+      scheduler-enabled: ${WANNIAN_MEMORY_REVIEW_SCHEDULER_ENABLED:true}
+      tick-ms: ${WANNIAN_MEMORY_REVIEW_TICK_MS:60000}
+    # 阶段 D：Assembler 注入限额（kernel MemoryRecallLimits；改预算只动 yml）
+    recall:
+      top-n: ${WANNIAN_MEMORY_RECALL_TOP_N:12}
+      char-budget: ${WANNIAN_MEMORY_RECALL_CHAR_BUDGET:2000}
+    # 阶段 D：弱 B 单 tick 上限
+    tombstone:
+      batch-limit: ${WANNIAN_MEMORY_TOMBSTONE_BATCH_LIMIT:50}
+    # D+：search_memory（MemorySearchLimits）
+    search:
+      default-limit: ${WANNIAN_MEMORY_SEARCH_DEFAULT_LIMIT:5}
+      max-limit: ${WANNIAN_MEMORY_SEARCH_MAX_LIMIT:20}
+  # 2.5.4：后台 Task 执行 / 门闩 / tick（F9 可配置；F13：lease ≥ deadline+30s）
+  task:
+    dispatch:
+      tick-ms: ${WANNIAN_TASK_DISPATCH_TICK_MS:5000}
+    run:
+      lease-duration: ${WANNIAN_TASK_RUN_LEASE_DURATION:5m}
+    executor:
+      deadline: ${WANNIAN_TASK_EXECUTOR_DEADLINE:4m}
+    result:
+      max-chars: ${WANNIAN_TASK_RESULT_MAX_CHARS:32768}
+    retry:
+      max-attempts: ${WANNIAN_TASK_RETRY_MAX_ATTEMPTS:2}
+    # 2.5.5：用户待审 TTL / 确认短 Turn 认领租约
+    review:
+      ttl: ${WANNIAN_TASK_REVIEW_TTL:30m}
+      claim-lease: ${WANNIAN_TASK_REVIEW_CLAIM_LEASE:60s}
+  # —— 上下文装配（禁止在 Java 再写死业务默认；改这里或环境变量）——
+  # 说明见 docs/guide/09-configuration.md。相对 gpt-6-luna / DeepSeek ~1M token，下列为产品护栏，非模型硬顶。
+  context:
+    # 近讯条数（用户+助手合计进 excerpt 的上限）；不含本轮用户句。
+    recent-message-limit: ${WANNIAN_CONTEXT_RECENT_MESSAGE_LIMIT:20}
+  # 2.4.2：可编辑提示词与 Skill 截断（kernel 只吃已截断文本）
+  prompt:
+    # 每层 SOUL/VOICE/IDENTITY/USER/SAFETY 独立字符上限；超长硬切尾部。
+    layer-char-budget: ${WANNIAN_PROMPT_LAYER_CHAR_BUDGET:4000}
+  skill:
+    index-max-entries: ${WANNIAN_SKILL_INDEX_MAX_ENTRIES:16}
+    index-desc-chars: ${WANNIAN_SKILL_INDEX_DESC_CHARS:160}
+    index-char-budget: ${WANNIAN_SKILL_INDEX_CHAR_BUDGET:3000}
+    body-char-budget: ${WANNIAN_SKILL_BODY_CHAR_BUDGET:8000}
+    # 空 = 盘上安全 id 全部授权；逗号分隔白名单则仅这些 id 进索引/load_skill
+    allowed-ids: ${WANNIAN_SKILL_ALLOWED_IDS:}
+  # 人物导入 / 默认 overlay 长度护栏
+  persona:
+    overlay-layer-char-budget: ${WANNIAN_PERSONA_OVERLAY_LAYER_CHAR_BUDGET:1000}
+    overlay-total-char-budget: ${WANNIAN_PERSONA_OVERLAY_TOTAL_CHAR_BUDGET:1600}
+    import-window-chars: ${WANNIAN_PERSONA_IMPORT_WINDOW_CHARS:3000}
+  # SQLite 忙等待（毫秒）；禁止无限 SQLITE_BUSY 重试
+  sqlite:
+    busy-timeout-ms: ${WANNIAN_SQLITE_BUSY_TIMEOUT_MS:5000}
+  # 2.4.7：空会话清理 + 闲置自动归档（评估器可切换 llm|heuristic）
+  conversation:
+    idle-archive-days: ${WANNIAN_CONVERSATION_IDLE_ARCHIVE_DAYS:7}
+    archive-schedule: ${WANNIAN_CONVERSATION_ARCHIVE_SCHEDULE:DAILY}
+    archive-weekday: ${WANNIAN_CONVERSATION_ARCHIVE_WEEKDAY:1}
+    archive-at-hour: ${WANNIAN_CONVERSATION_ARCHIVE_AT_HOUR:0}
+    archive-at-minute: ${WANNIAN_CONVERSATION_ARCHIVE_AT_MINUTE:0}
+    archive-batch-limit: ${WANNIAN_CONVERSATION_ARCHIVE_BATCH_LIMIT:20}
+    archive-evaluator: ${WANNIAN_CONVERSATION_ARCHIVE_EVALUATOR:llm}
+
+spring:
+  application:
+    # 进程与日志中的应用名；探活 JSON 的 service 字段刻意为 wn-server，二者可并存。
+    name: wn-server
+  mvc:
+    # SSE 长连接：须 ≥ SseEmitter 超时；勿用 0（部分容器/重派路径会立刻 ERROR）
+    async:
+      request-timeout: 30m
+  datasource:
+    # 说明性 URL（与 SqliteConfig 一致）；驱动类供文档与排障对照。
+    url: jdbc:sqlite:${wannian.data-dir}/wannian.db
+    driver-class-name: org.sqlite.JDBC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration

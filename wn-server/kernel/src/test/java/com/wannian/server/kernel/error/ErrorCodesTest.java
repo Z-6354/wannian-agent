@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/** 0.2.1-A：稳定 code 只登记一处；历史 reasonCode 已纳入。 */
+/** 2.1.1：稳定 code 只登记一处；历史 reasonCode 已纳入。 */
 class ErrorCodesTest {
 
     @Test

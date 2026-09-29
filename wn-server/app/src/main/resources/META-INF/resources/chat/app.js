@@ -2,7 +2,7 @@ import {
   createConversation,
   sendTurnAsync,
   getTurnStatus,
-} from "/chat/api.js?v=20260925l";
+} from "/chat/api.js?v=20260928n";
 import {
   createChatState,
   selectConversation,
@@ -14,15 +14,17 @@ import {
   applyStreamEvent,
   findRecoverableTurnIds,
   ensureInflightAssistant,
-} from "/chat/state.js?v=20260925n";
-import { bootstrapRecent, openConversation, refreshHistoryTail } from "/chat/history.js?v=20260925i";
-import { createStreamController } from "/chat/stream.js?v=20260925n";
-import { createRenderer } from "/chat/render.js?v=20260926a";
-import { createSidebar } from "/chat/sidebar.js?v=20260925r";
-import { createQueueController } from "/chat/queue.js?v=20260925n";
-import { createComposerController } from "/chat/composer.js?v=20260926c";
-import { createTitleController } from "/chat/title.js?v=20260925i";
-import { createArchiveNoticeController } from "/chat/notices.js?v=20260925i";
+} from "/chat/state.js?v=20260928n";
+import { bootstrapRecent, openConversation, refreshHistoryTail } from "/chat/history.js?v=20260928n";
+import { createStreamController } from "/chat/stream.js?v=20260928n";
+import { createRenderer } from "/chat/render.js?v=20260928v";
+import { createSidebar } from "/chat/sidebar.js?v=20260928i";
+import { createQueueController } from "/chat/queue.js?v=20260928n";
+import { createComposerController } from "/chat/composer.js?v=20260928j";
+import { createTitleController } from "/chat/title.js?v=20260928n";
+import { createMessageCenterController } from "/chat/message-center.js?v=20260928r";
+import { createTaskReviewController } from "/chat/task-review.js?v=20260929c";
+import { createTaskSidebar } from "/chat/task-sidebar.js?v=20260929c";
 
 /**
  * 对话面板：由 /shell/app.js 挂载；侧栏会话操作会 ensureView("chat")。
@@ -59,12 +61,41 @@ const els = {
   trashBtn: document.querySelector("#trash-conversation"),
   restoreBtn: document.querySelector("#restore-conversation"),
   composerToolbar: document.querySelector("#composer-toolbar"),
-  archiveNotices: document.querySelector("#archive-notices"),
+  messageCenterToggle: document.querySelector("#message-center-toggle"),
+  messageCenterBadge: document.querySelector("#message-center-badge"),
+  taskSidebarHost: document.querySelector("#chat-task-sidebar"),
 };
 
 if (!els.transcript || !els.form || !els.draft) {
   return;
 }
+
+const taskReviewHost = document.createElement("div");
+taskReviewHost.id = "task-review-host";
+taskReviewHost.className = "chat-task-review-host";
+taskReviewHost.hidden = true;
+els.transcript.parentElement.insertBefore(taskReviewHost, els.form);
+
+const taskReviews = createTaskReviewController({
+  hostEl: taskReviewHost,
+  getConversationId: () => state.activeConversationId,
+  onChanged: () => {
+    refreshHistoryTail(
+      state,
+      state.activeConversationId,
+      streamAbort ? streamAbort.signal : undefined
+    ).then(() => paint());
+    if (taskSidebar) taskSidebar.refresh();
+  },
+});
+
+const taskSidebar = els.taskSidebarHost
+  ? createTaskSidebar({
+      hostEl: els.taskSidebarHost,
+      getConversationId: () => state.activeConversationId,
+      ensureView,
+    })
+  : null;
 
 const queue = createQueueController();
 
@@ -91,6 +122,11 @@ const titleCtrl = createTitleController({
 const renderer = createRenderer({
   transcriptEl: els.transcript,
   state,
+  onTaskDeliveryClick: (taskId) => {
+    if (taskSidebar && taskId) {
+      taskSidebar.focusTask(taskId);
+    }
+  },
 });
 
 const composer = createComposerController({
@@ -116,6 +152,9 @@ const stream = createStreamController({
     refreshHistoryTail(state, conversationId, streamAbort ? streamAbort.signal : undefined).then(
       () => {
         if (!isEpochCurrent(epoch, conversationId)) return;
+        taskReviews.refresh();
+        if (taskSidebar) taskSidebar.refresh();
+        if (messageCenter) messageCenter.refresh();
         paint();
         composer.paint();
       }
@@ -123,10 +162,19 @@ const stream = createStreamController({
   },
 });
 
-const archiveNotices = createArchiveNoticeController({
-  root: els.archiveNotices,
+const messageCenter = createMessageCenterController({
+  toggleEl: els.messageCenterToggle,
+  badgeEl: els.messageCenterBadge,
   setNotice,
   onChanged: () => sidebar.refreshList().then(() => paint()),
+  openConversationAndTask: async (conversationId, taskId) => {
+    if (conversationId && conversationId !== state.activeConversationId) {
+      await openSelected(conversationId);
+    }
+    if (taskSidebar && taskId) {
+      await taskSidebar.focusTask(taskId);
+    }
+  },
 });
 
 sidebar = createSidebar({
@@ -138,7 +186,7 @@ sidebar = createSidebar({
   setNotice,
   titleCtrl,
   busyHint: "请先停止或等待队列完成",
-  refreshArchiveNotices: () => archiveNotices.refresh(),
+  refreshArchiveNotices: () => messageCenter.refresh(),
 });
 
 els.form.addEventListener("submit", (event) => {
@@ -181,7 +229,7 @@ bootstrap();
 async function bootstrap() {
   paint();
   composer.paint();
-  await archiveNotices.refresh();
+  await messageCenter.refresh();
   const epochAtStart = state.selectionEpoch;
   await sidebar.refreshList();
   // 列表刷新期间用户若已点选会话，勿再强制 remembered/recent 覆盖
@@ -263,6 +311,8 @@ async function openSelected(conversationId, opts = {}) {
   state.outboxCursor = safeOutboxCursor(result.outboxCursor);
   startStream(conversationId, epoch);
   await recoverActiveTurns(conversationId, epoch);
+  await taskReviews.refresh();
+  if (taskSidebar) await taskSidebar.refresh();
   setNotice("");
   paint({ forceScroll: true });
   composer.paint();
@@ -272,6 +322,19 @@ async function openSelected(conversationId, opts = {}) {
     renderer.scrollToMessage(opts.messageId);
   }
   return true;
+}
+
+/** 虚线附带点击 → 侧栏高亮任务（2.5.9 U6）。 */
+function focusBackgroundTask(taskId) {
+  if (taskSidebar && taskId) {
+    return taskSidebar.focusTask(taskId);
+  }
+  return Promise.resolve();
+}
+
+// 供 render 回调（同模块闭包）
+function onTaskDeliveryClick(taskId) {
+  focusBackgroundTask(taskId);
 }
 
 /**
@@ -285,11 +348,11 @@ async function recoverActiveTurns(conversationId, epoch) {
     const status = await getTurnStatus(conversationId, turnId);
     if (!isEpochCurrent(epoch, conversationId) || status.aborted || !status.ok) continue;
     const terminal = String(status.turnStatus || status.status || "").toUpperCase();
-    if (
-      terminal === "COMPLETED" ||
-      terminal === "FAILED" ||
-      terminal === "CANCELLED"
-    ) {
+    if (terminal === "COMPLETED") {
+      continue;
+    }
+    if (terminal === "FAILED" || terminal === "CANCELLED") {
+      applyRecoveredTerminal(conversationId, turnId, terminal, status.errorCode || "", epoch);
       continue;
     }
     ensureInflightAssistant(state, turnId, terminal);
@@ -304,6 +367,30 @@ async function recoverActiveTurns(conversationId, epoch) {
     }
     void watchTurnUntilTerminal(conversationId, turnId, epoch);
   }
+}
+
+/** 恢复已 FAILED/CANCELLED 且无正式助手句的 turn：持久失败提示（含回复超时）。 */
+async function applyRecoveredTerminal(conversationId, turnId, terminal, errorCode, epoch) {
+  if (!isEpochCurrent(epoch, conversationId)) return;
+  ensureInflightAssistant(state, turnId, terminal);
+  queue.onTurnTerminal(turnId, terminal);
+  applyStreamEvent(
+    state,
+    conversationId,
+    terminal === "FAILED" ? "turn.failed" : "turn.cancelled",
+    {
+      turnId,
+      errorCode: errorCode || "",
+    },
+    null
+  );
+  await refreshHistoryTail(state, conversationId, streamAbort ? streamAbort.signal : undefined);
+  if (!isEpochCurrent(epoch, conversationId)) return;
+  if (state.inflightByTurnId[turnId]) {
+    delete state.inflightByTurnId[turnId];
+  }
+  paint({ forceScroll: state.scrollPinnedBottom });
+  composer.paint();
 }
 
 function beginSelection(conversationId) {
@@ -380,6 +467,7 @@ async function dispatchTurn(text, clientRequestId, options = {}) {
   state.submitting = true;
   setNotice(noticeOnSend, "");
   paintChrome();
+  composer.paint();
 
   const epochAtSend = state.selectionEpoch;
   let conversationId = state.activeConversationId;
@@ -520,6 +608,8 @@ async function watchTurnUntilTerminal(conversationId, turnId, epoch) {
     );
     await refreshHistoryTail(state, conversationId, streamAbort ? streamAbort.signal : undefined);
     if (!isEpochCurrent(epoch, conversationId)) return;
+    await taskReviews.refresh();
+    if (taskSidebar) await taskSidebar.refresh();
     if (state.inflightByTurnId[turnId]) {
       delete state.inflightByTurnId[turnId];
     }
@@ -531,6 +621,22 @@ async function watchTurnUntilTerminal(conversationId, turnId, epoch) {
     composer.paint();
     return;
   }
+  // 轮询耗尽仍未终态：给出可恢复的本地失败提示，避免刷新后静默消失
+  if (!isEpochCurrent(epoch, conversationId)) return;
+  applyStreamEvent(
+    state,
+    conversationId,
+    "turn.failed",
+    {
+      turnId,
+      errorCode: "MODEL_TIMEOUT",
+    },
+    null
+  );
+  queue.onTurnTerminal(turnId, "FAILED");
+  setNotice("回复超时，可重试发送", "warn");
+  paint({ forceScroll: state.scrollPinnedBottom });
+  composer.paint();
 }
 
 function sleep(ms) {
@@ -551,7 +657,9 @@ function paint(options = {}) {
 
 function paintChrome() {
   const title = state.header.title || (state.activeConversationId ? "未命名会话" : "无会话");
-  els.title.textContent = title;
+  if (els.title && els.title.dataset.editing !== "1") {
+    els.title.textContent = title;
+  }
   if (els.subtitle) {
     els.subtitle.textContent = state.activeConversationId
       ? shortId(state.activeConversationId)
@@ -564,13 +672,13 @@ function paintChrome() {
   els.notice.textContent = banner;
 
   els.form.setAttribute("aria-busy", state.submitting ? "true" : "false");
-  /* Stop 可见时由 composer.paint 隐藏发送按钮；此处只更新发送态文案 */
-  if (!els.sendButton.hidden) {
-    els.sendButton.textContent = state.submitting ? "发送中" : "发送";
+  /* 发送 ↔ 停止 二态：不再显示「发送中」；Stop 可见时由 composer.paint 隐藏发送按钮 */
+  if (els.sendButton && !els.sendButton.hidden) {
+    els.sendButton.textContent = "发送";
   }
-  /* E：A 运行中仍可发 B；仅提交中短暂禁用发送按钮 */
+  /* E：A 运行中仍可发 B；仅 Stop 可见时隐藏发送，否则保持可点 */
   els.draft.disabled = false;
-  els.sendButton.disabled = state.submitting;
+  els.sendButton.disabled = false;
   els.newButton.disabled = false;
 }
 

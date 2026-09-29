@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>未启用模型时回合停在 RECEIVED，响应里说明原因。不发 SSE。
  * 完成时附带本回合 {@code toolCalls}（来自 turn_step；账本关闭则为空）。
  *
- * <p>0.2.4-C：同步路径也登记 {@link DurableTurnScheduler.ActiveTurnRegistry}，使 Stop 能取消。
+ * <p>2.4.4：同步路径也登记 {@link DurableTurnScheduler.ActiveTurnRegistry}，使 Stop 能取消。
  */
 @RestController
 @RequestMapping("/api/conversations/{conversationId}/turns")

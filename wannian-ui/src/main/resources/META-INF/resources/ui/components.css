@@ -186,9 +186,10 @@ button,
     opacity var(--duration-fast) var(--ease-out);
 }
 
-button:not(:disabled):hover,
-.button:not([aria-disabled="true"]):hover,
-.btn:not(:disabled):hover {
+/* 默认实心按钮 hover。用 :where 降权，避免压过 .ghost / .icon-btn / .conv-action / .task-rail-thumb 等透明控件。 */
+:where(button:not(:disabled):hover),
+:where(.button:not([aria-disabled="true"]):hover),
+:where(.btn:not(:disabled):hover) {
   background: var(--accent-hover);
 }
 

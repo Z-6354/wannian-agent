@@ -348,7 +348,7 @@ TavernAI 为前身；现行字段与文档以 **SillyTavern + Character Card V2/
 | 按需 Skill | 种子仅保留 `how-to-remember`；旧 companion Skill 降级为兼容指针 |
 | 近端 nudge | `VoiceNudge` 紧贴 user 消息后（PHI 语义） |
 | 历史助手腔 | 近讯标签「烟火:」+ 卫生注；`rewrite:` 剔除上一句助手 |
-| 采样 | `wannian.model.sampling.*` 默认温 0.85 / top_p 0.95 / presence 0.35 |
+| 采样 | `wannian.model.sampling.*` 默认温 0.85 / top_p 0.95 / presence 2.35 |
 | UI | 末条助手「换一种说法」；空态开场更口语 |
 
 既有 data-dir：下次启动会**补缺** `VOICE.md`，不覆盖已改 SOUL；若要吃新 SOUL 种子，需自行合并或删后重装种子。

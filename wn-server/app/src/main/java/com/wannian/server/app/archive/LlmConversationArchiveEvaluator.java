@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 
 /**
- * 大模型归档评估（0.2.4-G 默认实现）。
+ * 大模型归档评估（2.4.7 默认实现）。
  *
  * <p>与 {@link com.wannian.server.kernel.conversation.HeuristicConversationArchiveEvaluator}
  * 并列；由 {@link ConversationArchiveConfig} 按配置装配。失败一律 KEEP。

@@ -1,12 +1,12 @@
-import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260925c";
+import { installMobileNavigation, renderAppNavigation } from "/shell/navigation.js?v=20260928m";
 import {
   applyViewVisibility,
   ensureView,
   parseAppRoute,
   syncNavCurrent,
-} from "/shell/router.js?v=20260925a";
-import { startChatApp } from "/chat/app.js?v=20260926c";
-import { createConsoleController } from "/manage/console.js?v=20260925r";
+} from "/shell/router.js?v=20260928m";
+import { startChatApp } from "/chat/app.js?v=20260928t";
+import { createConsoleController } from "/manage/console.js?v=20260928s";
 
 const nav = document.querySelector("#app-nav");
 const skipLink = document.querySelector(".skip-link");

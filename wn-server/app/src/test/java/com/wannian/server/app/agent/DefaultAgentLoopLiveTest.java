@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /**
- * 0.2.1-B live 验收：{@link DefaultAgentLoop} 经真实 openai-compatible 适配器出站。
+ * 2.1.2 live 验收：{@link DefaultAgentLoop} 经真实 openai-compatible 适配器出站。
  *
  * <p>禁止用 Fake/Scripted 当作「简单提示 → FinalResponse」的通过证据。无
  * {@code DEEPSEEK_API_KEY} 时跳过 live 用例，避免无密钥 CI 误红。

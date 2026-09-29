@@ -3,6 +3,7 @@ package com.wannian.server.app.chat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.wannian.server.app.WannianTestProps;
 import com.wannian.server.app.http.CreateConversationResponse;
 import com.wannian.server.app.http.ReceiveTurnResponse;
 import com.wannian.server.app.manage.ManageReason;
@@ -15,6 +16,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +31,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * 0.2.1-D：HTTP 对外入口走 TurnEngine+Loop（live）；probe 不建会话。
+ * 2.1.4：HTTP 对外入口走 TurnEngine+Loop（live）；probe 不建会话。
  *
  * <p>live 用例需 {@code DEEPSEEK_API_KEY}。未启用 / probe 隔离用例始终可跑。
  */
@@ -38,12 +40,12 @@ class TurnEngineHttpLiveDTest {
 
     private static final String TOKEN = "turn-engine-d-token";
 
-    @TempDir
+    @TempDir(cleanup = CleanupMode.NEVER)
     static Path tempDataDir;
 
     @DynamicPropertySource
     static void register(DynamicPropertyRegistry registry) {
-        registry.add("wannian.data-dir", () -> tempDataDir.toAbsolutePath().toString());
+        WannianTestProps.registerIsolatedDataDir(registry, tempDataDir);
         registry.add("wannian.manage.token", () -> TOKEN);
         registry.add("wannian.model.mode", () -> "live");
     }
@@ -57,6 +59,7 @@ class TurnEngineHttpLiveDTest {
     @BeforeEach
     void clear() throws Exception {
         try (Connection connection = dataSource.getConnection()) {
+            com.wannian.server.app.persistence.TestDbCleanup.deleteTaskTables(connection);
             connection.createStatement().executeUpdate("DELETE FROM outbox_event");
             connection.createStatement().executeUpdate("DELETE FROM turn_commit_plan");
             connection.createStatement().executeUpdate("DELETE FROM turn_step");
